@@ -13,7 +13,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
 // Update observer callback to also add the clear button and storage button
 function addLogButtonsAndClear() {
   addLogButtons();
-  addClearAllLogsButton();
   addStorageButton();
   createStorageUI();
 }
