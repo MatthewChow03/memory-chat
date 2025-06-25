@@ -48,11 +48,11 @@ function createStorageUI() {
 // Add storage button to ChatGPT interface
 function addStorageButton() {
   if (document.querySelector('.memory-chat-view-btn')) return;
-  
-  // Try to find the input area or toolbar
-  const inputArea = document.querySelector('form') || document.querySelector('[data-testid="send-button"]')?.parentElement;
-  if (!inputArea) return;
-  
+
+  // Find the composer footer actions container
+  const footerActions = document.querySelector('div[data-testid="composer-footer-actions"]');
+  if (!footerActions) return;
+
   const storageBtn = document.createElement('button');
   storageBtn.className = 'memory-chat-view-btn';
   storageBtn.innerHTML = '📋';
@@ -68,10 +68,10 @@ function addStorageButton() {
     transition: background 0.2s;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   `;
-  
+
   storageBtn.onmouseenter = () => storageBtn.style.background = '#a0eec0';
   storageBtn.onmouseleave = () => storageBtn.style.background = 'linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%)';
-  
+
   storageBtn.onclick = () => {
     const storageUI = document.getElementById('memory-chat-storage');
     if (storageUI) {
@@ -81,6 +81,7 @@ function addStorageButton() {
       }
     }
   };
-  
-  inputArea.appendChild(storageBtn);
+
+  // Append the storage button to the footer actions
+  footerActions.appendChild(storageBtn);
 } 
