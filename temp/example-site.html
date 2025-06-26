@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Vector DB with Embeddings (Local)</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    #entries { margin-top: 20px; }
+    .entry { margin: 5px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/universal-sentence-encoder@1.3.3"></script>
+  <script type="module">
+    import {
+      loadModel, initDB,
+      storeTextWithEmbedding, getAllStoredEntries,
+      searchSimilarEntries
+    } from './vectorDB.js';
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      await loadModel();
+      await initDB();
+    });
+
+    window.addEntry = async function () {
+      const input = document.getElementById('textInput');
+      const text = input.value.trim();
+      if (!text) return;
+      await storeTextWithEmbedding(text);
+      input.value = '';
+      console.log('Entry stored');
+    };
+
+    window.getAllEntries = async function () {
+      const entriesDiv = document.getElementById('entries');
+      entriesDiv.innerHTML = '<h3>Stored Entries:</h3>';
+      const entries = await getAllStoredEntries();
+      entries.forEach(entry => {
+        entriesDiv.innerHTML += `
+          <div class="entry">
+            <strong>Text:</strong> ${entry.text}<br/>
+            <strong>Vector (slice):</strong> [${entry.vector.slice(0, 5).map(v => v.toFixed(3)).join(', ')}...]
+          </div>
+        `;
+      });
+    };
+
+    window.searchSimilar = async function () {
+      const query = document.getElementById('searchInput').value.trim();
+      const output = document.getElementById('searchResults');
+      output.innerHTML = '';
+      if (!query) return;
+
+      const results = await searchSimilarEntries(query);
+      output.innerHTML = `<h4>Top Matches:</h4>
+        <table border="1" cellpadding="5">
+          <tr><th>Text</th><th>Cosine Similarity</th></tr>
+          ${results.map(r =>
+            `<tr><td>${r.text}</td><td>${r.score.toFixed(4)}</td></tr>`).join('')}
+        </table>`;
+    };
+  </script>
+</head>
+<body>
+
+  <h2>Text to Vector Database (with Embedding)</h2>
+  <input type="text" id="textInput" placeholder="Enter text to store" size="40" />
+  <button onclick="addEntry()">Add to Database</button>
+  <button onclick="getAllEntries()">Retrieve All Entries</button>
+
+  <div id="entries"></div>
+
+  <hr>
+  <h3>Search by Similar Text</h3>
+  <input type="text" id="searchInput" placeholder="Enter text to search" size="40" />
+  <button onclick="searchSimilar()">Search Similar</button>
+  <div id="searchResults"></div>
+
+</body>
+</html>
