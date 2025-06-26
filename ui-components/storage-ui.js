@@ -14,7 +14,7 @@ function createStorageUI() {
     transform: translate(-50%, -50%);
     width: 600px;
     height: 700px;
-    background: white;
+    /* background: white; */ /* Now handled by theme class */
     border-radius: 12px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.12);
     z-index: 10000;
@@ -28,7 +28,7 @@ function createStorageUI() {
   
   storageUI.innerHTML = `
     <div style="padding: 20px; border-bottom: 1px solid #e1e5e9; display: flex; justify-content: space-between; align-items: center;">
-      <h3 style="margin: 0; color: #1a1a1a; font-size: 18px;">Message Storage</h3>
+      <h3 style="margin: 0; font-size: 18px;">Message Storage</h3>
       <button id="memory-chat-close" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #666;">×</button>
     </div>
     <div id="memory-chat-tabs" style="display: flex; border-bottom: 1px solid #e1e5e9;">
@@ -45,6 +45,9 @@ function createStorageUI() {
   
   document.body.appendChild(storageUI);
   
+  // Apply theme on creation
+  applyStorageTheme();
+  
   // Add resize functionality
   setupResizeHandling(storageUI);
   
@@ -53,6 +56,24 @@ function createStorageUI() {
   
   return storageUI;
 }
+
+// Apply theme class to modal based on chrome.storage.local
+function applyStorageTheme() {
+  const storageUI = document.getElementById('memory-chat-storage');
+  if (!storageUI) return;
+  chrome.storage.local.get({ storageTheme: 'light' }, (result) => {
+    if (result.storageTheme === 'dark') {
+      storageUI.classList.add('memory-chat-dark');
+    } else {
+      storageUI.classList.remove('memory-chat-dark');
+    }
+    // Force re-render of current tab to update all colors
+    if (window.setActiveTab && window.activeTab) {
+      window.setActiveTab(window.activeTab);
+    }
+  });
+}
+window.applyStorageTheme = applyStorageTheme;
 
 // Setup resize handling for the storage UI
 function setupResizeHandling(storageUI) {
@@ -199,6 +220,8 @@ function addStorageButton() {
         if (window.renderStorageTab) {
           window.renderStorageTab();
         }
+        // Apply theme when opening
+        if (window.applyStorageTheme) window.applyStorageTheme();
       }
     }
   };

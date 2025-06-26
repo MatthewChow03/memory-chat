@@ -5,8 +5,11 @@
 function renderLogCard(log, idx) {
   // Card container
   const card = document.createElement('div');
-  card.style.background = '#f8f9fa';
-  card.style.border = '1px solid #e1e5e9';
+  // Detect dark mode
+  const storageUI = document.getElementById('memory-chat-storage');
+  const isDark = storageUI && storageUI.classList.contains('memory-chat-dark');
+  card.style.background = isDark ? '#2c2f36' : '#f8f9fa';
+  card.style.border = isDark ? '1px solid #444a58' : '1px solid #e1e5e9';
   card.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)';
   card.style.borderRadius = '8px';
   card.style.margin = '18px 0';
@@ -18,6 +21,7 @@ function renderLogCard(log, idx) {
   card.style.alignItems = 'flex-start';
   card.style.justifyContent = 'space-between';
   card.style.gap = '8px';
+  card.style.color = isDark ? '#f3f6fa' : '#1a1a1a';
 
   // Message text (clamped, single block)
   const textDiv = document.createElement('div');
@@ -26,6 +30,7 @@ function renderLogCard(log, idx) {
   textDiv.style.minWidth = '0';
   textDiv.style.whiteSpace = 'pre-line';
   textDiv.textContent = log.text;
+  textDiv.style.color = isDark ? '#f3f6fa' : '#1a1a1a';
 
   // Footer (timestamp + show more/less)
   const footerDiv = document.createElement('div');
@@ -36,7 +41,7 @@ function renderLogCard(log, idx) {
   
   // Timestamp
   const ts = document.createElement('div');
-  ts.style.color = '#888';
+  ts.style.color = isDark ? '#aaa' : '#888';
   ts.style.fontSize = '11px';
   ts.textContent = new Date(log.timestamp).toLocaleString();
   
@@ -45,7 +50,7 @@ function renderLogCard(log, idx) {
   showBtn.textContent = 'Show more';
   showBtn.style.background = 'none';
   showBtn.style.border = 'none';
-  showBtn.style.color = '#007bff';
+  showBtn.style.color = isDark ? '#7ab7ff' : '#007bff';
   showBtn.style.cursor = 'pointer';
   showBtn.style.fontSize = '13px';
   showBtn.style.padding = '0';
@@ -74,7 +79,7 @@ function renderLogCard(log, idx) {
   plusBtn.className = 'storage-plus-btn';
   plusBtn.setAttribute('data-log', encodeURIComponent(log.text));
   plusBtn.title = 'Add to prompt';
-  plusBtn.style.background = '#e6f7e6';
+  plusBtn.style.background = isDark ? '#2e3a4a' : '#e6f7e6';
   plusBtn.style.border = 'none';
   plusBtn.style.borderRadius = '50%';
   plusBtn.style.width = '32px';
@@ -85,6 +90,7 @@ function renderLogCard(log, idx) {
   plusBtn.style.cursor = 'pointer';
   plusBtn.style.fontSize = '20px';
   plusBtn.textContent = '+';
+  plusBtn.style.color = isDark ? '#b2f7ef' : '#222';
 
   // Stack text, footer, plus button
   const leftCol = document.createElement('div');
@@ -138,30 +144,31 @@ function attachPlusListeners() {
 
 // Render folder message card
 function renderFolderMessageCard(message, idx, folderName) {
+  const storageUI = document.getElementById('memory-chat-storage');
+  const isDark = storageUI && storageUI.classList.contains('memory-chat-dark');
   const messageText = typeof message === 'string' ? message : message.text;
   const messageTimestamp = typeof message === 'string' ? Date.now() : message.timestamp;
   const messageLines = messageText.split('\n').length;
   const showMoreBtn = messageLines > 4 ? 'block' : 'none';
   
   const card = document.createElement('div');
-  card.style.cssText = `
-    background: #f8f9fa;
-    border: 1px solid #e1e5e9;
-    border-radius: 8px;
-    margin-bottom: 8px;
-    padding: 12px;
-    font-size: 14px;
-    line-height: 1.4;
-  `;
-  
+  card.style.background = isDark ? '#2c2f36' : '#f8f9fa';
+  card.style.border = isDark ? '1px solid #444a58' : '1px solid #e1e5e9';
+  card.style.borderRadius = '8px';
+  card.style.marginBottom = '8px';
+  card.style.padding = '12px';
+  card.style.fontSize = '14px';
+  card.style.lineHeight = '1.4';
+  card.style.color = isDark ? '#f3f6fa' : '#1a1a1a';
+
   card.innerHTML = `
-    <div class="folder-message-content clamped" style="white-space:pre-line;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;max-height:5.6em;">${messageText}</div>
+    <div class="folder-message-content clamped" style="white-space:pre-line;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;max-height:5.6em;color:${isDark ? '#f3f6fa' : '#1a1a1a'};">${messageText}</div>
     <div style="display:flex;justify-content:space-between;align-items:center;">
       <div style="display:flex;align-items:center;gap:8px;">
-        <div style="color:#888;font-size:11px;">${new Date(messageTimestamp).toLocaleString()}</div>
-        <button class="folder-show-btn" data-index="${idx}" style="background:none;border:none;color:#007bff;cursor:pointer;font-size:13px;padding:0;display:${showMoreBtn};">Show more</button>
+        <div style="color:${isDark ? '#aaa' : '#888'};font-size:11px;">${new Date(messageTimestamp).toLocaleString()}</div>
+        <button class="folder-show-btn" data-index="${idx}" style="background:none;border:none;color:${isDark ? '#7ab7ff' : '#007bff'};cursor:pointer;font-size:13px;padding:0;display:${showMoreBtn};">Show more</button>
       </div>
-      <button class="remove-from-folder" data-folder="${folderName}" data-index="${idx}" style="background:#f7e6e6;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px;color:#d32f2f;">Remove</button>
+      <button class="remove-from-folder" data-folder="${folderName}" data-index="${idx}" style="background:${isDark ? '#3a2323' : '#f7e6e6'};border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px;color:${isDark ? '#ffb2b2' : '#d32f2f'};">Remove</button>
     </div>
   `;
   

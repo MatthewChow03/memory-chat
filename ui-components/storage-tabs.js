@@ -2,15 +2,25 @@
 // Handles tab management, rendering, and tab-specific content
 
 let activeTab = 'relevant';
+window.activeTab = activeTab;
 
 // Set active tab and render content
 function setActiveTab(tab) {
   activeTab = tab;
+  window.activeTab = activeTab;
   const storageUI = document.getElementById('memory-chat-storage');
   if (!storageUI) return;
-  
+  const isDark = storageUI.classList.contains('memory-chat-dark');
   const tabs = Array.from(storageUI.querySelectorAll('.storage-tab'));
-  tabs.forEach(t => t.style.background = t.dataset.tab === tab ? '#f8f9fa' : 'none');
+  tabs.forEach(t => {
+    if (t.dataset.tab === tab) {
+      t.style.background = isDark ? '#23272f' : '#f8f9fa';
+      t.style.color = isDark ? '#b2f7ef' : '#222';
+    } else {
+      t.style.background = 'none';
+      t.style.color = isDark ? '#f3f6fa' : '#222';
+    }
+  });
   renderTab();
 }
 
@@ -126,6 +136,8 @@ function renderFoldersTab(tabContent) {
   chrome.storage.local.get({ folders: {} }, (result) => {
     const folders = result.folders;
     const folderNames = Object.keys(folders);
+    const storageUI = document.getElementById('memory-chat-storage');
+    const isDark = storageUI && storageUI.classList.contains('memory-chat-dark');
     
     if (folderNames.length === 0) {
       tabContent.innerHTML = `
@@ -146,7 +158,7 @@ function renderFoldersTab(tabContent) {
     } else {
       let foldersHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-          <h4 style="margin:0;color:#1a1a1a;">Your Folders</h4>
+          <h4 style="margin:0;${isDark ? 'color:#f3f6fa;' : 'color:#1a1a1a;'}">Your Folders</h4>
           <button id="create-folder-btn" style="padding:8px 16px;background:linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%);border:none;border-radius:6px;color:#222;font-weight:bold;cursor:pointer;font-size:12px;">+ New Folder</button>
         </div>
       `;
@@ -154,14 +166,14 @@ function renderFoldersTab(tabContent) {
       folderNames.forEach(folderName => {
         const messageCount = folders[folderName].length;
         foldersHTML += `
-          <div class="folder-item" data-folder="${folderName}" style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:#f8f9fa;border:1px solid #e1e5e9;border-radius:8px;margin-bottom:8px;cursor:pointer;">
+          <div class="folder-item" data-folder="${folderName}" style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:${isDark ? '#23272f' : '#f8f9fa'};border:1px solid ${isDark ? '#2c2f36' : '#e1e5e9'};border-radius:8px;margin-bottom:8px;cursor:pointer;">
             <div style="flex:1;">
-              <div style="font-weight:bold;color:#1a1a1a;">${folderName}</div>
-              <div style="font-size:12px;color:#888;">${messageCount} message${messageCount !== 1 ? 's' : ''}</div>
+              <div style="font-weight:bold;${isDark ? 'color:#f3f6fa;' : 'color:#1a1a1a;'}">${folderName}</div>
+              <div style="font-size:12px;${isDark ? 'color:#b2b8c2;' : 'color:#888;'}">${messageCount} message${messageCount !== 1 ? 's' : ''}</div>
             </div>
             <div style="display:flex;gap:8px;">
-              <button class="folder-plus-btn" data-folder="${folderName}" style="background:#e6f7e6;border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:#222;" title="Add all messages to prompt">+</button>
-              <button class="folder-delete-btn" data-folder="${folderName}" style="background:#f7e6e6;border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:#d32f2f;" title="Delete folder">×</button>
+              <button class="folder-plus-btn" data-folder="${folderName}" style="background:${isDark ? '#2e3a4a' : '#e6f7e6'};border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:${isDark ? '#b2f7ef' : '#222'};" title="Add all messages to prompt">+</button>
+              <button class="folder-delete-btn" data-folder="${folderName}" style="background:${isDark ? '#3a2323' : '#f7e6e6'};border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:${isDark ? '#ffb2b2' : '#d32f2f'};" title="Delete folder">×</button>
             </div>
           </div>
         `;
@@ -177,20 +189,36 @@ function renderFoldersTab(tabContent) {
 
 // Render settings tab content
 function renderSettingsTab(tabContent) {
-  tabContent.innerHTML = `
-    <button id="clear-logs-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:linear-gradient(90deg,#f7d6b2 0%,#f7b2b2 100%);border:none;border-radius:10px;color:#222;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;transition:background 0.2s,color 0.2s;text-align:left;">Clear All Logs</button>
-    <button id="add-full-chat-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%);border:none;border-radius:10px;color:#222;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;transition:background 0.2s,color 0.2s;text-align:left;">Add Full Chat to Log</button>
-  `;
-  
-  const clearBtn = tabContent.querySelector('#clear-logs-btn');
-  clearBtn.onmouseenter = () => clearBtn.style.background = '#f7b2b2';
-  clearBtn.onmouseleave = () => clearBtn.style.background = 'linear-gradient(90deg,#f7d6b2 0%,#f7b2b2 100%)';
-  clearBtn.onclick = clearAllLogs;
-  
-  const addFullBtn = tabContent.querySelector('#add-full-chat-btn');
-  addFullBtn.onmouseenter = () => addFullBtn.style.background = '#a0eec0';
-  addFullBtn.onmouseleave = () => addFullBtn.style.background = 'linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%)';
-  addFullBtn.onclick = addFullChatToLog;
+  // Add theme toggle button
+  chrome.storage.local.get({ storageTheme: 'light' }, (result) => {
+    const isDark = result.storageTheme === 'dark';
+    tabContent.innerHTML = `
+      <button id="clear-logs-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:linear-gradient(90deg,#f7d6b2 0%,#f7b2b2 100%);border:none;border-radius:10px;color:#222;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;transition:background 0.2s,color 0.2s;text-align:left;">Clear All Logs</button>
+      <button id="add-full-chat-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%);border:none;border-radius:10px;color:#222;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;transition:background 0.2s,color 0.2s;text-align:left;">Add Full Chat to Log</button>
+      <button id="theme-toggle-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:linear-gradient(90deg,#b2c7f7 0%,#b2e0f7 100%);border:none;border-radius:10px;color:#222;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;transition:background 0.2s,color 0.2s;text-align:left;">Switch to ${isDark ? 'Light' : 'Dark'} Mode</button>
+    `;
+    
+    const clearBtn = tabContent.querySelector('#clear-logs-btn');
+    clearBtn.onmouseenter = () => clearBtn.style.background = '#f7b2b2';
+    clearBtn.onmouseleave = () => clearBtn.style.background = 'linear-gradient(90deg,#f7d6b2 0%,#f7b2b2 100%)';
+    clearBtn.onclick = clearAllLogs;
+    
+    const addFullBtn = tabContent.querySelector('#add-full-chat-btn');
+    addFullBtn.onmouseenter = () => addFullBtn.style.background = '#a0eec0';
+    addFullBtn.onmouseleave = () => addFullBtn.style.background = 'linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%)';
+    addFullBtn.onclick = addFullChatToLog;
+
+    // Theme toggle logic
+    const themeBtn = tabContent.querySelector('#theme-toggle-btn');
+    themeBtn.onclick = () => {
+      const newTheme = isDark ? 'light' : 'dark';
+      chrome.storage.local.set({ storageTheme: newTheme }, () => {
+        if (window.applyStorageTheme) window.applyStorageTheme();
+        // Re-render settings tab to update button label
+        renderSettingsTab(tabContent);
+      });
+    };
+  });
 }
 
 // Setup folder event handlers
