@@ -16,7 +16,7 @@
   "content_scripts": [
     {
       "matches": ["https://chatgpt.com/*"],
-      "js": ["utils.js", "ui-components/storage-button.js", "ui-components/message-buttons.js", "content.js"],
+      "js": ["utils.js", "ui-components/storage-button.js", "ui-components/message-buttons.js", "ui-components/folder-button.js", "content.js"],
       "run_at": "document_idle"
     }
   ],

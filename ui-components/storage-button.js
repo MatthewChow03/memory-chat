@@ -112,7 +112,114 @@ function createStorageUI() {
           }
         });
       } else if (activeTab === 'folders') {
-        tabContent.innerHTML = '<div style="text-align:center;color:#888;">Folders tab content</div>';
+        chrome.storage.local.get({ folders: {} }, (result) => {
+          const folders = result.folders;
+          const folderNames = Object.keys(folders);
+          
+          if (folderNames.length === 0) {
+            tabContent.innerHTML = `
+              <div style="text-align:center;color:#888;margin-bottom:20px;">No folders created yet</div>
+              <button id="create-folder-btn" style="display:block;margin:0 auto;padding:10px 20px;background:linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%);border:none;border-radius:8px;color:#222;font-weight:bold;cursor:pointer;">Create New Folder</button>
+            `;
+            const createBtn = tabContent.querySelector('#create-folder-btn');
+            createBtn.onclick = () => {
+              const folderName = prompt('Enter folder name:');
+              if (folderName && folderName.trim()) {
+                const newFolders = { ...folders, [folderName.trim()]: [] };
+                chrome.storage.local.set({ folders: newFolders }, () => {
+                  renderTab();
+                });
+              }
+            };
+          } else {
+            let foldersHTML = `
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h4 style="margin:0;color:#1a1a1a;">Your Folders</h4>
+                <button id="create-folder-btn" style="padding:8px 16px;background:linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%);border:none;border-radius:6px;color:#222;font-weight:bold;cursor:pointer;font-size:12px;">+ New Folder</button>
+              </div>
+            `;
+            
+            folderNames.forEach(folderName => {
+              const messageCount = folders[folderName].length;
+              foldersHTML += `
+                <div class="folder-item" data-folder="${folderName}" style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:#f8f9fa;border:1px solid #e1e5e9;border-radius:8px;margin-bottom:8px;cursor:pointer;">
+                  <div style="flex:1;">
+                    <div style="font-weight:bold;color:#1a1a1a;">${folderName}</div>
+                    <div style="font-size:12px;color:#888;">${messageCount} message${messageCount !== 1 ? 's' : ''}</div>
+                  </div>
+                  <div style="display:flex;gap:8px;">
+                    <button class="folder-plus-btn" data-folder="${folderName}" style="background:#e6f7e6;border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:#222;" title="Add all messages to prompt">+</button>
+                    <button class="folder-delete-btn" data-folder="${folderName}" style="background:#f7e6e6;border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:#d32f2f;" title="Delete folder">×</button>
+                  </div>
+                </div>
+              `;
+            });
+            
+            tabContent.innerHTML = foldersHTML;
+            
+            // Create folder button
+            const createBtn = tabContent.querySelector('#create-folder-btn');
+            createBtn.onclick = () => {
+              const folderName = prompt('Enter folder name:');
+              if (folderName && folderName.trim()) {
+                const newFolders = { ...folders, [folderName.trim()]: [] };
+                chrome.storage.local.set({ folders: newFolders }, () => {
+                  renderTab();
+                });
+              }
+            };
+            
+            // Folder click to view contents
+            tabContent.querySelectorAll('.folder-item').forEach(item => {
+              item.onclick = (e) => {
+                if (!e.target.classList.contains('folder-plus-btn') && !e.target.classList.contains('folder-delete-btn')) {
+                  const folderName = item.dataset.folder;
+                  viewFolderContents(folderName);
+                }
+              };
+            });
+            
+            // Folder plus button (add all messages to prompt)
+            tabContent.querySelectorAll('.folder-plus-btn').forEach(btn => {
+              btn.onclick = (e) => {
+                e.stopPropagation();
+                const folderName = btn.dataset.folder;
+                const folderMessages = folders[folderName];
+                if (folderMessages.length > 0) {
+                  const prompt = document.querySelector('.ProseMirror');
+                  if (prompt) {
+                    let current = prompt.innerText.trim();
+                    const preface = `Here are messages from folder "${folderName}":`;
+                    let newText = '';
+                    if (current.includes(preface)) {
+                      newText = current + '\n' + folderMessages.map(msg => `- ${typeof msg === 'string' ? msg : msg.text}`).join('\n');
+                    } else {
+                      newText = (current ? current + '\n' : '') + preface + '\n' + folderMessages.map(msg => `- ${typeof msg === 'string' ? msg : msg.text}`).join('\n');
+                    }
+                    prompt.focus();
+                    document.execCommand('selectAll', false, null);
+                    document.execCommand('insertText', false, newText);
+                  }
+                }
+              };
+            });
+            
+            // Folder delete button
+            tabContent.querySelectorAll('.folder-delete-btn').forEach(btn => {
+              btn.onclick = (e) => {
+                e.stopPropagation();
+                const folderName = btn.dataset.folder;
+                if (confirm(`Are you sure you want to delete the folder "${folderName}"?`)) {
+                  const newFolders = { ...folders };
+                  delete newFolders[folderName];
+                  chrome.storage.local.set({ folders: newFolders }, () => {
+                    renderTab();
+                  });
+                }
+              };
+            });
+          }
+        });
       } else if (activeTab === 'settings') {
         tabContent.innerHTML = `
           <button id="clear-logs-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:linear-gradient(90deg,#f7d6b2 0%,#f7b2b2 100%);border:none;border-radius:10px;color:#222;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;transition:background 0.2s,color 0.2s;text-align:left;">Clear All Logs</button>
@@ -122,7 +229,7 @@ function createStorageUI() {
         clearBtn.onmouseenter = () => clearBtn.style.background = '#f7b2b2';
         clearBtn.onmouseleave = () => clearBtn.style.background = 'linear-gradient(90deg,#f7d6b2 0%,#f7b2b2 100%)';
         clearBtn.onclick = () => {
-          chrome.storage.local.set({ chatLogs: [] }, () => {
+          chrome.storage.local.set({ chatLogs: [], folders: {} }, () => {
             document.querySelectorAll('.memory-chat-log-btn').forEach(b => {
               b.textContent = 'Add to Log';
               b.style.background = 'linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%)';
@@ -253,6 +360,93 @@ function createStorageUI() {
     return card;
   }
 
+  // Function to view folder contents
+  function viewFolderContents(folderName) {
+    chrome.storage.local.get({ folders: {} }, (result) => {
+      const folders = result.folders;
+      const folderMessages = folders[folderName] || [];
+      
+      let contentHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+          <button id="back-to-folders" style="background:none;border:none;color:#007bff;cursor:pointer;font-size:14px;padding:0;">← Back to Folders</button>
+          <h4 style="margin:0;color:#1a1a1a;">${folderName}</h4>
+          <div style="width:80px;"></div>
+        </div>
+      `;
+      
+      if (folderMessages.length === 0) {
+        contentHTML += '<div style="text-align:center;color:#888;">This folder is empty</div>';
+      } else {
+        folderMessages.forEach((message, idx) => {
+          // Handle both old format (string) and new format (object with text and timestamp)
+          const messageText = typeof message === 'string' ? message : message.text;
+          const messageTimestamp = typeof message === 'string' ? Date.now() : message.timestamp;
+          const messageLines = messageText.split('\n').length;
+          const showMoreBtn = messageLines > 4 ? 'block' : 'none';
+          
+          contentHTML += `
+            <div style="background:#f8f9fa;border:1px solid #e1e5e9;border-radius:8px;margin-bottom:8px;padding:12px;font-size:14px;line-height:1.4;">
+              <div class="folder-message-content clamped" style="white-space:pre-line;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;max-height:5.6em;">${messageText}</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div style="color:#888;font-size:11px;">${new Date(messageTimestamp).toLocaleString()}</div>
+                  <button class="folder-show-btn" data-index="${idx}" style="background:none;border:none;color:#007bff;cursor:pointer;font-size:13px;padding:0;display:${showMoreBtn};">Show more</button>
+                </div>
+                <button class="remove-from-folder" data-folder="${folderName}" data-index="${idx}" style="background:#f7e6e6;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px;color:#d32f2f;">Remove</button>
+              </div>
+            </div>
+          `;
+        });
+      }
+      
+      tabContent.innerHTML = contentHTML;
+      
+      // Back button
+      tabContent.querySelector('#back-to-folders').onclick = () => {
+        renderTab();
+      };
+      
+      // Show more/less buttons for folder messages
+      tabContent.querySelectorAll('.folder-show-btn').forEach(btn => {
+        let expanded = false;
+        btn.onclick = () => {
+          const index = parseInt(btn.dataset.index);
+          const messageDiv = tabContent.querySelectorAll('.folder-message-content')[index];
+          
+          expanded = !expanded;
+          if (expanded) {
+            messageDiv.classList.remove('clamped');
+            messageDiv.classList.add('expanded');
+            messageDiv.style.display = 'block';
+            messageDiv.style.maxHeight = 'none';
+            messageDiv.style.overflow = 'visible';
+            btn.textContent = 'Show less';
+          } else {
+            messageDiv.classList.remove('expanded');
+            messageDiv.classList.add('clamped');
+            messageDiv.style.display = '-webkit-box';
+            messageDiv.style.maxHeight = '5.6em';
+            messageDiv.style.overflow = 'hidden';
+            btn.textContent = 'Show more';
+          }
+        };
+      });
+      
+      // Remove from folder buttons
+      tabContent.querySelectorAll('.remove-from-folder').forEach(btn => {
+        btn.onclick = () => {
+          const folderName = btn.dataset.folder;
+          const index = parseInt(btn.dataset.index);
+          const newFolders = { ...folders };
+          newFolders[folderName].splice(index, 1);
+          chrome.storage.local.set({ folders: newFolders }, () => {
+            viewFolderContents(folderName);
+          });
+        };
+      });
+    });
+  }
+
   // Attach plus button listeners
   function attachPlusListeners() {
     const plusBtns = storageUI.querySelectorAll('.storage-plus-btn');
@@ -300,13 +494,13 @@ function createStorageUI() {
 
   // Live update: re-render on storage changes
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes.chatLogs) {
+    if (area === 'local' && (changes.chatLogs || changes.folders)) {
       if (storageUI.style.display !== 'none') {
         renderTab();
       }
     }
   });
-
+  
   // Close button functionality
   document.getElementById('memory-chat-close').onclick = () => {
     storageUI.style.display = 'none';
@@ -337,6 +531,20 @@ function createStorageUI() {
         max-height: none;
         overflow: visible;
       }
+      .folder-message-content.clamped {
+        display: -webkit-box;
+        -webkit-line-clamp: 4;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: pre-line;
+        max-height: 5.6em;
+      }
+      .folder-message-content.expanded {
+        display: block;
+        max-height: none;
+        overflow: visible;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -345,7 +553,7 @@ function createStorageUI() {
 // Add storage button to ChatGPT interface
 function addStorageButton() {
   if (document.querySelector('.memory-chat-view-btn')) return;
-
+  
   // Find the composer footer actions container
   const footerActions = document.querySelector('div[data-testid="composer-footer-actions"]');
   if (!footerActions) return;
@@ -365,7 +573,7 @@ function addStorageButton() {
     transition: background 0.2s;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   `;
-
+  
   storageBtn.onmouseenter = () => storageBtn.style.background = '#a0eec0';
   storageBtn.onmouseleave = () => storageBtn.style.background = 'linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%)';
 
@@ -380,7 +588,7 @@ function addStorageButton() {
       }
     }
   };
-
+  
   // Append the storage button to the footer actions
   footerActions.appendChild(storageBtn);
 } 
