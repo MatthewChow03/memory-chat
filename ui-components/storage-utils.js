@@ -58,57 +58,48 @@ function cosineSimilarity(text1, text2, allTexts = []) {
 }
 
 // Add message to storage
-function addMessageToStorage(text) {
-  chrome.storage.local.get({ chatLogs: [] }, (result) => {
-    let chatLogs = result.chatLogs;
-    if (!chatLogs.some(log => log.text === text)) {
-      chatLogs.push({ text, timestamp: Date.now() });
-      chrome.storage.local.set({ chatLogs }, () => {
-        // Update UI if storage UI is open
-        if (window.renderStorageTab) {
-          window.renderStorageTab();
-        }
-      });
-    }
-  });
-}
-
-// Remove message from storage
-function removeMessageFromStorage(text) {
-  chrome.storage.local.get({ chatLogs: [] }, (result) => {
-    let chatLogs = result.chatLogs;
-    chatLogs = chatLogs.filter(log => log.text !== text);
-    chrome.storage.local.set({ chatLogs }, () => {
-      // Update UI if storage UI is open
+async function addMessageToStorage(text) {
+  if (window.memoryChatIDB && window.memoryChatIDB.messageExists && window.memoryChatIDB.addMessages) {
+    const exists = await window.memoryChatIDB.messageExists(text);
+    if (!exists) {
+      await window.memoryChatIDB.addMessages([{ text, timestamp: Date.now() }]);
       if (window.renderStorageTab) {
         window.renderStorageTab();
       }
-    });
-  });
+    }
+  }
 }
 
-// Add message to folder
+// Remove message from storage
+async function removeMessageFromStorage(text) {
+  if (window.memoryChatIDB && window.memoryChatIDB.removeMessage) {
+    await window.memoryChatIDB.removeMessage(text);
+    if (window.renderStorageTab) {
+      window.renderStorageTab();
+    }
+  }
+}
+
+// Add message to folder (folders in chrome.storage.local, logs in IndexedDB)
 function addMessageToFolder(folderName, messageText, messageElement) {
-  chrome.storage.local.get({ folders: {}, chatLogs: [] }, (result) => {
+  chrome.storage.local.get({ folders: {} }, (result) => {
     const folders = result.folders;
-    const chatLogs = result.chatLogs;
-    
     if (!folders[folderName]) {
       folders[folderName] = [];
     }
-    
     const timestamp = Date.now();
-    
     // Check if message already exists in folder
     if (!folders[folderName].some(item => item.text === messageText)) {
       folders[folderName].push({ text: messageText, timestamp: timestamp });
-      
-      // Also add to general log if not already there
-      if (!chatLogs.some(log => log.text === messageText)) {
-        chatLogs.push({ text: messageText, timestamp: timestamp });
+      // Also add to general log if not already there (IndexedDB)
+      if (window.memoryChatIDB && window.memoryChatIDB.messageExists && window.memoryChatIDB.addMessages) {
+        window.memoryChatIDB.messageExists(messageText).then(exists => {
+          if (!exists) {
+            window.memoryChatIDB.addMessages([{ text: messageText, timestamp }]);
+          }
+        });
       }
-      
-      chrome.storage.local.set({ folders: folders, chatLogs: chatLogs }, () => {
+      chrome.storage.local.set({ folders: folders }, () => {
         // Update the log button state to show "Remove from Log"
         if (messageElement) {
           const logBtn = messageElement.querySelector('.memory-chat-log-btn');
@@ -118,7 +109,6 @@ function addMessageToFolder(folderName, messageText, messageElement) {
             logBtn.style.color = '#222';
           }
         }
-        
         // Show success feedback
         showFeedback('Message added to folder and log!', 'success');
       });
@@ -157,8 +147,11 @@ function showFeedback(message, type) {
 }
 
 // Clear all logs and folders
-function clearAllLogs() {
-  chrome.storage.local.set({ chatLogs: [], folders: {} }, () => {
+async function clearAllLogs() {
+  if (window.memoryChatIDB && window.memoryChatIDB.clearMessages) {
+    await window.memoryChatIDB.clearMessages();
+  }
+  chrome.storage.local.set({ folders: {} }, () => {
     document.querySelectorAll('.memory-chat-log-btn').forEach(b => {
       b.textContent = 'Add to Log';
       b.style.background = 'linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%)';
@@ -171,29 +164,22 @@ function clearAllLogs() {
 }
 
 // Add full chat to log
-function addFullChatToLog() {
+async function addFullChatToLog() {
   const messages = Array.from(document.querySelectorAll('[data-message-author-role]'));
   const texts = messages.map(msg => getMessageText(msg));
-  chrome.storage.local.get({ chatLogs: [] }, (result) => {
-    let chatLogs = result.chatLogs;
-    let added = false;
-    texts.forEach(text => {
-      if (!chatLogs.some(log => log.text === text)) {
-        chatLogs.push({ text, timestamp: Date.now() });
-        added = true;
-      }
+  if (window.memoryChatIDB && window.memoryChatIDB.addMessages) {
+    const now = Date.now();
+    const messageObjs = texts.map(text => ({ text, timestamp: now }));
+    await window.memoryChatIDB.addMessages(messageObjs);
+    document.querySelectorAll('.memory-chat-log-btn').forEach(b => {
+      b.textContent = 'Remove from Log';
+      b.style.background = '#f7b2b2';
+      b.style.color = '#222';
     });
-    chrome.storage.local.set({ chatLogs }, () => {
-      document.querySelectorAll('.memory-chat-log-btn').forEach(b => {
-        b.textContent = 'Remove from Log';
-        b.style.background = '#f7b2b2';
-        b.style.color = '#222';
-      });
-      if (window.renderStorageTab) {
-        window.renderStorageTab();
-      }
-    });
-  });
+    if (window.renderStorageTab) {
+      window.renderStorageTab();
+    }
+  }
 }
 
 // Export functions for use in other modules

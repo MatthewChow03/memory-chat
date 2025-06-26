@@ -25,38 +25,39 @@ function setActiveTab(tab) {
 }
 
 // Main tab rendering logic
-function renderTab() {
+async function renderTab() {
   const storageUI = document.getElementById('memory-chat-storage');
   if (!storageUI) return;
   
   const tabContent = storageUI.querySelector('#memory-chat-tab-content');
   if (!tabContent) return;
   
-  chrome.storage.local.get({ chatLogs: [] }, (result) => {
-    const logs = result.chatLogs;
-    
-    // Helper to clear and append cards
-    function renderCards(cards) {
-      tabContent.innerHTML = '';
-      cards.forEach((log, idx) => tabContent.appendChild(renderLogCard(log, idx)));
-    }
-    
-    if (activeTab === 'relevant') {
-      renderRelevantTab(tabContent, logs, renderCards);
-    } else if (activeTab === 'recent') {
-      renderRecentTab(tabContent, logs, renderCards);
-    } else if (activeTab === 'all') {
-      renderAllTab(tabContent, logs, renderCards);
-    } else if (activeTab === 'search') {
-      renderSearchTab(tabContent, logs);
-    } else if (activeTab === 'folders') {
-      renderFoldersTab(tabContent);
-    } else if (activeTab === 'settings') {
-      renderSettingsTab(tabContent);
-    }
-    
-    setTimeout(attachPlusListeners, 0);
-  });
+  let logs = [];
+  if (window.memoryChatIDB && window.memoryChatIDB.getAllMessages) {
+    logs = await window.memoryChatIDB.getAllMessages();
+  }
+  
+  // Helper to clear and append cards
+  function renderCards(cards) {
+    tabContent.innerHTML = '';
+    cards.forEach((log, idx) => tabContent.appendChild(renderLogCard(log, idx)));
+  }
+  
+  if (activeTab === 'relevant') {
+    renderRelevantTab(tabContent, logs, renderCards);
+  } else if (activeTab === 'recent') {
+    renderRecentTab(tabContent, logs, renderCards);
+  } else if (activeTab === 'all') {
+    renderAllTab(tabContent, logs, renderCards);
+  } else if (activeTab === 'search') {
+    renderSearchTab(tabContent, logs);
+  } else if (activeTab === 'folders') {
+    renderFoldersTab(tabContent);
+  } else if (activeTab === 'settings') {
+    renderSettingsTab(tabContent);
+  }
+  
+  setTimeout(attachPlusListeners, 0);
 }
 
 // Render relevant tab content
@@ -132,59 +133,56 @@ function renderSearchTab(tabContent, logs) {
 }
 
 // Render folders tab content
-function renderFoldersTab(tabContent) {
-  chrome.storage.local.get({ folders: {} }, (result) => {
-    const folders = result.folders;
-    const folderNames = Object.keys(folders);
-    const storageUI = document.getElementById('memory-chat-storage');
-    const isDark = storageUI && storageUI.classList.contains('memory-chat-dark');
-    
-    if (folderNames.length === 0) {
-      tabContent.innerHTML = `
-        <div style="text-align:center;color:#888;margin-bottom:20px;">No folders created yet</div>
-        <button id="create-folder-btn" style="display:block;margin:0 auto;padding:10px 20px;background:linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%);border:none;border-radius:8px;color:#222;font-weight:bold;cursor:pointer;">Create New Folder</button>
-      `;
-      
-      const createBtn = tabContent.querySelector('#create-folder-btn');
-      createBtn.onclick = () => {
-        const folderName = prompt('Enter folder name:');
-        if (folderName && folderName.trim()) {
-          const newFolders = { ...folders, [folderName.trim()]: [] };
-          chrome.storage.local.set({ folders: newFolders }, () => {
-            renderTab();
-          });
+async function renderFoldersTab(tabContent) {
+  let folders = {};
+  if (window.memoryChatIDB && window.memoryChatIDB.getAllFolders) {
+    folders = await window.memoryChatIDB.getAllFolders();
+  }
+  const folderNames = Object.keys(folders);
+  const storageUI = document.getElementById('memory-chat-storage');
+  const isDark = storageUI && storageUI.classList.contains('memory-chat-dark');
+
+  if (folderNames.length === 0) {
+    tabContent.innerHTML = `
+      <div style="text-align:center;color:#888;margin-bottom:20px;">No folders created yet</div>
+      <button id="create-folder-btn" style="display:block;margin:0 auto;padding:10px 20px;background:linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%);border:none;border-radius:8px;color:#222;font-weight:bold;cursor:pointer;">Create New Folder</button>
+    `;
+    const createBtn = tabContent.querySelector('#create-folder-btn');
+    createBtn.onclick = async () => {
+      const folderName = prompt('Enter folder name:');
+      if (folderName && folderName.trim()) {
+        if (window.memoryChatIDB && window.memoryChatIDB.addOrUpdateFolder) {
+          await window.memoryChatIDB.addOrUpdateFolder(folderName.trim(), []);
+          renderFoldersTab(tabContent);
         }
-      };
-    } else {
-      let foldersHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-          <h4 style="margin:0;${isDark ? 'color:#f3f6fa;' : 'color:#1a1a1a;'}">Your Folders</h4>
-          <button id="create-folder-btn" style="padding:8px 16px;background:linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%);border:none;border-radius:6px;color:#222;font-weight:bold;cursor:pointer;font-size:12px;">+ New Folder</button>
+      }
+    };
+  } else {
+    let foldersHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <h4 style="margin:0;${isDark ? 'color:#f3f6fa;' : 'color:#1a1a1a;'}">Your Folders</h4>
+        <button id="create-folder-btn" style="padding:8px 16px;background:linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%);border:none;border-radius:6px;color:#222;font-weight:bold;cursor:pointer;font-size:12px;">+ New Folder</button>
+      </div>
+    `;
+    folderNames.forEach(folderName => {
+      const messageCount = folders[folderName].length;
+      foldersHTML += `
+        <div class="folder-item" data-folder="${folderName}" style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:${isDark ? '#23272f' : '#f8f9fa'};border:1px solid ${isDark ? '#2c2f36' : '#e1e5e9'};border-radius:8px;margin-bottom:8px;cursor:pointer;">
+          <div style="flex:1;">
+            <div style="font-weight:bold;${isDark ? 'color:#f3f6fa;' : 'color:#1a1a1a;'}">${folderName}</div>
+            <div style="font-size:12px;${isDark ? 'color:#b2b8c2;' : 'color:#888;'}">${messageCount} message${messageCount !== 1 ? 's' : ''}</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="folder-plus-btn" data-folder="${folderName}" style="background:${isDark ? '#2e3a4a' : '#e6f7e6'};border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:${isDark ? '#b2f7ef' : '#222'};" title="Add all messages to prompt">+</button>
+            <button class="folder-delete-btn" data-folder="${folderName}" style="background:${isDark ? '#3a2323' : '#f7e6e6'};border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:${isDark ? '#ffb2b2' : '#d32f2f'};" title="Delete folder">×</button>
+          </div>
         </div>
       `;
-      
-      folderNames.forEach(folderName => {
-        const messageCount = folders[folderName].length;
-        foldersHTML += `
-          <div class="folder-item" data-folder="${folderName}" style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:${isDark ? '#23272f' : '#f8f9fa'};border:1px solid ${isDark ? '#2c2f36' : '#e1e5e9'};border-radius:8px;margin-bottom:8px;cursor:pointer;">
-            <div style="flex:1;">
-              <div style="font-weight:bold;${isDark ? 'color:#f3f6fa;' : 'color:#1a1a1a;'}">${folderName}</div>
-              <div style="font-size:12px;${isDark ? 'color:#b2b8c2;' : 'color:#888;'}">${messageCount} message${messageCount !== 1 ? 's' : ''}</div>
-            </div>
-            <div style="display:flex;gap:8px;">
-              <button class="folder-plus-btn" data-folder="${folderName}" style="background:${isDark ? '#2e3a4a' : '#e6f7e6'};border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:${isDark ? '#b2f7ef' : '#222'};" title="Add all messages to prompt">+</button>
-              <button class="folder-delete-btn" data-folder="${folderName}" style="background:${isDark ? '#3a2323' : '#f7e6e6'};border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:${isDark ? '#ffb2b2' : '#d32f2f'};" title="Delete folder">×</button>
-            </div>
-          </div>
-        `;
-      });
-      
-      tabContent.innerHTML = foldersHTML;
-      
-      // Setup folder event handlers
-      setupFolderEventHandlers(tabContent, folders);
-    }
-  });
+    });
+    tabContent.innerHTML = foldersHTML;
+    // Setup folder event handlers
+    setupFolderEventHandlers(tabContent, folders);
+  }
 }
 
 // Render settings tab content
@@ -196,6 +194,15 @@ function renderSettingsTab(tabContent) {
       <button id="clear-logs-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:linear-gradient(90deg,#f7d6b2 0%,#f7b2b2 100%);border:none;border-radius:10px;color:#222;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;transition:background 0.2s,color 0.2s;text-align:left;">Clear All Logs</button>
       <button id="add-full-chat-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%);border:none;border-radius:10px;color:#222;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;transition:background 0.2s,color 0.2s;text-align:left;">Add Full Chat to Log</button>
       <button id="theme-toggle-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:linear-gradient(90deg,#b2c7f7 0%,#b2e0f7 100%);border:none;border-radius:10px;color:#222;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;transition:background 0.2s,color 0.2s;text-align:left;">Switch to ${isDark ? 'Light' : 'Dark'} Mode</button>
+      <div style="margin: 24px 0 0 0;">
+        <label for="import-chatgpt-json" style="font-weight:bold;display:block;margin-bottom:8px;">Import ChatGPT conversations.json</label>
+        <input type="file" id="import-chatgpt-json" accept="application/json" style="margin-bottom:8px;" />
+        <button id="import-chatgpt-btn" style="padding:8px 20px;background:linear-gradient(90deg,#b2f7ef 0%,#b2c7f7 100%);border:none;border-radius:8px;color:#222;font-weight:bold;cursor:pointer;">Import</button>
+        <span id="import-chatgpt-status" style="margin-left:12px;font-size:13px;color:${isDark ? '#b2f7ef' : '#007bff'}"></span>
+        <div id="import-chatgpt-progress-container" style="margin-top:12px;height:18px;width:100%;background:#e1e5e9;border-radius:8px;display:none;overflow:hidden;">
+          <div id="import-chatgpt-progress" style="height:100%;width:0%;background:linear-gradient(90deg,#b2f7ef 0%,#b2c7f7 100%);transition:width 0.2s;"></div>
+        </div>
+      </div>
     `;
     
     const clearBtn = tabContent.querySelector('#clear-logs-btn');
@@ -218,6 +225,141 @@ function renderSettingsTab(tabContent) {
         renderSettingsTab(tabContent);
       });
     };
+
+    // Import ChatGPT JSON logic
+    let importedMessages = [];
+    const fileInput = tabContent.querySelector('#import-chatgpt-json');
+    const importBtn = tabContent.querySelector('#import-chatgpt-btn');
+    const statusSpan = tabContent.querySelector('#import-chatgpt-status');
+    const progressContainer = tabContent.querySelector('#import-chatgpt-progress-container');
+    const progressBar = tabContent.querySelector('#import-chatgpt-progress');
+    let fileContent = null;
+
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        fileContent = event.target.result;
+        statusSpan.textContent = 'File loaded, ready to import.';
+      };
+      reader.onerror = () => {
+        statusSpan.textContent = 'Failed to read file.';
+      };
+      reader.readAsText(file);
+    });
+
+    // Helper to wait for memoryChatIDB to be available
+    function waitForIDBMethod(method, maxRetries = 20, delay = 1000) {
+      return new Promise((resolve, reject) => {
+        let tries = 0;
+        function check() {
+          if (window.memoryChatIDB && window.memoryChatIDB[method]) {
+            resolve(window.memoryChatIDB[method]);
+          } else if (tries < maxRetries) {
+            tries++;
+            setTimeout(check, delay);
+          } else {
+            reject(new Error('IndexedDB is not available.'));
+          }
+        }
+        check();
+      });
+    }
+
+    importBtn.onclick = async () => {
+      if (!fileContent) {
+        statusSpan.textContent = 'Please select a JSON file first.';
+        return;
+      }
+      let json;
+      try {
+        json = JSON.parse(fileContent);
+      } catch (e) {
+        statusSpan.textContent = 'Invalid JSON file.';
+        return;
+      }
+      // OpenAI export: conversations.json is an array of conversations
+      // Each conversation has a mapping of messages
+      let messages = [];
+      if (Array.isArray(json)) {
+        // Some exports are array of conversations
+        json.forEach(convo => {
+          if (convo.mapping) {
+            Object.values(convo.mapping).forEach(node => {
+              if (node.message && node.message.content && Array.isArray(node.message.content.parts)) {
+                node.message.content.parts.forEach(part => {
+                  if (typeof part === 'string' && part.trim()) {
+                    messages.push(part.trim());
+                  }
+                });
+              }
+            });
+          }
+        });
+      } else if (json.mapping) {
+        // Some exports are a single conversation
+        Object.values(json.mapping).forEach(node => {
+          if (node.message && node.message.content && Array.isArray(node.message.content.parts)) {
+            node.message.content.parts.forEach(part => {
+              if (typeof part === 'string' && part.trim()) {
+                messages.push(part.trim());
+              }
+            });
+          }
+        });
+      } else {
+        statusSpan.textContent = 'Unrecognized JSON format.';
+        return;
+      }
+      if (messages.length === 0) {
+        statusSpan.textContent = 'No messages found in file.';
+        return;
+      }
+      // Deduplicate imported messages
+      messages = Array.from(new Set(messages));
+      // Prepare messages for IndexedDB
+      const now = Date.now();
+      const messageObjs = messages.map(text => ({ text, timestamp: now }));
+      progressContainer.style.display = 'block';
+      progressBar.style.width = '0%';
+      statusSpan.textContent = 'Importing...';
+      // Batch in chunks for progress bar
+      const batchSize = 500;
+      let imported = 0, skipped = 0, processed = 0;
+      async function processBatch(startIdx) {
+        if (startIdx >= messageObjs.length) {
+          progressBar.style.width = '100%';
+          statusSpan.textContent = `Imported ${imported} new, skipped ${skipped} duplicates.`;
+          progressContainer.style.display = 'none';
+          if (window.showFeedback) window.showFeedback(`Imported ${imported} new, skipped ${skipped} duplicates.`, 'success');
+          if (window.renderStorageTab) window.renderStorageTab();
+          return;
+        }
+        const batch = messageObjs.slice(startIdx, startIdx + batchSize);
+        let addMessagesFn;
+        try {
+          addMessagesFn = await waitForIDBMethod('addMessages');
+        } catch (err) {
+          statusSpan.textContent = 'IndexedDB is not available.';
+          progressContainer.style.display = 'none';
+          if (window.showFeedback) window.showFeedback('IndexedDB is not available.', 'error');
+          return;
+        }
+        addMessagesFn(batch).then(({ added, skipped: batchSkipped }) => {
+          imported += added;
+          skipped += batchSkipped;
+          processed += batch.length;
+          progressBar.style.width = Math.round((processed / messageObjs.length) * 100) + '%';
+          setTimeout(() => processBatch(startIdx + batchSize), 0);
+        }).catch(err => {
+          statusSpan.textContent = 'IndexedDB error: ' + (err && err.message ? err.message : err);
+          progressContainer.style.display = 'none';
+          if (window.showFeedback) window.showFeedback('IndexedDB error: ' + (err && err.message ? err.message : err), 'error');
+        });
+      }
+      processBatch(0);
+    };
   });
 }
 
@@ -225,17 +367,18 @@ function renderSettingsTab(tabContent) {
 function setupFolderEventHandlers(tabContent, folders) {
   // Create folder button
   const createBtn = tabContent.querySelector('#create-folder-btn');
-  createBtn.onclick = () => {
-    const folderName = prompt('Enter folder name:');
-    if (folderName && folderName.trim()) {
-      const newFolders = { ...folders, [folderName.trim()]: [] };
-      chrome.storage.local.set({ folders: newFolders }, () => {
-        renderTab();
-      });
-    }
-  };
-  
-  // Folder click to view contents
+  if (createBtn) {
+    createBtn.onclick = async () => {
+      const folderName = prompt('Enter folder name:');
+      if (folderName && folderName.trim()) {
+        if (window.memoryChatIDB && window.memoryChatIDB.addOrUpdateFolder) {
+          await window.memoryChatIDB.addOrUpdateFolder(folderName.trim(), []);
+          if (window.renderTab) window.renderTab();
+        }
+      }
+    };
+  }
+  // Folder click to view contents (not implemented here, but could be added)
   tabContent.querySelectorAll('.folder-item').forEach(item => {
     item.onclick = (e) => {
       if (!e.target.classList.contains('folder-plus-btn') && !e.target.classList.contains('folder-delete-btn')) {
@@ -246,7 +389,6 @@ function setupFolderEventHandlers(tabContent, folders) {
       }
     };
   });
-  
   // Folder plus button (add all messages to prompt)
   tabContent.querySelectorAll('.folder-plus-btn').forEach(btn => {
     btn.onclick = (e) => {
@@ -271,18 +413,16 @@ function setupFolderEventHandlers(tabContent, folders) {
       }
     };
   });
-  
   // Folder delete button
   tabContent.querySelectorAll('.folder-delete-btn').forEach(btn => {
-    btn.onclick = (e) => {
+    btn.onclick = async (e) => {
       e.stopPropagation();
       const folderName = btn.dataset.folder;
       if (confirm(`Are you sure you want to delete the folder "${folderName}"?`)) {
-        const newFolders = { ...folders };
-        delete newFolders[folderName];
-        chrome.storage.local.set({ folders: newFolders }, () => {
-          renderTab();
-        });
+        if (window.memoryChatIDB && window.memoryChatIDB.removeFolder) {
+          await window.memoryChatIDB.removeFolder(folderName);
+          if (window.renderTab) window.renderTab();
+        }
       }
     };
   });

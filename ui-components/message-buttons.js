@@ -36,35 +36,47 @@ function addLogButtons() {
 
       // Check if this message is already logged
       const text = getMessageText(msg);
-      chrome.storage.local.get({ chatLogs: [] }, (result) => {
-        const found = result.chatLogs.some(log => log.text === text);
-        if (found) {
-          btn.textContent = 'Remove from Log';
-          btn.style.background = '#f7b2b2';
-          btn.style.color = '#222';
-        }
-      });
-
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        const text = getMessageText(msg);
-        chrome.storage.local.get({ chatLogs: [] }, (result) => {
-          let chatLogs = result.chatLogs;
-          const found = chatLogs.some(log => log.text === text);
-          if (!found) {
-            // Add to log
-            window.postMessage({ type: 'MEMORY_CHAT_LOG', text }, '*');
+      if (window.memoryChatIDB && window.memoryChatIDB.messageExists) {
+        window.memoryChatIDB.messageExists(text).then(found => {
+          if (found) {
             btn.textContent = 'Remove from Log';
             btn.style.background = '#f7b2b2';
             btn.style.color = '#222';
-          } else {
-            // Remove from log
-            chrome.runtime.sendMessage({ type: 'REMOVE_LOG_MESSAGE', text });
-            btn.textContent = 'Add to Log';
-            btn.style.background = 'linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%)';
-            btn.style.color = '#222';
           }
         });
+      }
+
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        const text = getMessageText(msg);
+        if (!window.memoryChatIDB) return;
+        const found = await window.memoryChatIDB.messageExists(text);
+        if (!found) {
+          // Add to log
+          await window.memoryChatIDB.addMessages([{ text, timestamp: Date.now() }]);
+          btn.textContent = 'Remove from Log';
+          btn.style.background = '#f7b2b2';
+          btn.style.color = '#222';
+        } else {
+          // Remove from log
+          if (!window.memoryChatIDB.removeMessage) {
+            window.memoryChatIDB.removeMessage = function(text) {
+              return window.memoryChatIDB.openDB().then(db => {
+                return new Promise((resolve, reject) => {
+                  const tx = db.transaction('chatLogs', 'readwrite');
+                  const store = tx.objectStore('chatLogs');
+                  const req = store.delete(text);
+                  req.onsuccess = () => resolve();
+                  req.onerror = () => reject(req.error);
+                });
+              });
+            };
+          }
+          await window.memoryChatIDB.removeMessage(text);
+          btn.textContent = 'Add to Log';
+          btn.style.background = 'linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%)';
+          btn.style.color = '#222';
+        }
       };
       msg.appendChild(btn);
     }
