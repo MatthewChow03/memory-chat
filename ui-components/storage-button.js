@@ -30,6 +30,7 @@ function createStorageUI() {
       <button class="storage-tab" data-tab="recent" style="flex:1; padding: 10px; border:none; background:none; font-weight:bold; cursor:pointer;">Recent</button>
       <button class="storage-tab" data-tab="all" style="flex:1; padding: 10px; border:none; background:none; font-weight:bold; cursor:pointer;">All</button>
       <button class="storage-tab" data-tab="search" style="flex:1; padding: 10px; border:none; background:none; font-weight:bold; cursor:pointer;">Search</button>
+      <button class="storage-tab" data-tab="folders" style="flex:1; padding: 10px; border:none; background:none; font-weight:bold; cursor:pointer;">Folders</button>
       <button class="storage-tab" data-tab="settings" style="flex:1; padding: 10px; border:none; background:none; font-weight:bold; cursor:pointer;">Settings</button>
     </div>
     <div id="memory-chat-tab-content" style="padding: 20px; max-height: 440px; overflow-y: auto;"></div>
@@ -53,6 +54,11 @@ function createStorageUI() {
   function renderTab() {
     chrome.storage.local.get({ chatLogs: [] }, (result) => {
       const logs = result.chatLogs;
+      // Helper to clear and append cards
+      function renderCards(cards) {
+        tabContent.innerHTML = '';
+        cards.forEach((log, idx) => tabContent.appendChild(renderLogCard(log, idx)));
+      }
       if (activeTab === 'relevant') {
         const prompt = getPromptText();
         if (!prompt) {
@@ -63,27 +69,26 @@ function createStorageUI() {
           tabContent.innerHTML = '<div style="text-align:center;color:#888;">No messages stored yet</div>';
           return;
         }
-        // Similarity search
         const scored = logs.map(log => ({...log, score: cosineSimilarity(prompt, log.text, logs.map(l => l.text))}));
         scored.sort((a, b) => b.score - a.score);
         const top = scored.slice(0, 3).filter(l => l.score > 0);
         if (top.length === 0) {
           tabContent.innerHTML = '<div style="text-align:center;color:#888;">No relevant messages found</div>';
         } else {
-          tabContent.innerHTML = top.map(log => renderLogCard(log)).join('');
+          renderCards(top);
         }
       } else if (activeTab === 'recent') {
         const top = logs.slice(-3).reverse();
         if (top.length === 0) {
           tabContent.innerHTML = '<div style="text-align:center;color:#888;">No messages stored yet</div>';
         } else {
-          tabContent.innerHTML = top.map(log => renderLogCard(log)).join('');
+          renderCards(top);
         }
       } else if (activeTab === 'all') {
         if (logs.length === 0) {
           tabContent.innerHTML = '<div style="text-align:center;color:#888;">No messages stored yet</div>';
         } else {
-          tabContent.innerHTML = logs.map(log => renderLogCard(log)).join('');
+          renderCards(logs);
         }
       } else if (activeTab === 'search') {
         tabContent.innerHTML = `<input id="storage-search-input" type="text" placeholder="Search..." style="width:100%;margin-bottom:12px;padding:8px;border-radius:6px;border:1px solid #e1e5e9;outline:none;" />
@@ -102,17 +107,22 @@ function createStorageUI() {
           if (top.length === 0) {
             resultsDiv.innerHTML = '<div style="text-align:center;color:#888;">No results found</div>';
           } else {
-            resultsDiv.innerHTML = top.map(log => renderLogCard(log)).join('');
+            resultsDiv.innerHTML = '';
+            top.forEach((log, idx) => resultsDiv.appendChild(renderLogCard(log, idx)));
           }
         });
+      } else if (activeTab === 'folders') {
+        tabContent.innerHTML = '<div style="text-align:center;color:#888;">Folders tab content</div>';
       } else if (activeTab === 'settings') {
-        tabContent.innerHTML = `<button id="clear-logs-btn" style="display:block;margin:32px auto 16px auto;padding:10px 28px;background:linear-gradient(90deg,#f7d6b2 0%,#f7b2b2 100%);border:none;border-radius:10px;color:#222;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;transition:background 0.2s,color 0.2s;">Clear All Logs</button>`;
+        tabContent.innerHTML = `
+          <button id="clear-logs-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:linear-gradient(90deg,#f7d6b2 0%,#f7b2b2 100%);border:none;border-radius:10px;color:#222;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;transition:background 0.2s,color 0.2s;text-align:left;">Clear All Logs</button>
+          <button id="add-full-chat-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%);border:none;border-radius:10px;color:#222;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;transition:background 0.2s,color 0.2s;text-align:left;">Add Full Chat to Log</button>
+        `;
         const clearBtn = tabContent.querySelector('#clear-logs-btn');
         clearBtn.onmouseenter = () => clearBtn.style.background = '#f7b2b2';
         clearBtn.onmouseleave = () => clearBtn.style.background = 'linear-gradient(90deg,#f7d6b2 0%,#f7b2b2 100%)';
         clearBtn.onclick = () => {
           chrome.storage.local.set({ chatLogs: [] }, () => {
-            // After clearing, update all log buttons
             document.querySelectorAll('.memory-chat-log-btn').forEach(b => {
               b.textContent = 'Add to Log';
               b.style.background = 'linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%)';
@@ -121,14 +131,38 @@ function createStorageUI() {
             renderTab();
           });
         };
+        const addFullBtn = tabContent.querySelector('#add-full-chat-btn');
+        addFullBtn.onmouseenter = () => addFullBtn.style.background = '#a0eec0';
+        addFullBtn.onmouseleave = () => addFullBtn.style.background = 'linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%)';
+        addFullBtn.onclick = () => {
+          const messages = Array.from(document.querySelectorAll('[data-message-author-role]'));
+          const texts = messages.map(msg => getMessageText(msg));
+          chrome.storage.local.get({ chatLogs: [] }, (result) => {
+            let chatLogs = result.chatLogs;
+            let added = false;
+            texts.forEach(text => {
+              if (!chatLogs.some(log => log.text === text)) {
+                chatLogs.push({ text, timestamp: Date.now() });
+                added = true;
+              }
+            });
+            chrome.storage.local.set({ chatLogs }, () => {
+              document.querySelectorAll('.memory-chat-log-btn').forEach(b => {
+                b.textContent = 'Remove from Log';
+                b.style.background = '#f7b2b2';
+                b.style.color = '#222';
+              });
+              renderTab();
+            });
+          });
+        };
       }
-      // Attach plus button listeners after rendering
       setTimeout(attachPlusListeners, 0);
     });
   }
 
-  // Card renderer with plus button (safe DOM)
-  function renderLogCard(log) {
+  // Card renderer with plus button (safe DOM, with show more/less, footer always visible)
+  function renderLogCard(log, idx) {
     // Card container
     const card = document.createElement('div');
     card.style.background = '#f8f9fa';
@@ -145,23 +179,51 @@ function createStorageUI() {
     card.style.justifyContent = 'space-between';
     card.style.gap = '8px';
 
-    // Message content
-    const contentDiv = document.createElement('div');
-    contentDiv.style.flex = '1';
-    contentDiv.style.minWidth = '0';
-    // Split message by newlines and add <br>
-    log.text.split('\n').forEach((line, idx, arr) => {
-      const span = document.createElement('span');
-      span.textContent = line;
-      contentDiv.appendChild(span);
-      if (idx < arr.length - 1) contentDiv.appendChild(document.createElement('br'));
-    });
+    // Message text (clamped, single block)
+    const textDiv = document.createElement('div');
+    textDiv.className = 'storage-log-content clamped';
+    textDiv.style.flex = '1';
+    textDiv.style.minWidth = '0';
+    textDiv.style.whiteSpace = 'pre-line';
+    textDiv.textContent = log.text;
+
+    // Footer (timestamp + show more/less)
+    const footerDiv = document.createElement('div');
+    footerDiv.style.display = 'flex';
+    footerDiv.style.alignItems = 'center';
+    footerDiv.style.justifyContent = 'space-between';
+    footerDiv.style.marginTop = '8px';
     // Timestamp
     const ts = document.createElement('div');
     ts.style.color = '#888';
     ts.style.fontSize = '11px';
     ts.textContent = new Date(log.timestamp).toLocaleString();
-    contentDiv.appendChild(ts);
+    // Show more/less button
+    const showBtn = document.createElement('button');
+    showBtn.textContent = 'Show more';
+    showBtn.style.background = 'none';
+    showBtn.style.border = 'none';
+    showBtn.style.color = '#007bff';
+    showBtn.style.cursor = 'pointer';
+    showBtn.style.fontSize = '13px';
+    showBtn.style.padding = '0';
+    showBtn.style.display = (log.text.split('\n').length > 4) ? 'block' : 'none';
+    showBtn.className = 'storage-show-btn';
+    let expanded = false;
+    showBtn.onclick = () => {
+      expanded = !expanded;
+      if (expanded) {
+        textDiv.classList.remove('clamped');
+        textDiv.classList.add('expanded');
+        showBtn.textContent = 'Show less';
+      } else {
+        textDiv.classList.remove('expanded');
+        textDiv.classList.add('clamped');
+        showBtn.textContent = 'Show more';
+      }
+    };
+    footerDiv.appendChild(ts);
+    footerDiv.appendChild(showBtn);
 
     // Plus button
     const plusBtn = document.createElement('button');
@@ -180,9 +242,15 @@ function createStorageUI() {
     plusBtn.style.fontSize = '20px';
     plusBtn.textContent = '+';
 
-    card.appendChild(contentDiv);
+    // Stack text, footer, plus button
+    const leftCol = document.createElement('div');
+    leftCol.style.flex = '1';
+    leftCol.style.minWidth = '0';
+    leftCol.appendChild(textDiv);
+    leftCol.appendChild(footerDiv);
+    card.appendChild(leftCol);
     card.appendChild(plusBtn);
-    return card.outerHTML;
+    return card;
   }
 
   // Attach plus button listeners
@@ -250,6 +318,28 @@ function createStorageUI() {
       storageUI.style.display = 'none';
     }
   };
+
+  if (!document.getElementById('memory-chat-storage-style')) {
+    const style = document.createElement('style');
+    style.id = 'memory-chat-storage-style';
+    style.textContent = `
+      .storage-log-content.clamped {
+        display: -webkit-box;
+        -webkit-line-clamp: 4;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: pre-line;
+        max-height: 5.6em;
+      }
+      .storage-log-content.expanded {
+        display: block;
+        max-height: none;
+        overflow: visible;
+      }
+    `;
+    document.head.appendChild(style);
+  }
 }
 
 // Add storage button to ChatGPT interface
