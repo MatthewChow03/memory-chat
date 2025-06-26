@@ -191,28 +191,28 @@ function renderSettingsTab(tabContent) {
   chrome.storage.local.get({ storageTheme: 'light' }, (result) => {
     const isDark = result.storageTheme === 'dark';
     tabContent.innerHTML = `
-      <button id="clear-logs-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:linear-gradient(90deg,#f7d6b2 0%,#f7b2b2 100%);border:none;border-radius:10px;color:#222;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;transition:background 0.2s,color 0.2s;text-align:left;">Clear All Logs</button>
-      <button id="add-full-chat-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%);border:none;border-radius:10px;color:#222;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;transition:background 0.2s,color 0.2s;text-align:left;">Add Full Chat to Log</button>
-      <button id="theme-toggle-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:linear-gradient(90deg,#b2c7f7 0%,#b2e0f7 100%);border:none;border-radius:10px;color:#222;font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;transition:background 0.2s,color 0.2s;text-align:left;">Switch to ${isDark ? 'Light' : 'Dark'} Mode</button>
+      <button id="clear-logs-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Clear All Logs</button>
+      <button id="add-full-chat-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#2e4a3a' : '#b2f7ef'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Add Full Chat to Log</button>
+      <button id="theme-toggle-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#2e3a4a' : '#b2c7f7'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Switch to ${isDark ? 'Light' : 'Dark'} Mode</button>
       <div style="margin: 24px 0 0 0;">
-        <label for="import-chatgpt-json" style="font-weight:bold;display:block;margin-bottom:8px;">Import ChatGPT conversations.json</label>
-        <input type="file" id="import-chatgpt-json" accept="application/json" style="margin-bottom:8px;" />
-        <button id="import-chatgpt-btn" style="padding:8px 20px;background:linear-gradient(90deg,#b2f7ef 0%,#b2c7f7 100%);border:none;border-radius:8px;color:#222;font-weight:bold;cursor:pointer;">Import</button>
-        <span id="import-chatgpt-status" style="margin-left:12px;font-size:13px;color:${isDark ? '#b2f7ef' : '#007bff'}"></span>
-        <div id="import-chatgpt-progress-container" style="margin-top:12px;height:18px;width:100%;background:#e1e5e9;border-radius:8px;display:none;overflow:hidden;">
-          <div id="import-chatgpt-progress" style="height:100%;width:0%;background:linear-gradient(90deg,#b2f7ef 0%,#b2c7f7 100%);transition:width 0.2s;"></div>
+        <div style="margin-bottom:8px;font-weight:bold;">Import ChatGPT conversations.json</div>
+        <label for="import-chatgpt-json" id="import-chatgpt-label" style="display:inline-block;padding:18px 32px;background:${isDark ? '#23272f' : '#f4f6fa'};border-radius:12px;text-align:center;cursor:pointer;font-size:17px;color:${isDark ? '#b2f7ef' : '#007bff'};font-weight:bold;border:1.5px solid ${isDark ? '#b2f7ef' : '#b2c7f7'};transition:background 0.2s;">
+          <span id="import-chatgpt-label-text">Select conversations.json file...</span>
+          <input type="file" id="import-chatgpt-json" accept="application/json" style="display:none;" />
+        </label>
+        <div id="import-chatgpt-filename" style="margin-top:8px;font-size:14px;color:${isDark ? '#fff' : '#007bff'}"></div>
+        <button id="import-chatgpt-btn" style="margin-top:12px;padding:10px 32px;background:${isDark ? '#2e3a4a' : '#b2f7ef'};border:none;border-radius:8px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;font-size:16px;">Import</button>
+        <span id="import-chatgpt-status" style="margin-left:12px;font-size:13px;color:${isDark ? '#fff' : '#007bff'}"></span>
+        <div id="import-chatgpt-progress-container" style="margin-top:12px;height:18px;width:100%;background:${isDark ? '#23272f' : '#e1e5e9'};border-radius:8px;display:none;overflow:hidden;">
+          <div id="import-chatgpt-progress" style="height:100%;width:0%;background:${isDark ? '#fff' : '#b2c7f7'};transition:width 0.2s;"></div>
         </div>
       </div>
     `;
     
     const clearBtn = tabContent.querySelector('#clear-logs-btn');
-    clearBtn.onmouseenter = () => clearBtn.style.background = '#f7b2b2';
-    clearBtn.onmouseleave = () => clearBtn.style.background = 'linear-gradient(90deg,#f7d6b2 0%,#f7b2b2 100%)';
     clearBtn.onclick = clearAllLogs;
     
     const addFullBtn = tabContent.querySelector('#add-full-chat-btn');
-    addFullBtn.onmouseenter = () => addFullBtn.style.background = '#a0eec0';
-    addFullBtn.onmouseleave = () => addFullBtn.style.background = 'linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%)';
     addFullBtn.onclick = addFullChatToLog;
 
     // Theme toggle logic
@@ -229,6 +229,9 @@ function renderSettingsTab(tabContent) {
     // Import ChatGPT JSON logic
     let importedMessages = [];
     const fileInput = tabContent.querySelector('#import-chatgpt-json');
+    const fileLabel = tabContent.querySelector('#import-chatgpt-label');
+    const fileLabelText = tabContent.querySelector('#import-chatgpt-label-text');
+    const fileNameDiv = tabContent.querySelector('#import-chatgpt-filename');
     const importBtn = tabContent.querySelector('#import-chatgpt-btn');
     const statusSpan = tabContent.querySelector('#import-chatgpt-status');
     const progressContainer = tabContent.querySelector('#import-chatgpt-progress-container');
@@ -242,9 +245,13 @@ function renderSettingsTab(tabContent) {
       reader.onload = (event) => {
         fileContent = event.target.result;
         statusSpan.textContent = 'File loaded, ready to import.';
+        fileNameDiv.textContent = `Selected: ${file.name}`;
+        fileLabelText.textContent = 'File selected!';
       };
       reader.onerror = () => {
         statusSpan.textContent = 'Failed to read file.';
+        fileNameDiv.textContent = '';
+        fileLabelText.textContent = 'Select conversations.json file...';
       };
       reader.readAsText(file);
     });
