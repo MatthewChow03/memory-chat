@@ -2,6 +2,8 @@
 
 A beautiful, interactive 2D visualization of ChatGPT conversation history with clustering, infinite scroll, and immersive navigation.
 
+![](/chatgpt-history-map/memory-map-v1.png)
+
 ## Features
 
 ### 🎯 Core Visualization
