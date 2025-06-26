@@ -2,14 +2,26 @@
 function addFolderButtons() {
   const messages = document.querySelectorAll('[data-message-author-role]');
   messages.forEach(msg => {
-    if (!msg.querySelector('.memory-chat-folder-btn')) {
+    // Find or create the flex container
+    let btnContainer = msg.querySelector('.memory-chat-btn-row');
+    if (!btnContainer) {
+      btnContainer = document.createElement('div');
+      btnContainer.className = 'memory-chat-btn-row';
+      btnContainer.style.display = 'flex';
+      btnContainer.style.flexDirection = 'row';
+      btnContainer.style.gap = '8px';
+      btnContainer.style.marginTop = '8px';
+      btnContainer.style.alignItems = 'center';
+      msg.appendChild(btnContainer);
+    }
+    // Only add the folder button if it doesn't already exist in the container
+    if (!btnContainer.querySelector('.memory-chat-folder-btn')) {
       // Create folder button
       const folderBtn = document.createElement('button');
       folderBtn.textContent = '📁';
       folderBtn.className = 'memory-chat-folder-btn';
       folderBtn.title = 'Add to Folder';
       folderBtn.style.cssText = `
-        margin-left: 4px;
         padding: 6px 12px;
         background: linear-gradient(90deg, #e6f3ff 0%, #d4e7ff 100%);
         border: none;
@@ -21,22 +33,13 @@ function addFolderButtons() {
         transition: background 0.2s, color 0.2s;
         font-size: 14px;
       `;
-      
       folderBtn.onmouseenter = () => folderBtn.style.background = '#cce7ff';
       folderBtn.onmouseleave = () => folderBtn.style.background = 'linear-gradient(90deg, #e6f3ff 0%, #d4e7ff 100%)';
-
       folderBtn.onclick = (e) => {
         e.stopPropagation();
         showFolderSelector(msg);
       };
-      
-      // Insert the folder button right after the log button
-      const logBtn = msg.querySelector('.memory-chat-log-btn');
-      if (logBtn) {
-        logBtn.parentNode.insertBefore(folderBtn, logBtn.nextSibling);
-      } else {
-        msg.appendChild(folderBtn);
-      }
+      btnContainer.appendChild(folderBtn);
     }
   });
 }
