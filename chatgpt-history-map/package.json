@@ -1,0 +1,18 @@
+{
+  "name": "chatgpt-history-map",
+  "version": "1.0.0",
+  "description": "2D navigatable map of ChatGPT history with clustering and visualization",
+  "main": "index.html",
+  "scripts": {
+    "start": "python -m http.server 8000",
+    "dev": "python -m http.server 8000"
+  },
+  "dependencies": {
+    "d3": "^7.8.5",
+    "d3-force": "^3.0.0"
+  },
+  "devDependencies": {},
+  "keywords": ["chatgpt", "visualization", "map", "clustering"],
+  "author": "",
+  "license": "MIT"
+} 

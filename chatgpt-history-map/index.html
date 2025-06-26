@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatGPT History Map</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://d3js.org/d3-force.v3.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <div id="header">
+            <h1>ChatGPT History Map</h1>
+            <div id="controls">
+                <button id="zoom-in">Zoom In</button>
+                <button id="zoom-out">Zoom Out</button>
+                <button id="reset-view">Reset View</button>
+                <span id="zoom-level">Zoom: 100%</span>
+            </div>
+        </div>
+        <div id="visualization-container">
+            <svg id="map-svg"></svg>
+            <div id="tooltip" class="tooltip"></div>
+        </div>
+        <div id="info-panel">
+            <h3>Navigation</h3>
+            <p>• Scroll to zoom in/out</p>
+            <p>• Drag to pan around the map</p>
+            <p>• Click on clusters to explore deeper</p>
+            <p>• Hover over messages to see previews</p>
+        </div>
+    </div>
+    <script src="data-generator.js"></script>
+    <script src="visualization.js"></script>
+</body>
+</html> 
