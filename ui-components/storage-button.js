@@ -10,7 +10,7 @@ function createStorageUI() {
     left: 50%;
     transform: translate(-50%, -50%);
     width: 600px;
-    max-height: 700px;
+    height: 700px;
     background: white;
     border-radius: 12px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.12);
@@ -18,6 +18,9 @@ function createStorageUI() {
     display: none;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     border: 1px solid #e1e5e9;
+    overflow: hidden;
+    min-width: 650px;
+    min-height: 500px;
   `;
   
   storageUI.innerHTML = `
@@ -33,10 +36,67 @@ function createStorageUI() {
       <button class="storage-tab" data-tab="folders" style="flex:1; padding: 10px; border:none; background:none; font-weight:bold; cursor:pointer;">Folders</button>
       <button class="storage-tab" data-tab="settings" style="flex:1; padding: 10px; border:none; background:none; font-weight:bold; cursor:pointer;">Settings</button>
     </div>
-    <div id="memory-chat-tab-content" style="padding: 20px; max-height: 440px; overflow-y: auto;"></div>
+    <div id="memory-chat-tab-content" style="padding: 20px; height: calc(100% - 120px); overflow-y: auto;"></div>
+    <div id="memory-chat-resize-handle" style="position: absolute; bottom: -8px; right: -8px; width: 24px; height: 24px; cursor: se-resize; background: linear-gradient(135deg, transparent 50%, #007bff 50%); border-radius: 0 0 16px 0; box-shadow: 0 2px 8px rgba(0,123,255,0.3), 0 0 0 2px rgba(0,123,255,0.1); transition: all 0.2s ease; z-index: 10001;"></div>
   `;
   
   document.body.appendChild(storageUI);
+  
+  // Add resize functionality
+  const resizeHandle = storageUI.querySelector('#memory-chat-resize-handle');
+  let isResizing = false;
+  let startX, startY, startWidth, startHeight;
+  
+  resizeHandle.addEventListener('mousedown', (e) => {
+    isResizing = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    startWidth = storageUI.offsetWidth;
+    startHeight = storageUI.offsetHeight;
+    
+    // Add event listeners for mouse movement and release
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    // Prevent text selection during resize
+    e.preventDefault();
+  });
+  
+  function handleMouseMove(e) {
+    if (!isResizing) return;
+    
+    const deltaX = e.clientX - startX;
+    const deltaY = e.clientY - startY;
+    
+    const newWidth = Math.max(650, startWidth + deltaX);
+    const newHeight = Math.max(500, startHeight + deltaY);
+    
+    storageUI.style.width = newWidth + 'px';
+    storageUI.style.height = newHeight + 'px';
+    
+    // Update tab content height
+    const tabContent = storageUI.querySelector('#memory-chat-tab-content');
+    if (tabContent) {
+      tabContent.style.height = (newHeight - 120) + 'px'; // Account for header and tabs
+    }
+  }
+  
+  function handleMouseUp() {
+    isResizing = false;
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+  }
+  
+  // Add hover effect to resize handle
+  resizeHandle.addEventListener('mouseenter', () => {
+    resizeHandle.style.background = 'linear-gradient(135deg, transparent 50%, #007bff 50%)';
+  });
+  
+  resizeHandle.addEventListener('mouseleave', () => {
+    if (!isResizing) {
+      resizeHandle.style.background = 'linear-gradient(135deg, transparent 50%, #e1e5e9 50%)';
+    }
+  });
   
   // Tab switching logic
   const tabContent = storageUI.querySelector('#memory-chat-tab-content');
@@ -544,6 +604,27 @@ function createStorageUI() {
         display: block;
         max-height: none;
         overflow: visible;
+      }
+      /* Custom scrollbar for storage UI */
+      #memory-chat-tab-content::-webkit-scrollbar {
+        width: 12px;
+        background: #f4f6fa;
+        border-radius: 8px;
+      }
+      #memory-chat-tab-content::-webkit-scrollbar-thumb {
+        background: #e1e5e9;
+        border-radius: 8px;
+      }
+      #memory-chat-tab-content::-webkit-scrollbar-button:vertical:increment {
+        height: 18px !important;
+        margin-bottom: 18px !important; /* Move up the bottom arrow */
+      }
+      #memory-chat-tab-content::-webkit-scrollbar-button:vertical:decrement {
+        height: 18px !important;
+        margin-top: 2px !important;
+      }
+      #memory-chat-tab-content::-webkit-scrollbar-corner {
+        background: transparent;
       }
     `;
     document.head.appendChild(style);
