@@ -115,7 +115,7 @@ async function renderTab() {
 }
 
 // Render relevant tab content
-function renderRelevantTab(tabContent, logs, renderCards) {
+async function renderRelevantTab(tabContent, logs, renderCards) {
   const prompt = getPromptText();
   if (!prompt) {
     tabContent.innerHTML = '<div style="text-align:center;color:#888;">Start entering your prompt</div>';
@@ -126,14 +126,32 @@ function renderRelevantTab(tabContent, logs, renderCards) {
     return;
   }
   
-  const scored = logs.map(log => ({...log, score: cosineSimilarity(prompt, log.text, logs.map(l => l.text))}));
-  scored.sort((a, b) => b.score - a.score);
-  const top = scored.filter(l => l.score > 0);
-  
-  if (top.length === 0) {
-    tabContent.innerHTML = '<div style="text-align:center;color:#888;">No relevant messages found</div>';
-  } else {
-    renderCards(top);
+  try {
+    let scored;
+    
+    if (window.memoryChatIDB && window.memoryChatIDB.searchMessages) {
+      // Use semantic search for relevance
+      const results = await window.memoryChatIDB.searchMessages(prompt, 20);
+      scored = results.map(result => ({
+        ...result,
+        score: result.similarity || result.score || 0
+      }));
+    } else {
+      // Fallback to TF-IDF
+      scored = logs.map(log => ({...log, score: cosineSimilarity(prompt, log.text, logs.map(l => l.text))}));
+      scored.sort((a, b) => b.score - a.score);
+    }
+    
+    const top = scored.filter(l => l.score > 0);
+    
+    if (top.length === 0) {
+      tabContent.innerHTML = '<div style="text-align:center;color:#888;">No relevant messages found</div>';
+    } else {
+      renderCards(top);
+    }
+  } catch (error) {
+    console.error('Relevance search error:', error);
+    tabContent.innerHTML = '<div style="text-align:center;color:#ff6b6b;">Error finding relevant messages</div>';
   }
 }
 
@@ -160,34 +178,93 @@ function renderAllTab(tabContent, logs, renderCards) {
 // Render search tab content
 function renderSearchTab(tabContent, logs, renderCards) {
   tabContent.innerHTML = `
-    <input id="storage-search-input" type="text" placeholder="Type your search and press Enter..." style="width:100%;margin-bottom:12px;padding:8px;border-radius:6px;border:1px solid #e1e5e9;outline:none;" />
+    <div style="margin-bottom: 12px;">
+      <input id="storage-search-input" type="text" placeholder="Type your search and press Enter..." style="width:100%;padding:8px;border-radius:6px;border:1px solid #e1e5e9;outline:none;" />
+      <div style="margin-top: 8px; font-size: 12px; color: #666;">
+        <span id="search-type-indicator">Semantic search enabled</span>
+        <button id="toggle-search-type" style="margin-left: 8px; padding: 2px 6px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 3px; font-size: 11px; cursor: pointer;">Switch to TF-IDF</button>
+      </div>
+    </div>
     <div id="storage-search-results"></div>
   `;
   
   const input = tabContent.querySelector('#storage-search-input');
   const resultsDiv = tabContent.querySelector('#storage-search-results');
+  const searchTypeIndicator = tabContent.querySelector('#search-type-indicator');
+  const toggleSearchTypeBtn = tabContent.querySelector('#toggle-search-type');
+  
+  let useSemanticSearch = true;
+  
+  // Toggle between semantic and TF-IDF search
+  toggleSearchTypeBtn.onclick = () => {
+    useSemanticSearch = !useSemanticSearch;
+    searchTypeIndicator.textContent = useSemanticSearch ? 'Semantic search enabled' : 'TF-IDF search enabled';
+    toggleSearchTypeBtn.textContent = useSemanticSearch ? 'Switch to TF-IDF' : 'Switch to Semantic';
+    
+    // Re-run search if there's a current query
+    const currentQuery = input.value.trim();
+    if (currentQuery) {
+      performSearch(currentQuery);
+    }
+  };
+  
+  // Perform search using the selected method
+  async function performSearch(query) {
+    if (!query) {
+      resultsDiv.innerHTML = '';
+      return;
+    }
+    
+    try {
+      let results;
+      
+      if (useSemanticSearch && window.memoryChatIDB && window.memoryChatIDB.searchMessages) {
+        // Use semantic search
+        results = await window.memoryChatIDB.searchMessages(query, 20);
+        results = results.map(result => ({
+          ...result,
+          score: result.similarity || result.score || 0
+        }));
+      } else {
+        // Fallback to TF-IDF search
+        const scored = logs.map(log => ({...log, score: cosineSimilarity(query, log.text, logs.map(l => l.text))}));
+        scored.sort((a, b) => b.score - a.score);
+        results = scored.filter(l => l.score > 0).slice(0, 20);
+      }
+      
+      if (results.length === 0) {
+        resultsDiv.innerHTML = '<div style="text-align:center;color:#888;">No results found</div>';
+      } else {
+        // Reset to page 1 when searching
+        window.currentPage = 1;
+        renderCards(results);
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      resultsDiv.innerHTML = '<div style="text-align:center;color:#ff6b6b;">Search error occurred</div>';
+    }
+  }
   
   // Search only on Enter key press
   input.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
       const term = input.value.trim();
-      if (!term) {
-        resultsDiv.innerHTML = '';
-        return;
-      }
-      
-      const scored = logs.map(log => ({...log, score: cosineSimilarity(term, log.text, logs.map(l => l.text))}));
-      scored.sort((a, b) => b.score - a.score);
-      const top = scored.filter(l => l.score > 0);
-      
-      if (top.length === 0) {
-        resultsDiv.innerHTML = '<div style="text-align:center;color:#888;">No results found</div>';
-      } else {
-        // Reset to page 1 when searching
-        window.currentPage = 1;
-        renderCards(top);
-      }
+      performSearch(term);
     }
+  });
+  
+  // Also search on input change with debouncing
+  let searchTimeout;
+  input.addEventListener('input', (e) => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      const term = input.value.trim();
+      if (term.length >= 2) { // Only search if at least 2 characters
+        performSearch(term);
+      } else if (term.length === 0) {
+        resultsDiv.innerHTML = '';
+      }
+    }, 300); // 300ms debounce
   });
 }
 
@@ -252,6 +329,7 @@ function renderSettingsTab(tabContent) {
     tabContent.innerHTML = `
       <button id="clear-logs-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Clear All Logs</button>
       <button id="add-full-chat-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#2e4a3a' : '#b2f7ef'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Add Full Chat to Log</button>
+      <button id="update-embeddings-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#4a2e3a' : '#f7b2d6'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Update Embeddings for Existing Messages</button>
       <button id="theme-toggle-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#2e3a4a' : '#b2c7f7'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Switch to ${isDark ? 'Light' : 'Dark'} Mode</button>
       <div style="margin: 24px 0 0 0;">
         <div style="margin-bottom:8px;font-weight:bold;">Import ChatGPT conversations.json</div>
@@ -273,6 +351,33 @@ function renderSettingsTab(tabContent) {
     
     const addFullBtn = tabContent.querySelector('#add-full-chat-btn');
     addFullBtn.onclick = addFullChatToLog;
+
+    // Update embeddings button
+    const updateEmbeddingsBtn = tabContent.querySelector('#update-embeddings-btn');
+    updateEmbeddingsBtn.onclick = async () => {
+      if (!window.semanticSearch) {
+        if (window.showFeedback) window.showFeedback('Semantic search not available.', 'error');
+        return;
+      }
+      
+      updateEmbeddingsBtn.disabled = true;
+      updateEmbeddingsBtn.textContent = 'Updating...';
+      
+      try {
+        if (window.memoryChatIDB && window.memoryChatIDB.updateEmbeddingsForExistingMessages) {
+          const result = await window.memoryChatIDB.updateEmbeddingsForExistingMessages();
+          if (window.showFeedback) window.showFeedback('Embeddings updated successfully!', 'success');
+        } else {
+          if (window.showFeedback) window.showFeedback('IndexedDB not available.', 'error');
+        }
+      } catch (error) {
+        console.error('Error updating embeddings:', error);
+        if (window.showFeedback) window.showFeedback('Error updating embeddings: ' + error.message, 'error');
+      } finally {
+        updateEmbeddingsBtn.disabled = false;
+        updateEmbeddingsBtn.textContent = 'Update Embeddings for Existing Messages';
+      }
+    };
 
     // Theme toggle logic
     const themeBtn = tabContent.querySelector('#theme-toggle-btn');

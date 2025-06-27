@@ -1,15 +1,17 @@
 # Memory Chat Chrome Extension
 
-A Chrome extension that allows you to selectively log and manage ChatGPT conversations with advanced features like folder organization, similarity search, and message reuse.
+A Chrome extension that allows you to selectively log and manage ChatGPT conversations with advanced features like folder organization, semantic search, and message reuse.
 
 ## Features
 
 - **Selective Logging**: Add individual messages to your log with one click
 - **Smart Organization**: Create folders to organize related messages
-- **Similarity Search**: Find relevant messages based on your current prompt
+- **Semantic Search**: Advanced vector-based search for finding relevant messages
+- **TF-IDF Fallback**: Traditional keyword-based search as an alternative
 - **Message Reuse**: Add logged messages back to your prompt with formatting
 - **Bulk Operations**: Add entire conversations or folder contents to your prompt
 - **Modern UI**: Clean, responsive interface with tabs and search functionality
+- **Import Support**: Import ChatGPT conversations.json files with automatic embedding generation
 
 ## Architecture
 
@@ -26,6 +28,10 @@ The extension uses a modular architecture for better maintainability and separat
 #### Core UI Management
 - `ui-components/storage-ui.js`: Main UI container creation, storage button, and basic event handlers
 - `ui-components/storage-button.js`: Coordinator that initializes all storage modules
+
+#### Search & Intelligence
+- `ui-components/semantic-search.js`: Vector-based semantic search with lightweight embeddings
+- `ui-components/idb-utils.js`: IndexedDB utilities with embedding storage and search capabilities
 
 #### Tab System
 - `ui-components/storage-tabs.js`: Tab management, rendering, and tab-specific content (Relevant, Recent, All, Search, Folders, Settings)
@@ -45,6 +51,23 @@ The extension uses a modular architecture for better maintainability and separat
 ### Icons
 - `icons/icon16.png`, `icons/icon48.png`, `icons/icon128.png`: Extension icons
 
+## Semantic Search Features
+
+### Vector-Based Search
+- **Lightweight Embeddings**: Uses a custom embedding algorithm that generates 512-dimensional vectors
+- **Consistent Results**: Hash-based word vectors ensure consistent embeddings across sessions
+- **Performance**: Optimized for browser environments with minimal memory usage
+- **Similarity Scoring**: Cosine similarity provides accurate relevance scores
+
+### Search Modes
+- **Semantic Search**: Understands meaning and context, not just keywords
+- **TF-IDF Search**: Traditional keyword-based search as a fallback option
+- **Toggle Between Modes**: Switch between semantic and TF-IDF search in the search tab
+
+### Import & Embedding Generation
+- **Automatic Embeddings**: New messages automatically get embeddings generated
+- **Bulk Import**: Import conversations.json files with automatic embedding generation
+- **Update Existing**: Update embeddings for existing messages via settings
 
 ## How to Install & Test
 
@@ -62,6 +85,12 @@ The extension uses a modular architecture for better maintainability and separat
 - **Remove Message**: Click the red "Remove from Log" button to remove a message
 - **View Log**: Click the 📋 clipboard button in the ChatGPT input area
 
+### Search Features
+- **Search Tab**: Use semantic search to find relevant messages
+- **Toggle Search Type**: Switch between semantic and TF-IDF search modes
+- **Real-time Search**: Results update as you type (with debouncing)
+- **Relevance Scores**: See similarity scores for search results
+
 ### Folder Management
 - **Add to Folder**: Click the 📁 button next to any message to add it to a specific folder
 - **Create Folders**: Use the Folders tab to create new folders
@@ -73,10 +102,16 @@ The extension uses a modular architecture for better maintainability and separat
 - **Add to Prompt**: Click the plus (+) button on any message to add it as a bullet point in your prompt
 - **Bulk Operations**: Go to Settings tab to add the entire current chat to your log
 
+### Import & Settings
+- **Import Conversations**: Use the Settings tab to import ChatGPT conversations.json files
+- **Update Embeddings**: Update embeddings for existing messages via the Settings tab
+- **Clear All Logs**: Remove all stored messages and folders
+- **Theme Toggle**: Switch between light and dark modes
+
 ### Search & Organization
-- **Relevant Tab**: Shows messages similar to your current prompt
-- **Recent Tab**: Shows the 3 most recently added messages
+- **Relevant Tab**: Shows messages similar to your current prompt using semantic search
+- **Recent Tab**: Shows the most recently added messages
 - **All Tab**: Shows all logged messages
-- **Search Tab**: Search through your logged messages
+- **Search Tab**: Advanced search with semantic and TF-IDF options
 - **Folders Tab**: Manage your message folders
-- **Settings Tab**: Clear all logs or add full chat
+- **Settings Tab**: Import, clear logs, and manage embeddings

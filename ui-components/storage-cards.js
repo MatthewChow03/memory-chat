@@ -32,18 +32,39 @@ function renderLogCard(log, idx) {
   textDiv.textContent = log.text;
   textDiv.style.color = isDark ? '#f3f6fa' : '#1a1a1a';
 
-  // Footer (timestamp + show more/less)
+  // Footer (timestamp + show more/less + similarity score)
   const footerDiv = document.createElement('div');
   footerDiv.style.display = 'flex';
   footerDiv.style.alignItems = 'center';
   footerDiv.style.justifyContent = 'space-between';
   footerDiv.style.marginTop = '8px';
   
+  // Left side: timestamp and similarity score
+  const leftFooter = document.createElement('div');
+  leftFooter.style.display = 'flex';
+  leftFooter.style.alignItems = 'center';
+  leftFooter.style.gap = '8px';
+  
   // Timestamp
   const ts = document.createElement('div');
   ts.style.color = isDark ? '#aaa' : '#888';
   ts.style.fontSize = '11px';
   ts.textContent = new Date(log.timestamp).toLocaleString();
+  leftFooter.appendChild(ts);
+  
+  // Similarity score (if available)
+  if (log.similarity !== undefined || log.score !== undefined) {
+    const score = log.similarity !== undefined ? log.similarity : log.score;
+    const scoreDiv = document.createElement('div');
+    scoreDiv.style.color = isDark ? '#b2f7ef' : '#007bff';
+    scoreDiv.style.fontSize = '11px';
+    scoreDiv.style.fontWeight = 'bold';
+    scoreDiv.style.padding = '2px 6px';
+    scoreDiv.style.background = isDark ? '#2e4a3a' : '#e6f7e6';
+    scoreDiv.style.borderRadius = '4px';
+    scoreDiv.textContent = `Score: ${(score * 100).toFixed(1)}%`;
+    leftFooter.appendChild(scoreDiv);
+  }
   
   // Show more/less button
   const showBtn = document.createElement('button');
@@ -71,7 +92,7 @@ function renderLogCard(log, idx) {
     }
   };
   
-  footerDiv.appendChild(ts);
+  footerDiv.appendChild(leftFooter);
   footerDiv.appendChild(showBtn);
 
   // Plus button
