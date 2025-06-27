@@ -199,7 +199,7 @@ function setupFolderPopupEventHandlers(popup, messageElement, folders) {
   popup.querySelectorAll('.folder-option').forEach(option => {
     option.onclick = () => {
       const folderName = option.dataset.folder;
-      const messageText = getMessageText(messageElement);
+      const messageText = window.MemoryChatUtils.getMessageText(messageElement);
       addMessageToFolder(folderName, messageText, messageElement);
       popup.remove();
     };

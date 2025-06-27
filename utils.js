@@ -1,11 +1,3 @@
-// Helper to get only the message text, excluding the log button
-function getMessageText(msg) {
-  const clone = msg.cloneNode(true);
-  const btn = clone.querySelector('.memory-chat-log-btn');
-  if (btn) btn.remove();
-  return clone.innerText.trim();
-}
-
 // Simple Porter-like stemmer for English
 function stem(word) {
   return word.replace(/(ing|ed|ly|es|s|ment)$/i, '');

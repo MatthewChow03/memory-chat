@@ -134,7 +134,7 @@ async function showFolderSelector(messageElement) {
   popup.querySelectorAll('.folder-option').forEach(option => {
     option.onclick = async () => {
       const folderName = option.dataset.folder;
-      const messageText = getMessageText(messageElement);
+      const messageText = window.MemoryChatUtils.getMessageText(messageElement);
       if (window.memoryChatIDB && window.memoryChatIDB.addMessageToFolder) {
         await window.memoryChatIDB.addMessageToFolder(folderName, { text: messageText, timestamp: Date.now() });
       }
@@ -203,15 +203,3 @@ function showFolderFeedback(message, type) {
     setTimeout(() => feedback.remove(), 300);
   }, 2000);
 }
-
-// Helper function to get message text (reuse from existing code)
-function getMessageText(messageElement) {
-  const textElements = messageElement.querySelectorAll('[data-message-author-role] + div, .markdown');
-  let text = '';
-  textElements.forEach(el => {
-    if (el.textContent && el.textContent.trim()) {
-      text += el.textContent.trim() + '\n';
-    }
-  });
-  return text.trim();
-} 
