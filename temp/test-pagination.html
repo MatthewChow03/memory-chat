@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Pagination</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .test-button {
+            background: linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%);
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            color: #222;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 14px;
+        }
+        .test-button:hover {
+            background: #a0eec0;
+        }
+        .test-output {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .pagination-demo {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+        }
+        .pagination-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 20px;
+            padding: 10px;
+            border-top: 1px solid #e1e5e9;
+        }
+        .pagination-btn {
+            padding: 8px 12px;
+            background: #f7d6b2;
+            border: none;
+            border-radius: 6px;
+            color: #222;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .pagination-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Pagination Test</h1>
+        <p>This page tests the pagination functionality for the storage tabs.</p>
+        
+        <div>
+            <button class="test-button" onclick="testPagination()">Test Pagination Logic</button>
+            <button class="test-button" onclick="testSorting()">Test Sorting</button>
+            <button class="test-button" onclick="clearOutput()">Clear Output</button>
+        </div>
+        
+        <div id="test-output" class="test-output"></div>
+        
+        <div class="pagination-demo">
+            <h3>Pagination Demo</h3>
+            <div id="demo-content"></div>
+            <div id="demo-pagination" class="pagination-controls"></div>
+        </div>
+    </div>
+
+    <script>
+        // Mock data for testing
+        const mockMessages = [
+            { text: "Message 1", timestamp: 1704067200000 },
+            { text: "Message 2", timestamp: 1704153600000 },
+            { text: "Message 3", timestamp: 1704240000000 },
+            { text: "Message 4", timestamp: 1704326400000 },
+            { text: "Message 5", timestamp: 1704412800000 },
+            { text: "Message 6", timestamp: 1704499200000 },
+            { text: "Message 7", timestamp: 1704585600000 },
+            { text: "Message 8", timestamp: 1704672000000 },
+            { text: "Message 9", timestamp: 1704758400000 },
+            { text: "Message 10", timestamp: 1704844800000 },
+            { text: "Message 11", timestamp: 1704931200000 },
+            { text: "Message 12", timestamp: 1705017600000 },
+            { text: "Message 13", timestamp: 1705104000000 },
+            { text: "Message 14", timestamp: 1705190400000 },
+            { text: "Message 15", timestamp: 1705276800000 }
+        ];
+
+        let currentPage = 1;
+        const itemsPerPage = 5;
+
+        function log(message) {
+            const output = document.getElementById('test-output');
+            output.textContent += message + '\n';
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clearOutput() {
+            document.getElementById('test-output').textContent = '';
+        }
+
+        function testPagination() {
+            log('=== Testing Pagination Logic ===');
+            
+            const totalPages = Math.ceil(mockMessages.length / itemsPerPage);
+            log(`Total messages: ${mockMessages.length}`);
+            log(`Items per page: ${itemsPerPage}`);
+            log(`Total pages: ${totalPages}`);
+            
+            for (let page = 1; page <= totalPages; page++) {
+                const startIndex = (page - 1) * itemsPerPage;
+                const endIndex = startIndex + itemsPerPage;
+                const pageMessages = mockMessages.slice(startIndex, endIndex);
+                
+                log(`\nPage ${page}:`);
+                pageMessages.forEach((msg, idx) => {
+                    const actualIndex = startIndex + idx;
+                    log(`  ${actualIndex + 1}. ${msg.text} (${new Date(msg.timestamp).toLocaleDateString()})`);
+                });
+            }
+            
+            log('\n=== Pagination Test Complete ===\n');
+        }
+
+        function testSorting() {
+            log('=== Testing Sorting ===');
+            
+            // Test sorting by timestamp (newest first)
+            const sortedMessages = mockMessages.sort((a, b) => b.timestamp - a.timestamp);
+            
+            log('Messages sorted by timestamp (newest first):');
+            sortedMessages.forEach((msg, idx) => {
+                log(`${idx + 1}. ${msg.text} (${new Date(msg.timestamp).toLocaleString()})`);
+            });
+            
+            log('\n=== Sorting Test Complete ===\n');
+        }
+
+        function renderDemoPage(page) {
+            const totalPages = Math.ceil(mockMessages.length / itemsPerPage);
+            const startIndex = (page - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const pageMessages = mockMessages.slice(startIndex, endIndex);
+            
+            const contentDiv = document.getElementById('demo-content');
+            contentDiv.innerHTML = `
+                <h4>Page ${page} of ${totalPages}</h4>
+                ${pageMessages.map((msg, idx) => `
+                    <div style="padding: 10px; margin: 5px 0; background: white; border: 1px solid #e1e5e9; border-radius: 4px;">
+                        ${startIndex + idx + 1}. ${msg.text} (${new Date(msg.timestamp).toLocaleDateString()})
+                    </div>
+                `).join('')}
+            `;
+            
+            const paginationDiv = document.getElementById('demo-pagination');
+            paginationDiv.innerHTML = `
+                <button class="pagination-btn" onclick="changePage(${page - 1})" ${page === 1 ? 'disabled' : ''}>← Previous</button>
+                <span style="margin: 0 10px;">Page ${page} of ${totalPages} (${mockMessages.length} total)</span>
+                <button class="pagination-btn" onclick="changePage(${page + 1})" ${page === totalPages ? 'disabled' : ''}>Next →</button>
+            `;
+        }
+
+        function changePage(page) {
+            if (page >= 1 && page <= Math.ceil(mockMessages.length / itemsPerPage)) {
+                currentPage = page;
+                renderDemoPage(currentPage);
+            }
+        }
+
+        // Initialize demo
+        renderDemoPage(currentPage);
+    </script>
+</body>
+</html> 

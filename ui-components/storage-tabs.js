@@ -4,12 +4,17 @@
 let activeTab = 'relevant';
 window.activeTab = activeTab;
 
-// Set active tab and render content
+// Set active tab and re-render
 function setActiveTab(tab) {
   activeTab = tab;
-  window.activeTab = activeTab;
+  
+  // Reset pagination when switching tabs
+  window.currentPage = 1;
+  
+  // Update tab button styles
   const storageUI = document.getElementById('memory-chat-storage');
   if (!storageUI) return;
+  
   const isDark = storageUI.classList.contains('memory-chat-dark');
   const tabs = Array.from(storageUI.querySelectorAll('.storage-tab'));
   tabs.forEach(t => {
@@ -21,6 +26,7 @@ function setActiveTab(tab) {
       t.style.color = isDark ? '#f3f6fa' : '#222';
     }
   });
+  
   renderTab();
 }
 
@@ -37,20 +43,68 @@ async function renderTab() {
     logs = await window.memoryChatIDB.getAllMessages();
   }
   
-  // Helper to clear and append cards
-  function renderCards(cards) {
+  // Helper to clear and append cards with pagination
+  function renderCardsWithPagination(cards, itemsPerPage = 10) {
+    const totalPages = Math.ceil(cards.length / itemsPerPage);
+    const currentPage = window.currentPage || 1;
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const currentCards = cards.slice(startIndex, endIndex);
+    
     tabContent.innerHTML = '';
-    cards.forEach((log, idx) => tabContent.appendChild(renderLogCard(log, idx)));
+    currentCards.forEach((log, idx) => tabContent.appendChild(renderLogCard(log, idx)));
+    
+    // Add pagination controls if needed
+    if (totalPages > 1) {
+      const paginationDiv = document.createElement('div');
+      paginationDiv.style.cssText = `
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+        margin-top: 20px;
+        padding: 10px;
+        border-top: 1px solid #e1e5e9;
+      `;
+      
+      const isDark = storageUI.classList.contains('memory-chat-dark');
+      
+      paginationDiv.innerHTML = `
+        <button id="prev-page-btn" style="padding:8px 12px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;${currentPage === 1 ? 'opacity:0.5;cursor:not-allowed;' : ''}">← Previous</button>
+        <span style="color:${isDark ? '#f3f6fa' : '#1a1a1a'};font-size:14px;">Page ${currentPage} of ${totalPages} (${cards.length} total)</span>
+        <button id="next-page-btn" style="padding:8px 12px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;${currentPage === totalPages ? 'opacity:0.5;cursor:not-allowed;' : ''}">Next →</button>
+      `;
+      
+      tabContent.appendChild(paginationDiv);
+      
+      // Setup pagination event handlers
+      const prevBtn = paginationDiv.querySelector('#prev-page-btn');
+      const nextBtn = paginationDiv.querySelector('#next-page-btn');
+      
+      if (prevBtn && currentPage > 1) {
+        prevBtn.onclick = () => {
+          window.currentPage = currentPage - 1;
+          renderTab();
+        };
+      }
+      
+      if (nextBtn && currentPage < totalPages) {
+        nextBtn.onclick = () => {
+          window.currentPage = currentPage + 1;
+          renderTab();
+        };
+      }
+    }
   }
   
   if (activeTab === 'relevant') {
-    renderRelevantTab(tabContent, logs, renderCards);
+    renderRelevantTab(tabContent, logs, renderCardsWithPagination);
   } else if (activeTab === 'recent') {
-    renderRecentTab(tabContent, logs, renderCards);
+    renderRecentTab(tabContent, logs, renderCardsWithPagination);
   } else if (activeTab === 'all') {
-    renderAllTab(tabContent, logs, renderCards);
+    renderAllTab(tabContent, logs, renderCardsWithPagination);
   } else if (activeTab === 'search') {
-    renderSearchTab(tabContent, logs);
+    renderSearchTab(tabContent, logs, renderCardsWithPagination);
   } else if (activeTab === 'folders') {
     renderFoldersTab(tabContent);
   } else if (activeTab === 'settings') {
@@ -74,7 +128,7 @@ function renderRelevantTab(tabContent, logs, renderCards) {
   
   const scored = logs.map(log => ({...log, score: cosineSimilarity(prompt, log.text, logs.map(l => l.text))}));
   scored.sort((a, b) => b.score - a.score);
-  const top = scored.slice(0, 3).filter(l => l.score > 0);
+  const top = scored.filter(l => l.score > 0);
   
   if (top.length === 0) {
     tabContent.innerHTML = '<div style="text-align:center;color:#888;">No relevant messages found</div>';
@@ -85,49 +139,54 @@ function renderRelevantTab(tabContent, logs, renderCards) {
 
 // Render recent tab content
 function renderRecentTab(tabContent, logs, renderCards) {
-  const top = logs.slice(-3).reverse();
-  if (top.length === 0) {
+  const sortedLogs = logs.sort((a, b) => b.timestamp - a.timestamp);
+  if (sortedLogs.length === 0) {
     tabContent.innerHTML = '<div style="text-align:center;color:#888;">No messages stored yet</div>';
   } else {
-    renderCards(top);
+    renderCards(sortedLogs);
   }
 }
 
 // Render all tab content
 function renderAllTab(tabContent, logs, renderCards) {
-  if (logs.length === 0) {
+  const sortedLogs = logs.sort((a, b) => b.timestamp - a.timestamp);
+  if (sortedLogs.length === 0) {
     tabContent.innerHTML = '<div style="text-align:center;color:#888;">No messages stored yet</div>';
   } else {
-    renderCards(logs);
+    renderCards(sortedLogs);
   }
 }
 
 // Render search tab content
-function renderSearchTab(tabContent, logs) {
+function renderSearchTab(tabContent, logs, renderCards) {
   tabContent.innerHTML = `
-    <input id="storage-search-input" type="text" placeholder="Search..." style="width:100%;margin-bottom:12px;padding:8px;border-radius:6px;border:1px solid #e1e5e9;outline:none;" />
+    <input id="storage-search-input" type="text" placeholder="Type your search and press Enter..." style="width:100%;margin-bottom:12px;padding:8px;border-radius:6px;border:1px solid #e1e5e9;outline:none;" />
     <div id="storage-search-results"></div>
   `;
   
   const input = tabContent.querySelector('#storage-search-input');
   const resultsDiv = tabContent.querySelector('#storage-search-results');
   
-  input.addEventListener('input', () => {
-    const term = input.value.trim();
-    if (!term) {
-      resultsDiv.innerHTML = '';
-      return;
-    }
-    
-    const scored = logs.map(log => ({...log, score: cosineSimilarity(term, log.text, logs.map(l => l.text))}));
-    scored.sort((a, b) => b.score - a.score);
-    const top = scored.slice(0, 3).filter(l => l.score > 0);
-    
-    if (top.length === 0) {
-      resultsDiv.innerHTML = '<div style="text-align:center;color:#888;">No results found</div>';
-    } else {
-      resultsDiv.innerHTML = '';
-      top.forEach((log, idx) => resultsDiv.appendChild(renderLogCard(log, idx)));
+  // Search only on Enter key press
+  input.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      const term = input.value.trim();
+      if (!term) {
+        resultsDiv.innerHTML = '';
+        return;
+      }
+      
+      const scored = logs.map(log => ({...log, score: cosineSimilarity(term, log.text, logs.map(l => l.text))}));
+      scored.sort((a, b) => b.score - a.score);
+      const top = scored.filter(l => l.score > 0);
+      
+      if (top.length === 0) {
+        resultsDiv.innerHTML = '<div style="text-align:center;color:#888;">No results found</div>';
+      } else {
+        // Reset to page 1 when searching
+        window.currentPage = 1;
+        renderCards(top);
+      }
     }
   });
 }
@@ -286,6 +345,7 @@ function renderSettingsTab(tabContent) {
         statusSpan.textContent = 'Invalid JSON file.';
         return;
       }
+      
       // OpenAI export: conversations.json is an array of conversations
       // Each conversation has a mapping of messages
       let messages = [];
