@@ -71,6 +71,7 @@ Messages are organized into chats (conversation sessions):
 ### Prerequisites
 - Modern web browser (Chrome, Firefox, Safari, Edge)
 - Local web server (for development)
+- OpenAI API key (for semantic clustering)
 
 ### Installation
 
@@ -79,16 +80,44 @@ Messages are organized into chats (conversation sessions):
    cd chatgpt-history-map
    ```
 
-2. **Start the local server**
+2. **Set up your OpenAI API key** (choose one method):
+
+   **Method A: Environment Variable (Recommended)**
    ```bash
-   # Using Python (recommended)
+   # On Windows
+   set OPENAI_API_KEY=your-actual-api-key-here
+   
+   # On macOS/Linux
+   export OPENAI_API_KEY=your-actual-api-key-here
+   ```
+
+   **Method B: Configuration File**
+   Edit `config.js` and replace `'your-api-key-here'` with your actual API key:
+   ```javascript
+   window.config = {
+       OPENAI_API_KEY: 'sk-your-actual-api-key-here'
+   };
+   ```
+
+   **Method C: Browser Console (Development)**
+   Open browser console and run:
+   ```javascript
+   localStorage.setItem('OPENAI_API_KEY', 'your-actual-api-key-here');
+   ```
+
+3. **Start the local server**
+   ```bash
+   # Using the custom Python server (recommended)
+   python server.py
+   
+   # Or using standard Python server
    python -m http.server 8000
    
    # Or using Node.js
    npx http-server -p 8000
    ```
 
-3. **Open in browser**
+4. **Open in browser**
    ```
    http://localhost:8000
    ```
@@ -102,6 +131,9 @@ Messages are organized into chats (conversation sessions):
 - **Hover**: See message and cluster details
 
 #### Controls
+- **Enable Semantic Clustering**: Click the green button to activate AI-powered clustering
+- **Similarity Threshold**: Adjust clustering sensitivity (0.5-0.95)
+- **Recluster**: Re-run clustering with new settings
 - **Zoom In/Out**: Use the buttons or mouse wheel
 - **Reset View**: Return to the overview
 - **Zoom Level**: See current zoom percentage
@@ -111,6 +143,12 @@ Messages are organized into chats (conversation sessions):
 1. **Overview Level** (Zoom < 50%): See topic clusters
 2. **Category Level** (Zoom 50-100%): See category subclusters
 3. **Message Level** (Zoom > 200%): See individual messages
+
+#### Clustering Modes
+
+- **Categorical Clustering**: Default mode using predefined topics/categories
+- **Semantic Clustering**: AI-powered clustering based on message content similarity
+- **Hybrid Clustering**: Combines both approaches for optimal results
 
 ## Synthetic Data
 

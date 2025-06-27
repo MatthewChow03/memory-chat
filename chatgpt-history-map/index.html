@@ -13,15 +13,34 @@
         <div id="header">
             <h1>ChatGPT History Map</h1>
             <div id="controls">
+                <div id="api-section">
+                    <button id="enable-semantic">Enable Semantic Clustering</button>
+                    <span id="clustering-status">Categorical clustering active</span>
+                </div>
+                <div id="clustering-controls" style="display: none;">
+                    <label for="similarity-threshold">Similarity Threshold:</label>
+                    <input type="range" id="similarity-threshold" min="0.1" max="0.95" step="0.05" value="0.45" />
+                    <span id="threshold-value">0.75</span>
+                    <button id="recluster">Recluster</button>
+                </div>
                 <button id="zoom-in">Zoom In</button>
                 <button id="zoom-out">Zoom Out</button>
                 <button id="reset-view">Reset View</button>
                 <span id="zoom-level">Zoom: 100%</span>
+                <div id="zoom-indicators">
+                    <span>1.1</span>
+                </div>
             </div>
         </div>
         <div id="visualization-container">
             <svg id="map-svg"></svg>
             <div id="tooltip" class="tooltip"></div>
+            <div id="loading-overlay" class="loading-overlay" style="display: none;">
+                <div class="loading-content">
+                    <div class="spinner"></div>
+                    <p id="loading-text">Processing embeddings...</p>
+                </div>
+            </div>
         </div>
         <div id="info-panel">
             <h3>Navigation</h3>
@@ -29,9 +48,26 @@
             <p>• Drag to pan around the map</p>
             <p>• Click on clusters to explore deeper</p>
             <p>• Hover over messages to see previews</p>
+            <div id="clustering-info">
+                <h4>Clustering Info</h4>
+                <p id="cluster-stats">Loading...</p>
+            </div>
+        </div>
+        
+        <!-- Cluster Output Section -->
+        <div id="cluster-output-section">
+            <div id="cluster-output-header">
+                <h3>📋 Cluster Analysis Results</h3>
+                <button id="toggle-cluster-output">Show/Hide Details</button>
+            </div>
+            <div id="cluster-output-content" style="display: none;">
+                <div id="cluster-tree"></div>
+            </div>
         </div>
     </div>
+    <script src="config.js"></script>
     <script src="data-generator.js"></script>
+    <script src="openai-clustering.js"></script>
     <script src="visualization.js"></script>
 </body>
 </html> 
