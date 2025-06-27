@@ -1,6 +1,9 @@
 // Storage Utility Functions
 // Contains helper functions for text processing, similarity calculations, and storage operations
 
+// Create a namespace for Memory Chat utilities
+window.MemoryChatUtils = window.MemoryChatUtils || {};
+
 // Get current prompt text from ChatGPT interface
 function getPromptText() {
   const prompt = document.querySelector('.ProseMirror');
@@ -9,7 +12,7 @@ function getPromptText() {
 
 // Get message text from a message element
 function getMessageText(messageElement) {
-  const textElements = messageElement.querySelectorAll('[data-message-author-role] + div, .markdown');
+  const textElements = messageElement.querySelectorAll('[data-message-author-role] + div, .markdown, .whitespace-pre-wrap');
   let text = '';
   textElements.forEach(el => {
     if (el.textContent && el.textContent.trim()) {
@@ -182,7 +185,18 @@ async function addFullChatToLog() {
   }
 }
 
-// Export functions for use in other modules
+// Export functions to the MemoryChatUtils namespace
+window.MemoryChatUtils.getPromptText = getPromptText;
+window.MemoryChatUtils.getMessageText = getMessageText;
+window.MemoryChatUtils.cosineSimilarity = cosineSimilarity;
+window.MemoryChatUtils.addMessageToStorage = addMessageToStorage;
+window.MemoryChatUtils.removeMessageFromStorage = removeMessageFromStorage;
+window.MemoryChatUtils.addMessageToFolder = addMessageToFolder;
+window.MemoryChatUtils.showFeedback = showFeedback;
+window.MemoryChatUtils.clearAllLogs = clearAllLogs;
+window.MemoryChatUtils.addFullChatToLog = addFullChatToLog;
+
+// Also export to global scope for backward compatibility (but use namespace as primary)
 window.getPromptText = getPromptText;
 window.getMessageText = getMessageText;
 window.cosineSimilarity = cosineSimilarity;

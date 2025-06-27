@@ -35,7 +35,7 @@ function addLogButtons() {
       };
 
       // Check if this message is already logged
-      const text = getMessageText(msg);
+      const text = window.MemoryChatUtils.getMessageText(msg);
       if (window.memoryChatIDB && window.memoryChatIDB.messageExists) {
         window.memoryChatIDB.messageExists(text).then(found => {
           if (found) {
@@ -48,7 +48,7 @@ function addLogButtons() {
 
       btn.onclick = async (e) => {
         e.stopPropagation();
-        const text = getMessageText(msg);
+        const text = window.MemoryChatUtils.getMessageText(msg);
         if (!window.memoryChatIDB) return;
         const found = await window.memoryChatIDB.messageExists(text);
         if (!found) {
