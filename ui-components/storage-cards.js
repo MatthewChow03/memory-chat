@@ -37,6 +37,18 @@ function renderLogCard(log, idx) {
   textDiv.style.whiteSpace = 'pre-line';
   textDiv.textContent = insightsText;
   textDiv.style.color = isDark ? '#f3f6fa' : '#1a1a1a';
+  
+  // Apply initial clamping
+  const messageLines = insightsText.split('\n').length;
+  const shouldClamp = messageLines > 4 || insightsText.length > 200;
+  if (shouldClamp) {
+    textDiv.style.display = '-webkit-box';
+    textDiv.style.webkitLineClamp = '4';
+    textDiv.style.webkitBoxOrient = 'vertical';
+    textDiv.style.overflow = 'hidden';
+    textDiv.style.textOverflow = 'ellipsis';
+    textDiv.style.maxHeight = '5.6em';
+  }
 
   // Footer (timestamp + show more/less + similarity score)
   const footerDiv = document.createElement('div');
@@ -80,9 +92,17 @@ function renderLogCard(log, idx) {
   showBtn.style.color = isDark ? '#7ab7ff' : '#007bff';
   showBtn.style.cursor = 'pointer';
   showBtn.style.fontSize = '13px';
-  showBtn.style.padding = '0';
-  showBtn.style.display = (insightsText.split('\n').length > 4) ? 'block' : 'none';
+  showBtn.style.padding = '4px 8px';
+  showBtn.style.borderRadius = '4px';
+  showBtn.style.fontWeight = 'bold';
+  
+  // Better logic for determining if show button should be visible
+  const shouldShowButton = messageLines > 4 || insightsText.length > 200; // Show if more than 4 lines OR more than 200 characters
+  showBtn.style.display = shouldShowButton ? 'inline-block' : 'none';
   showBtn.className = 'storage-show-btn';
+  
+  // Debug logging
+  console.log('Message lines:', messageLines, 'Text length:', insightsText.length, 'Should show button:', shouldShowButton);
   
   let expanded = false;
   showBtn.onclick = () => {
@@ -90,10 +110,20 @@ function renderLogCard(log, idx) {
     if (expanded) {
       textDiv.classList.remove('clamped');
       textDiv.classList.add('expanded');
+      textDiv.style.display = 'block';
+      textDiv.style.webkitLineClamp = 'unset';
+      textDiv.style.overflow = 'visible';
+      textDiv.style.textOverflow = 'unset';
+      textDiv.style.maxHeight = 'none';
       showBtn.textContent = 'Show less';
     } else {
       textDiv.classList.remove('expanded');
       textDiv.classList.add('clamped');
+      textDiv.style.display = '-webkit-box';
+      textDiv.style.webkitLineClamp = '4';
+      textDiv.style.overflow = 'hidden';
+      textDiv.style.textOverflow = 'ellipsis';
+      textDiv.style.maxHeight = '5.6em';
       showBtn.textContent = 'Show more';
     }
   };
@@ -183,15 +213,15 @@ function attachStorageListeners() {
         newText = (current ? current + '\n\n' : '') + preface + '\n- ' + text;
       }
       
-      // Set the prompt text using a more reliable method
+      // Set the prompt text using a more reliable method that preserves newlines
       prompt.focus();
       
       // Clear existing content
       prompt.innerHTML = '';
       
-      // Insert new content
-      const textNode = document.createTextNode(newText);
-      prompt.appendChild(textNode);
+      // Convert newlines to <br> tags and insert as HTML to preserve formatting
+      const formattedText = newText.replace(/\n/g, '<br>');
+      prompt.innerHTML = formattedText;
       
       // Move cursor to end
       const range = document.createRange();

@@ -949,9 +949,24 @@ function setupFolderEventHandlers(tabContent, folders) {
           } else {
             newText = (current ? current + '\n' : '') + preface + '\n' + folderMessages.map(msg => `- ${typeof msg === 'string' ? msg : msg.text}`).join('\n');
           }
+          
+          // Set the prompt text using a more reliable method that preserves newlines
           prompt.focus();
-          document.execCommand('selectAll', false, null);
-          document.execCommand('insertText', false, newText);
+          
+          // Clear existing content
+          prompt.innerHTML = '';
+          
+          // Convert newlines to <br> tags and insert as HTML to preserve formatting
+          const formattedText = newText.replace(/\n/g, '<br>');
+          prompt.innerHTML = formattedText;
+          
+          // Move cursor to end
+          const range = document.createRange();
+          const selection = window.getSelection();
+          range.selectNodeContents(prompt);
+          range.collapse(false);
+          selection.removeAllRanges();
+          selection.addRange(range);
         }
       }
     };
