@@ -206,11 +206,11 @@ function attachStorageListeners() {
       
       let newText = '';
       if (current.includes(preface)) {
-        // If preface already exists, add as new bullet point
-        newText = current + `\n- ${text}`;
+        // If preface already exists, add as new memory with separator
+        newText = current + `\n---\n${text}`;
       } else {
-        // Add preface and bullet
-        newText = (current ? current + '\n\n' : '') + preface + '\n- ' + text;
+        // Add preface and first memory
+        newText = (current ? current + '\n\n' : '') + preface + '\n\n---\n' + text;
       }
       
       // Set the prompt text using a more reliable method that preserves newlines

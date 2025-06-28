@@ -161,13 +161,11 @@ async function showFolderSelector(messageElement) {
 async function addMessageToFolder(folderName, messageText, messageElement) {
   if (window.memoryChatIDB && window.memoryChatIDB.addMessageToFolder) {
     await window.memoryChatIDB.addMessageToFolder(folderName, { text: messageText, timestamp: Date.now() });
-    // Update the log button state to show "Remove from Log"
+    // Remove the log button after adding to folder and log
     if (messageElement) {
       const logBtn = messageElement.querySelector('.memory-chat-log-btn');
       if (logBtn) {
-        logBtn.textContent = 'Remove from Log';
-        logBtn.style.background = '#f7b2b2';
-        logBtn.style.color = '#222';
+        logBtn.remove();
       }
     }
     showFolderFeedback('Message added to folder and log!', 'success');

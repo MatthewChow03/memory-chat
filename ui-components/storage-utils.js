@@ -188,10 +188,9 @@ async function addFullChatToLog() {
       const messageObjs = texts.map(text => ({ text, timestamp: now }));
       await window.memoryChatIDB.addMessages(messageObjs);
       
+      // Remove all log buttons after adding full chat to log
       document.querySelectorAll('.memory-chat-log-btn').forEach(b => {
-        b.textContent = 'Remove from Log';
-        b.style.background = '#f7b2b2';
-        b.style.color = '#222';
+        b.remove();
       });
       
       if (window.renderStorageTab) {
@@ -211,7 +210,6 @@ window.MemoryChatUtils.getPromptText = getPromptText;
 window.MemoryChatUtils.getMessageText = getMessageText;
 window.MemoryChatUtils.cosineSimilarity = cosineSimilarity;
 window.MemoryChatUtils.addMessageToStorage = addMessageToStorage;
-window.MemoryChatUtils.removeMessageFromStorage = removeMessageFromStorage;
 window.MemoryChatUtils.addMessageToFolder = addMessageToFolder;
 window.MemoryChatUtils.showFeedback = showFeedback;
 window.MemoryChatUtils.clearAllLogs = clearAllLogs;
@@ -222,7 +220,6 @@ window.getPromptText = getPromptText;
 window.getMessageText = getMessageText;
 window.cosineSimilarity = cosineSimilarity;
 window.addMessageToStorage = addMessageToStorage;
-window.removeMessageFromStorage = removeMessageFromStorage;
 window.addMessageToFolder = addMessageToFolder;
 window.showFeedback = showFeedback;
 window.clearAllLogs = clearAllLogs;

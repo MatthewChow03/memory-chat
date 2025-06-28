@@ -132,13 +132,15 @@ build/Release
 .Spotlight-V100
 .Trashes
 ehthumbs.db
-Thumbs.db
+!lib/
 
 # Build artifacts
 build/
 dist/
 *.min.js
 *.min.css
+!lib/
+!lib/*.min.js
 
 # Test files
 test-results/

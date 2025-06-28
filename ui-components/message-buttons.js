@@ -1,6 +1,11 @@
 function addLogButtons() {
   const messages = document.querySelectorAll('[data-message-author-role]');
   messages.forEach(msg => {
+    // Skip messages that have already been processed
+    if (msg.hasAttribute('data-memory-chat-processed')) {
+      return;
+    }
+    
     if (!msg.querySelector('.memory-chat-log-btn')) {
       // Create a modern pastel green button
       const btn = document.createElement('button');
@@ -21,32 +26,39 @@ function addLogButtons() {
       btn.onmouseenter = () => {
         if (btn.textContent === 'Add to Log') {
           btn.style.background = '#a0eec0';
-        } else {
-          btn.style.background = '#f7a0a0';
         }
       };
       
       btn.onmouseleave = () => {
         if (btn.textContent === 'Add to Log') {
           btn.style.background = 'linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%)';
-        } else {
-          btn.style.background = '#f7b2b2';
         }
       };
 
       btn.onclick = async (e) => {
         e.stopPropagation();
         
+        // Hide button immediately for better UX
+        btn.style.display = 'none';
+        
         if (!window.insightExtractionService || !window.insightExtractionService.isReady()) {
           window.MemoryChatUtils.showFeedback('Insight extraction service not available. Please check your OpenAI API key in settings.', 'error');
+          // Show button again on error
+          btn.style.display = 'inline-block';
           return;
         }
         
-        if (!window.memoryChatIDB) return;
+        if (!window.memoryChatIDB) {
+          // Show button again on error
+          btn.style.display = 'inline-block';
+          return;
+        }
         
         const text = window.MemoryChatUtils.getMessageText(msg);
         if (!text || text.trim().length === 0) {
           window.MemoryChatUtils.showFeedback('No message text found', 'error');
+          // Show button again on error
+          btn.style.display = 'inline-block';
           return;
         }
         
@@ -58,36 +70,21 @@ function addLogButtons() {
           if (!exists) {
             // Add to log
             await window.memoryChatIDB.addMessages([{ text, timestamp: Date.now() }]);
-            btn.textContent = 'Remove from Log';
-            btn.style.background = '#f7b2b2';
-            btn.style.color = '#222';
+            // Mark message as processed and remove button permanently
+            msg.setAttribute('data-memory-chat-processed', 'true');
+            btn.remove();
             window.MemoryChatUtils.showFeedback('Message insights added to log!', 'success');
           } else {
-            // Remove from log
-            if (!window.memoryChatIDB.removeMessage) {
-              window.memoryChatIDB.removeMessage = function(insights) {
-                return window.memoryChatIDB.openDB().then(db => {
-                  return new Promise((resolve, reject) => {
-                    const tx = db.transaction('chatLogs', 'readwrite');
-                    const store = tx.objectStore('chatLogs');
-                    // Convert insights array to key string
-                    const insightsKey = Array.isArray(insights) ? insights.join('|') : insights;
-                    const req = store.delete(insightsKey);
-                    req.onsuccess = () => resolve();
-                    req.onerror = () => reject(req.error);
-                  });
-                });
-              };
-            }
-            await window.memoryChatIDB.removeMessage(insights);
-            btn.textContent = 'Add to Log';
-            btn.style.background = 'linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%)';
-            btn.style.color = '#222';
-            window.MemoryChatUtils.showFeedback('Message insights removed from log!', 'success');
+            // Message already exists in log, mark as processed and remove button permanently
+            msg.setAttribute('data-memory-chat-processed', 'true');
+            btn.remove();
+            window.MemoryChatUtils.showFeedback('Message already in log', 'info');
           }
         } catch (error) {
           console.error('Failed to process message:', error);
           window.MemoryChatUtils.showFeedback(`Failed to process message: ${error.message}`, 'error');
+          // Show button again on error - let user retry
+          btn.style.display = 'inline-block';
         }
       };
       msg.appendChild(btn);

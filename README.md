@@ -212,7 +212,6 @@ When reporting issues, please include:
 
 ### Basic Operations
 - **Add Message**: Click the green "Add to Log" button next to any ChatGPT message
-- **Remove Message**: Click the red "Remove from Log" button to remove insights
 - **View Insights**: Click the 📋 clipboard button in the ChatGPT input area
 
 ### AI-Powered Features
