@@ -83,42 +83,23 @@ async function removeMessageFromStorage(text) {
   }
 }
 
-// Add message to folder (folders in chrome.storage.local, logs in IndexedDB)
-function addMessageToFolder(folderName, messageText, messageElement) {
-  chrome.storage.local.get({ folders: {} }, (result) => {
-    const folders = result.folders;
-    if (!folders[folderName]) {
-      folders[folderName] = [];
-    }
-    const timestamp = Date.now();
-    // Check if message already exists in folder
-    if (!folders[folderName].some(item => item.text === messageText)) {
-      folders[folderName].push({ text: messageText, timestamp: timestamp });
-      // Also add to general log if not already there (IndexedDB)
-      if (window.memoryChatIDB && window.memoryChatIDB.messageExists && window.memoryChatIDB.addMessages) {
-        window.memoryChatIDB.messageExists(messageText).then(exists => {
-          if (!exists) {
-            window.memoryChatIDB.addMessages([{ text: messageText, timestamp }]);
-          }
-        });
+// Add message to folder (using IndexedDB for consistency)
+async function addMessageToFolder(folderName, messageText, messageElement) {
+  if (window.memoryChatIDB && window.memoryChatIDB.addMessageToFolder) {
+    await window.memoryChatIDB.addMessageToFolder(folderName, { text: messageText, timestamp: Date.now() });
+    // Update the log button state to show "Remove from Log"
+    if (messageElement) {
+      const logBtn = messageElement.querySelector('.memory-chat-log-btn');
+      if (logBtn) {
+        logBtn.textContent = 'Remove from Log';
+        logBtn.style.background = '#f7b2b2';
+        logBtn.style.color = '#222';
       }
-      chrome.storage.local.set({ folders: folders }, () => {
-        // Update the log button state to show "Remove from Log"
-        if (messageElement) {
-          const logBtn = messageElement.querySelector('.memory-chat-log-btn');
-          if (logBtn) {
-            logBtn.textContent = 'Remove from Log';
-            logBtn.style.background = '#f7b2b2';
-            logBtn.style.color = '#222';
-          }
-        }
-        // Show success feedback
-        showFeedback('Message added to folder and log!', 'success');
-      });
-    } else {
-      showFeedback('Message already in folder', 'info');
     }
-  });
+    showFeedback('Message added to folder and log!', 'success');
+  } else {
+    showFeedback('IndexedDB not available', 'error');
+  }
 }
 
 // Show feedback message
@@ -154,16 +135,17 @@ async function clearAllLogs() {
   if (window.memoryChatIDB && window.memoryChatIDB.clearMessages) {
     await window.memoryChatIDB.clearMessages();
   }
-  chrome.storage.local.set({ folders: {} }, () => {
-    document.querySelectorAll('.memory-chat-log-btn').forEach(b => {
-      b.textContent = 'Add to Log';
-      b.style.background = 'linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%)';
-      b.style.color = '#222';
-    });
-    if (window.renderStorageTab) {
-      window.renderStorageTab();
-    }
+  if (window.memoryChatIDB && window.memoryChatIDB.clearFolders) {
+    await window.memoryChatIDB.clearFolders();
+  }
+  document.querySelectorAll('.memory-chat-log-btn').forEach(b => {
+    b.textContent = 'Add to Log';
+    b.style.background = 'linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%)';
+    b.style.color = '#222';
   });
+  if (window.renderStorageTab) {
+    window.renderStorageTab();
+  }
 }
 
 // Add full chat to log
