@@ -34,48 +34,60 @@ function addLogButtons() {
         }
       };
 
-      // Check if this message is already logged
-      const text = window.MemoryChatUtils.getMessageText(msg);
-      if (window.memoryChatIDB && window.memoryChatIDB.messageExists) {
-        window.memoryChatIDB.messageExists(text).then(found => {
-          if (found) {
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        
+        if (!window.insightExtractionService || !window.insightExtractionService.isReady()) {
+          window.MemoryChatUtils.showFeedback('Insight extraction service not available. Please check your OpenAI API key in settings.', 'error');
+          return;
+        }
+        
+        if (!window.memoryChatIDB) return;
+        
+        const text = window.MemoryChatUtils.getMessageText(msg);
+        if (!text || text.trim().length === 0) {
+          window.MemoryChatUtils.showFeedback('No message text found', 'error');
+          return;
+        }
+        
+        try {
+          // Extract insights and add to log
+          const insights = await window.insightExtractionService.extractInsights(text);
+          const exists = await window.memoryChatIDB.messageExists(insights);
+          
+          if (!exists) {
+            // Add to log
+            await window.memoryChatIDB.addMessages([{ text, timestamp: Date.now() }]);
             btn.textContent = 'Remove from Log';
             btn.style.background = '#f7b2b2';
             btn.style.color = '#222';
-          }
-        });
-      }
-
-      btn.onclick = async (e) => {
-        e.stopPropagation();
-        const text = window.MemoryChatUtils.getMessageText(msg);
-        if (!window.memoryChatIDB) return;
-        const found = await window.memoryChatIDB.messageExists(text);
-        if (!found) {
-          // Add to log
-          await window.memoryChatIDB.addMessages([{ text, timestamp: Date.now() }]);
-          btn.textContent = 'Remove from Log';
-          btn.style.background = '#f7b2b2';
-          btn.style.color = '#222';
-        } else {
-          // Remove from log
-          if (!window.memoryChatIDB.removeMessage) {
-            window.memoryChatIDB.removeMessage = function(text) {
-              return window.memoryChatIDB.openDB().then(db => {
-                return new Promise((resolve, reject) => {
-                  const tx = db.transaction('chatLogs', 'readwrite');
-                  const store = tx.objectStore('chatLogs');
-                  const req = store.delete(text);
-                  req.onsuccess = () => resolve();
-                  req.onerror = () => reject(req.error);
+            window.MemoryChatUtils.showFeedback('Message insights added to log!', 'success');
+          } else {
+            // Remove from log
+            if (!window.memoryChatIDB.removeMessage) {
+              window.memoryChatIDB.removeMessage = function(insights) {
+                return window.memoryChatIDB.openDB().then(db => {
+                  return new Promise((resolve, reject) => {
+                    const tx = db.transaction('chatLogs', 'readwrite');
+                    const store = tx.objectStore('chatLogs');
+                    // Convert insights array to key string
+                    const insightsKey = Array.isArray(insights) ? insights.join('|') : insights;
+                    const req = store.delete(insightsKey);
+                    req.onsuccess = () => resolve();
+                    req.onerror = () => reject(req.error);
+                  });
                 });
-              });
-            };
+              };
+            }
+            await window.memoryChatIDB.removeMessage(insights);
+            btn.textContent = 'Add to Log';
+            btn.style.background = 'linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%)';
+            btn.style.color = '#222';
+            window.MemoryChatUtils.showFeedback('Message insights removed from log!', 'success');
           }
-          await window.memoryChatIDB.removeMessage(text);
-          btn.textContent = 'Add to Log';
-          btn.style.background = 'linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%)';
-          btn.style.color = '#222';
+        } catch (error) {
+          console.error('Failed to process message:', error);
+          window.MemoryChatUtils.showFeedback(`Failed to process message: ${error.message}`, 'error');
         }
       };
       msg.appendChild(btn);

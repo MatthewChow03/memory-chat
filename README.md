@@ -1,17 +1,19 @@
 # Memory Chat Chrome Extension
 
-A Chrome extension that allows you to selectively log and manage ChatGPT conversations with **AI-powered semantic search** using transformer models, folder organization, and message reuse.
+A Chrome extension that allows you to selectively log and manage ChatGPT conversations with **AI-powered insight extraction** and **semantic search** using OpenAI's 4o-mini model and transformer models.
 
 ## 🚀 Features
 
+- **AI-Powered Insight Extraction**: Extract 3 or fewer key insights from messages using OpenAI's 4o-mini model
 - **Selective Logging**: Add individual messages to your log with one click
 - **AI-Powered Semantic Search**: Advanced transformer-based search using @xenova/transformers
-- **Smart Organization**: Create folders to organize related messages
-- **Message Reuse**: Add logged messages back to your prompt with formatting
+- **Smart Organization**: Create folders to organize related insights
+- **Message Reuse**: Add logged insights back to your prompt with formatting
 - **Bulk Operations**: Add entire conversations or folder contents to your prompt
 - **Modern UI**: Clean, responsive interface with tabs and search functionality
-- **Import Support**: Import ChatGPT conversations.json files with automatic embedding generation
+- **Import Support**: Import ChatGPT conversations.json files with automatic insight extraction
 - **High-Quality Results**: 85%+ similarity threshold ensures only highly relevant results
+- **Persistent API Key**: Save your OpenAI API key for seamless insight extraction
 
 ## 📋 Table of Contents
 
@@ -30,8 +32,9 @@ A Chrome extension that allows you to selectively log and manage ChatGPT convers
 2. Enable "Developer mode" (top right toggle)
 3. Click "Load unpacked" and select this project folder
 4. Navigate to https://chatgpt.com
-5. Start a conversation and use the "Add to Log" buttons next to messages
-6. Click the 📋 button in the input area to view your logged messages and tabs
+5. **Set up OpenAI API Key**: Click the 📋 button, go to Settings tab, and enter your OpenAI API key
+6. Start a conversation and use the "Add to Log" buttons next to messages
+7. View your extracted insights in the storage interface
 
 ### For Developers
 ```bash
@@ -54,6 +57,7 @@ npm install
 - Node.js (v14 or higher)
 - Chrome browser (for testing)
 - Git
+- OpenAI API key (for insight extraction)
 
 ### Installation
 ```bash
@@ -67,9 +71,10 @@ npm install
 
 ### Development Workflow
 1. **Load Extension**: Load the extension in Chrome using Developer mode
-2. **Make Changes**: Edit files in the project
-3. **Test Changes**: Refresh the extension in `chrome://extensions/` and test on ChatGPT
-4. **Reload**: Click the refresh button on the extension card to reload changes
+2. **Set up API Key**: Enter your OpenAI API key in the Settings tab
+3. **Make Changes**: Edit files in the project
+4. **Test Changes**: Refresh the extension in `chrome://extensions/` and test on ChatGPT
+5. **Reload**: Click the refresh button on the extension card to reload changes
 
 ### Project Structure
 ```
@@ -80,6 +85,7 @@ memory-chat/
 ├── utils.js              # Shared utilities
 ├── package.json          # Dependencies and scripts
 ├── ui-components/        # Modular UI components
+│   ├── insight-extraction.js # OpenAI insight extraction service
 │   ├── storage-ui.js     # Main UI container
 │   ├── storage-button.js # UI coordinator
 │   ├── semantic-search.js # AI-powered search
@@ -105,15 +111,16 @@ The extension uses a modular architecture for better maintainability and separat
 - `ui-components/storage-ui.js`: Main UI container creation, storage button, and basic event handlers
 - `ui-components/storage-button.js`: Coordinator that initializes all storage modules
 
-#### Search & Intelligence
+#### AI-Powered Features
+- `ui-components/insight-extraction.js`: **OpenAI-powered insight extraction** using GPT-4o-mini
 - `ui-components/advanced-semantic-search.js`: **AI-powered semantic search** using @xenova/transformers
-- `ui-components/idb-utils.js`: IndexedDB utilities with embedding storage and search capabilities
+- `ui-components/idb-utils.js`: IndexedDB utilities with insight storage and search capabilities
 
 #### Tab System
 - `ui-components/storage-tabs.js`: Tab management, rendering, and tab-specific content (Relevant, Recent, All, Search, Folders, Settings)
 
 #### Message Components
-- `ui-components/storage-cards.js`: Individual message card rendering and interactions
+- `ui-components/storage-cards.js`: Individual insight card rendering and interactions
 - `ui-components/message-buttons.js`: "Add to Log" buttons for each ChatGPT message
 - `ui-components/folder-button.js`: "Add to Folder" buttons and folder selector popup
 
@@ -127,7 +134,15 @@ The extension uses a modular architecture for better maintainability and separat
 ### Icons
 - `icons/icon16.png`, `icons/icon48.png`, `icons/icon128.png`: Extension icons
 
-## 🤖 AI-Powered Semantic Search Features
+## 🤖 AI-Powered Features
+
+### OpenAI Insight Extraction
+- **Model**: Uses OpenAI's GPT-4o-mini for high-quality insight extraction
+- **Key Insights**: Extracts 3 or fewer key insights from each message
+- **Bullet Point Format**: Insights are formatted as concise bullet points
+- **Rate Limiting**: Built-in rate limiting to respect API limits
+- **Error Handling**: Comprehensive error handling for API failures
+- **Persistent Storage**: API key is securely stored and persists across sessions
 
 ### Transformer-Based Search
 - **Model**: Uses `Xenova/all-MiniLM-L6-v2` for high-quality semantic embeddings
@@ -143,10 +158,10 @@ The extension uses **only** the AI-powered transformer search:
 - **85%+ Similarity**: Only shows results with high semantic relevance
 - **No Fallbacks**: Pure AI-powered search for consistent quality
 
-### Import & Embedding Generation
-- **Automatic Embeddings**: New messages automatically get high-quality embeddings generated
-- **Bulk Import**: Import conversations.json files with automatic embedding generation
-- **Update Existing**: Update embeddings for existing messages via settings
+### Import & Processing
+- **Automatic Insight Extraction**: New messages automatically get insights extracted via OpenAI
+- **Bulk Import**: Import conversations.json files with automatic insight extraction
+- **Update Existing**: Update embeddings for existing insights via settings
 - **Model Caching**: Transformer model is cached for faster subsequent loads
 
 ## 🤝 Contributing
@@ -171,10 +186,12 @@ We welcome contributions! Here's how you can help:
 
 ### Testing Checklist
 - [ ] Extension loads without errors
-- [ ] Messages can be added to log
-- [ ] Search functionality works
+- [ ] OpenAI API key can be set and saved
+- [ ] Messages can be processed for insights
+- [ ] Insights are displayed correctly
+- [ ] Search functionality works with insights
 - [ ] Folder operations work
-- [ ] Import functionality works
+- [ ] Import functionality works with insight extraction
 - [ ] UI is responsive and accessible
 
 ### Reporting Issues
@@ -184,44 +201,26 @@ When reporting issues, please include:
 - Expected vs actual behavior
 - Console errors (if any)
 - Screenshots (if relevant)
+- OpenAI API key status (if insight extraction related)
 
 ## 📖 Usage Guide
 
+### Setup
+1. **Get OpenAI API Key**: Sign up at https://platform.openai.com and get an API key
+2. **Enter API Key**: Click the 📋 button, go to Settings tab, and enter your API key
+3. **Test Connection**: The extension will test your API key and save it securely
+
 ### Basic Operations
 - **Add Message**: Click the green "Add to Log" button next to any ChatGPT message
-- **Remove Message**: Click the red "Remove from Log" button to remove a message
-- **View Log**: Click the 📋 clipboard button in the ChatGPT input area
+- **Remove Message**: Click the red "Remove from Log" button to remove insights
+- **View Insights**: Click the 📋 clipboard button in the ChatGPT input area
 
-### AI-Powered Search Features
-- **Search Tab**: Advanced AI-powered semantic search with real-time feedback
-- **Relevance Tab**: Shows messages similar to your current prompt using AI-powered search
+### AI-Powered Features
+- **Insight Extraction**: Messages are automatically processed to extract key insights
+- **Search Tab**: Advanced AI-powered semantic search through insights
+- **Relevance Tab**: Shows insights similar to your current prompt using AI-powered search
 - **High-Quality Results**: 85%+ similarity threshold ensures only highly relevant results
 - **Search Status**: Real-time indication of AI model status
-
-### Folder Management
-- **Add to Folder**: Click the 📁 button next to any message to add it to a specific folder
-- **Create Folders**: Use the Folders tab to create new folders
-- **View Folder Contents**: Click on a folder name to view its messages
-- **Bulk Add**: Use the plus (+) button on folders to add all messages from that folder to your prompt
-- **Delete Folders**: Use the × button to delete folders
-
-### Message Reuse
-- **Add to Prompt**: Click the plus (+) button on any message to add it as a bullet point in your prompt
-- **Bulk Operations**: Go to Settings tab to add the entire current chat to your log
-
-### Import & Settings
-- **Import Conversations**: Use the Settings tab to import ChatGPT conversations.json files
-- **Update Embeddings**: Update embeddings for existing messages via the Settings tab
-- **Clear All Logs**: Remove all stored messages and folders
-- **Theme Toggle**: Switch between light and dark modes
-
-### Search & Organization
-- **Relevant Tab**: Shows messages similar to your current prompt using AI-powered semantic search
-- **Recent Tab**: Shows the most recently added messages
-- **All Tab**: Shows all logged messages
-- **Search Tab**: Advanced AI-powered semantic search with 85%+ similarity threshold
-- **Folders Tab**: Manage your message folders
-- **Settings Tab**: Import, clear logs, and manage embeddings
 
 ## 🔧 Technical Details
 

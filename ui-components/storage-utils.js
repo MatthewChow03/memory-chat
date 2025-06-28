@@ -62,13 +62,30 @@ function cosineSimilarity(text1, text2, allTexts = []) {
 
 // Add message to storage
 async function addMessageToStorage(text) {
-  if (window.memoryChatIDB && window.memoryChatIDB.messageExists && window.memoryChatIDB.addMessages) {
-    const exists = await window.memoryChatIDB.messageExists(text);
-    if (!exists) {
-      await window.memoryChatIDB.addMessages([{ text, timestamp: Date.now() }]);
-      if (window.renderStorageTab) {
-        window.renderStorageTab();
+  if (!window.insightExtractionService || !window.insightExtractionService.isReady()) {
+    showFeedback('Insight extraction service not available. Please check your OpenAI API key in settings.', 'error');
+    return;
+  }
+
+  if (window.memoryChatIDB && window.memoryChatIDB.addMessages) {
+    try {
+      // Extract insights from the message text
+      const insights = await window.insightExtractionService.extractInsights(text);
+      
+      // Check if insights already exist
+      const exists = await window.memoryChatIDB.messageExists(insights);
+      if (!exists) {
+        await window.memoryChatIDB.addMessages([{ text, timestamp: Date.now() }]);
+        if (window.renderStorageTab) {
+          window.renderStorageTab();
+        }
+        showFeedback('Message insights added to storage!', 'success');
+      } else {
+        showFeedback('Message insights already in storage', 'info');
       }
+    } catch (error) {
+      console.error('Failed to add message to storage:', error);
+      showFeedback(`Failed to add message: ${error.message}`, 'error');
     }
   }
 }
@@ -168,19 +185,41 @@ async function clearAllLogs() {
 
 // Add full chat to log
 async function addFullChatToLog() {
+  if (!window.insightExtractionService || !window.insightExtractionService.isReady()) {
+    showFeedback('Insight extraction service not available. Please check your OpenAI API key in settings.', 'error');
+    return;
+  }
+
   const messages = Array.from(document.querySelectorAll('[data-message-author-role]'));
-  const texts = messages.map(msg => getMessageText(msg));
+  const texts = messages.map(msg => getMessageText(msg)).filter(text => text.trim().length > 0);
+  
+  if (texts.length === 0) {
+    showFeedback('No messages found to add', 'info');
+    return;
+  }
+
   if (window.memoryChatIDB && window.memoryChatIDB.addMessages) {
-    const now = Date.now();
-    const messageObjs = texts.map(text => ({ text, timestamp: now }));
-    await window.memoryChatIDB.addMessages(messageObjs);
-    document.querySelectorAll('.memory-chat-log-btn').forEach(b => {
-      b.textContent = 'Remove from Log';
-      b.style.background = '#f7b2b2';
-      b.style.color = '#222';
-    });
-    if (window.renderStorageTab) {
-      window.renderStorageTab();
+    try {
+      showFeedback(`Processing ${texts.length} messages for insight extraction...`, 'info');
+      
+      const now = Date.now();
+      const messageObjs = texts.map(text => ({ text, timestamp: now }));
+      await window.memoryChatIDB.addMessages(messageObjs);
+      
+      document.querySelectorAll('.memory-chat-log-btn').forEach(b => {
+        b.textContent = 'Remove from Log';
+        b.style.background = '#f7b2b2';
+        b.style.color = '#222';
+      });
+      
+      if (window.renderStorageTab) {
+        window.renderStorageTab();
+      }
+      
+      showFeedback('Chat insights added to storage!', 'success');
+    } catch (error) {
+      console.error('Failed to add full chat to log:', error);
+      showFeedback(`Failed to add chat: ${error.message}`, 'error');
     }
   }
 }

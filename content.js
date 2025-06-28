@@ -1,61 +1,37 @@
 // Main content script - orchestrates all components
 
-// Load all UI components in the correct order
-function loadUIComponents() {
-  // Load utility functions first (needed by other modules)
-  const utilsScript = document.createElement('script');
-  utilsScript.src = chrome.runtime.getURL('utils.js');
-  document.head.appendChild(utilsScript);
+// Initialize insight extraction service
+async function initializeInsightExtraction() {
+  // Wait for insight extraction service to be available
+  let attempts = 0;
+  while (!window.insightExtractionService && attempts < 50) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    attempts++;
+  }
   
-  // Load basic semantic search as fallback
-  const basicSemanticSearchScript = document.createElement('script');
-  basicSemanticSearchScript.src = chrome.runtime.getURL('ui-components/semantic-search.js');
-  document.head.appendChild(basicSemanticSearchScript);
-  
-  // Load advanced semantic search module
-  const advancedSemanticSearchScript = document.createElement('script');
-  advancedSemanticSearchScript.src = chrome.runtime.getURL('ui-components/advanced-semantic-search.js');
-  document.head.appendChild(advancedSemanticSearchScript);
-  
-  // Load IndexedDB utilities
-  const idbScript = document.createElement('script');
-  idbScript.src = chrome.runtime.getURL('ui-components/idb-utils.js');
-  document.head.appendChild(idbScript);
-  
-  // Load storage utilities
-  const storageUtilsScript = document.createElement('script');
-  storageUtilsScript.src = chrome.runtime.getURL('ui-components/storage-utils.js');
-  document.head.appendChild(storageUtilsScript);
-  
-  // Load styles
-  const stylesScript = document.createElement('script');
-  stylesScript.src = chrome.runtime.getURL('ui-components/storage-styles.js');
-  document.head.appendChild(stylesScript);
-  
-  // Load cards module
-  const cardsScript = document.createElement('script');
-  cardsScript.src = chrome.runtime.getURL('ui-components/storage-cards.js');
-  document.head.appendChild(cardsScript);
-  
-  // Load folders module
-  const foldersScript = document.createElement('script');
-  foldersScript.src = chrome.runtime.getURL('ui-components/storage-folders.js');
-  document.head.appendChild(foldersScript);
-  
-  // Load tabs module
-  const tabsScript = document.createElement('script');
-  tabsScript.src = chrome.runtime.getURL('ui-components/storage-tabs.js');
-  document.head.appendChild(tabsScript);
-  
-  // Load UI module
-  const uiScript = document.createElement('script');
-  uiScript.src = chrome.runtime.getURL('ui-components/storage-ui.js');
-  document.head.appendChild(uiScript);
-  
-  // Load coordinator last
-  const coordinatorScript = document.createElement('script');
-  coordinatorScript.src = chrome.runtime.getURL('ui-components/storage-button.js');
-  document.head.appendChild(coordinatorScript);
+  if (window.insightExtractionService) {
+    console.log('Insight extraction service initialized');
+    
+    // Try to initialize with saved API key
+    try {
+      const result = await new Promise((resolve) => {
+        chrome.storage.local.get({ openaiApiKey: '' }, resolve);
+      });
+      
+      if (result.openaiApiKey && result.openaiApiKey.trim()) {
+        console.log('Found saved API key, initializing insight extraction service...');
+        await window.insightExtractionService.initialize(result.openaiApiKey);
+        console.log('Insight extraction service initialized with saved API key');
+      } else {
+        console.log('No saved API key found. User will need to enter one in settings.');
+      }
+    } catch (error) {
+      console.warn('Failed to initialize insight extraction service with saved API key:', error);
+      // Don't throw the error, just log it - the user can still set the key manually
+    }
+  } else {
+    console.warn('Insight extraction service not available');
+  }
 }
 
 // Initialize advanced semantic search and update existing embeddings
@@ -103,8 +79,8 @@ function addLogButtonsAndInitialize() {
   }
 }
 
-// Load UI components and set up observers
-loadUIComponents();
+// Initialize insight extraction service first
+setTimeout(initializeInsightExtraction, 500);
 
 // Initialize advanced semantic search after a short delay
 setTimeout(initializeAdvancedSemanticSearch, 1000);

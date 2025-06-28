@@ -71,23 +71,31 @@ async function loadAndDisplayLogs() {
 
   const logs = await window.memoryChatIDB.getAllMessages();
   if (!logs || logs.length === 0) {
-    container.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">No messages logged yet</div>';
+    container.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">No insights logged yet</div>';
     return;
   }
 
-  container.innerHTML = logs.map(log => `
-    <div style="
-      background: #f8f9fa;
-      border: 1px solid #e1e5e9;
-      border-radius: 8px;
-      margin-bottom: 12px;
-      padding: 12px;
-      font-size: 14px;
-      line-height: 1.4;
-      word-break: break-word;
-    ">
-      <div style="margin-bottom: 4px;">${log.text.replace(/\n/g, '<br>')}</div>
-      <div style="color: #888; font-size: 11px;">${new Date(log.timestamp).toLocaleString()}</div>
-    </div>
-  `).join('');
+  container.innerHTML = logs.map(log => {
+    // Get insights text (either from insights array or fallback to text)
+    const insights = log.insights || log.text;
+    const insightsText = Array.isArray(insights) 
+      ? insights.map(insight => `• ${insight}`).join('<br>')
+      : insights;
+    
+    return `
+      <div style="
+        background: #f8f9fa;
+        border: 1px solid #e1e5e9;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        padding: 12px;
+        font-size: 14px;
+        line-height: 1.4;
+        word-break: break-word;
+      ">
+        <div style="margin-bottom: 4px;">${insightsText}</div>
+        <div style="color: #888; font-size: 11px;">${new Date(log.timestamp).toLocaleString()}</div>
+      </div>
+    `;
+  }).join('');
 } 

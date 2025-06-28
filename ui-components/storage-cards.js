@@ -23,13 +23,19 @@ function renderLogCard(log, idx) {
   card.style.gap = '8px';
   card.style.color = isDark ? '#f3f6fa' : '#1a1a1a';
 
+  // Get insights text (either from insights array or fallback to text)
+  const insights = log.insights || log.text;
+  const insightsText = Array.isArray(insights) 
+    ? insights.map(insight => `• ${insight}`).join('\n')
+    : insights;
+
   // Message text (clamped, single block)
   const textDiv = document.createElement('div');
   textDiv.className = 'storage-log-content clamped';
   textDiv.style.flex = '1';
   textDiv.style.minWidth = '0';
   textDiv.style.whiteSpace = 'pre-line';
-  textDiv.textContent = log.text;
+  textDiv.textContent = insightsText;
   textDiv.style.color = isDark ? '#f3f6fa' : '#1a1a1a';
 
   // Footer (timestamp + show more/less + similarity score)
@@ -75,7 +81,7 @@ function renderLogCard(log, idx) {
   showBtn.style.cursor = 'pointer';
   showBtn.style.fontSize = '13px';
   showBtn.style.padding = '0';
-  showBtn.style.display = (log.text.split('\n').length > 4) ? 'block' : 'none';
+  showBtn.style.display = (insightsText.split('\n').length > 4) ? 'block' : 'none';
   showBtn.className = 'storage-show-btn';
   
   let expanded = false;
@@ -98,7 +104,7 @@ function renderLogCard(log, idx) {
   // Plus button
   const plusBtn = document.createElement('button');
   plusBtn.className = 'storage-plus-btn';
-  plusBtn.setAttribute('data-log', encodeURIComponent(log.text));
+  plusBtn.setAttribute('data-log', encodeURIComponent(insightsText));
   plusBtn.title = 'Add to prompt';
   plusBtn.style.background = isDark ? '#2e3a4a' : '#e6f7e6';
   plusBtn.style.border = 'none';
