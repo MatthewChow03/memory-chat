@@ -119,23 +119,51 @@ function renderLogCard(log, idx) {
   plusBtn.textContent = '+';
   plusBtn.style.color = isDark ? '#b2f7ef' : '#222';
 
-  // Stack text, footer, plus button
+  // Folder button
+  const folderBtn = document.createElement('button');
+  folderBtn.className = 'storage-folder-btn';
+  folderBtn.setAttribute('data-log', encodeURIComponent(insightsText));
+  folderBtn.title = 'Add to folder';
+  folderBtn.style.background = isDark ? '#2e3a4a' : '#e6f3ff';
+  folderBtn.style.border = 'none';
+  folderBtn.style.borderRadius = '50%';
+  folderBtn.style.width = '32px';
+  folderBtn.style.height = '32px';
+  folderBtn.style.display = 'flex';
+  folderBtn.style.alignItems = 'center';
+  folderBtn.style.justifyContent = 'center';
+  folderBtn.style.cursor = 'pointer';
+  folderBtn.style.fontSize = '16px';
+  folderBtn.textContent = '📁';
+  folderBtn.style.color = isDark ? '#b2f7ef' : '#1a73e8';
+  folderBtn.style.marginLeft = '8px';
+
+  // Button container
+  const buttonContainer = document.createElement('div');
+  buttonContainer.style.display = 'flex';
+  buttonContainer.style.alignItems = 'center';
+  buttonContainer.style.gap = '8px';
+  buttonContainer.appendChild(plusBtn);
+  buttonContainer.appendChild(folderBtn);
+
+  // Stack text, footer, button container
   const leftCol = document.createElement('div');
   leftCol.style.flex = '1';
   leftCol.style.minWidth = '0';
   leftCol.appendChild(textDiv);
   leftCol.appendChild(footerDiv);
   card.appendChild(leftCol);
-  card.appendChild(plusBtn);
+  card.appendChild(buttonContainer);
   
   return card;
 }
 
-// Attach plus button listeners to storage cards
-function attachPlusListeners() {
+// Attach listeners to storage cards (plus and folder buttons)
+function attachStorageListeners() {
   const storageUI = document.getElementById('memory-chat-storage');
   if (!storageUI) return;
   
+  // Plus button listeners
   const plusBtns = storageUI.querySelectorAll('.storage-plus-btn');
   plusBtns.forEach(btn => {
     btn.onclick = () => {
@@ -172,6 +200,21 @@ function attachPlusListeners() {
       range.collapse(false);
       selection.removeAllRanges();
       selection.addRange(range);
+    };
+  });
+
+  // Folder button listeners
+  const folderBtns = storageUI.querySelectorAll('.storage-folder-btn');
+  folderBtns.forEach(btn => {
+    btn.onclick = async () => {
+      const text = decodeURIComponent(btn.getAttribute('data-log'));
+      
+      // Show folder selector popup for storage insights
+      if (window.showFolderSelectorForStorage) {
+        await window.showFolderSelectorForStorage(text);
+      } else {
+        console.error('showFolderSelectorForStorage function not available');
+      }
     };
   });
 }
@@ -211,5 +254,5 @@ function renderFolderMessageCard(message, idx, folderName) {
 
 // Export functions for use in other modules
 window.renderLogCard = renderLogCard;
-window.attachPlusListeners = attachPlusListeners;
+window.attachStorageListeners = attachStorageListeners;
 window.renderFolderMessageCard = renderFolderMessageCard; 

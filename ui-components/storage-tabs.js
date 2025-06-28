@@ -100,7 +100,7 @@ async function renderTab() {
     }
     
     // Attach event listeners after rendering
-    setTimeout(attachPlusListeners, 0);
+    setTimeout(attachStorageListeners, 0);
   }
   
   if (activeTab === 'relevant') {
@@ -116,6 +116,8 @@ async function renderTab() {
   } else if (activeTab === 'settings') {
     renderSettingsTab(tabContent);
   }
+  
+  setTimeout(attachStorageListeners, 0);
 }
 
 // Render relevant tab content
@@ -327,7 +329,7 @@ function renderSearchTab(tabContent, logs, renderCards) {
     }
     
     // Attach event listeners after rendering
-    setTimeout(attachPlusListeners, 0);
+    setTimeout(attachStorageListeners, 0);
   }
   
   // Perform search using semantic search
