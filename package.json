@@ -1,0 +1,33 @@
+{
+  "name": "memory-chat-logger",
+  "version": "1.2.0",
+  "description": "Chrome extension for logging and searching ChatGPT conversations with advanced semantic search",
+  "main": "content.js",
+  "scripts": {
+    "build": "echo 'Extension is ready to load'",
+    "dev": "echo 'Load extension in Chrome with developer mode'",
+    "test": "echo 'No tests configured yet'"
+  },
+  "keywords": [
+    "chrome-extension",
+    "chatgpt",
+    "semantic-search",
+    "transformers",
+    "indexeddb",
+    "memory"
+  ],
+  "author": "Memory Chat Logger",
+  "license": "MIT",
+  "dependencies": {
+    "@xenova/transformers": "^2.15.1"
+  },
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MatthewChow03/memory-chat-logger.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MatthewChow03/memory-chat-logger/issues"
+  },
+  "homepage": "https://github.com/MatthewChow03/memory-chat-logger#readme"
+} 

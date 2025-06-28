@@ -1,14 +1,23 @@
 {
   "manifest_version": 3,
   "name": "Memory Chat Logger",
-  "version": "1.1",
-  "description": "Log and view ChatGPT conversations with selective message storage.",
+  "version": "1.2",
+  "description": "Log and view ChatGPT conversations with advanced semantic search using transformers.",
   "permissions": [
     "storage",
     "scripting"
   ],
   "host_permissions": [
     "https://chatgpt.com/*"
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["lib/*"],
+      "matches": ["https://chatgpt.com/*"]
+    }
   ],
   "background": {
     "service_worker": "background.js"
@@ -19,6 +28,7 @@
       "js": [
         "utils.js",
         "ui-components/semantic-search.js",
+        "ui-components/advanced-semantic-search.js",
         "ui-components/idb-utils.js",
         "ui-components/storage-utils.js",
         "ui-components/storage-styles.js",

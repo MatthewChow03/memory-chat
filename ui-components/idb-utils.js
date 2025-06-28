@@ -38,12 +38,32 @@ function addMessages(messages) {
       let added = 0, skipped = 0;
       let processed = 0;
       
-      messages.forEach(msg => {
-        // Ensure message has embedding if semantic search is available
-        const messageWithEmbedding = msg.embedding ? msg : {
-          ...msg,
-          embedding: window.semanticSearch ? window.semanticSearch.processText(msg.text).embedding : null
-        };
+      messages.forEach(async msg => {
+        // Ensure message has embedding using ONLY advanced semantic search
+        let messageWithEmbedding = msg;
+        
+        if (!msg.embedding) {
+          if (!window.advancedSemanticSearch) {
+            console.error('Advanced semantic search not available for embedding generation');
+            processed++;
+            if (processed === messages.length) {
+              resolve({ added, skipped });
+            }
+            return;
+          }
+          
+          try {
+            const processed = await window.advancedSemanticSearch.processText(msg.text);
+            messageWithEmbedding = { ...msg, embedding: processed.embedding };
+          } catch (error) {
+            console.error('Failed to generate embedding:', error);
+            processed++;
+            if (processed === messages.length) {
+              resolve({ added, skipped });
+            }
+            return;
+          }
+        }
         
         const getReq = store.get(msg.text);
         getReq.onsuccess = () => {
@@ -88,14 +108,23 @@ function getAllMessages() {
 }
 
 function searchMessages(query, minScore = 0.85) {
-  return getAllMessages().then(messages => {
-    if (!window.semanticSearch) {
-      return Promise.reject(new Error('Semantic search not available'));
+  return getAllMessages().then(async messages => {
+    // Use ONLY advanced semantic search
+    if (!window.advancedSemanticSearch) {
+      return Promise.reject(new Error('Advanced semantic search not available'));
     }
     
-    // Get all messages and filter by score threshold
-    const results = window.semanticSearch.search(query, messages, messages.length);
-    return results.filter(result => (result.similarity || result.score || 0) > minScore);
+    if (!window.advancedSemanticSearch.isReady()) {
+      return Promise.reject(new Error('Advanced semantic search model not loaded'));
+    }
+    
+    try {
+      const results = await window.advancedSemanticSearch.searchMessages(query, messages, messages.length, minScore);
+      return results;
+    } catch (error) {
+      console.error('Advanced semantic search failed:', error);
+      throw error;
+    }
   });
 }
 
@@ -203,18 +232,32 @@ function addMessageToFolder(name, message) {
 
 // Add method to update embeddings for existing messages
 function updateEmbeddingsForExistingMessages() {
-  return getAllMessages().then(messages => {
-    if (!window.semanticSearch) return Promise.resolve();
-    
+  return getAllMessages().then(async messages => {
     const messagesNeedingEmbeddings = messages.filter(msg => !msg.embedding);
     if (messagesNeedingEmbeddings.length === 0) return Promise.resolve();
     
-    const messagesWithEmbeddings = messagesNeedingEmbeddings.map(msg => ({
-      ...msg,
-      embedding: window.semanticSearch.processText(msg.text).embedding
-    }));
+    if (!window.advancedSemanticSearch) {
+      return Promise.reject(new Error('Advanced semantic search not available'));
+    }
     
-    return addMessages(messagesWithEmbeddings);
+    try {
+      // Use optimized batch processing for better performance
+      const messagesWithEmbeddings = await window.advancedSemanticSearch.processTextsOptimized(
+        messagesNeedingEmbeddings.map(msg => msg.text),
+        10, // batchSize
+        3   // maxConcurrent
+      );
+      
+      const processedMessages = messagesNeedingEmbeddings.map((msg, index) => ({
+        ...msg,
+        embedding: messagesWithEmbeddings[index].embedding
+      }));
+      
+      return addMessages(processedMessages);
+    } catch (error) {
+      console.error('Failed to update embeddings:', error);
+      throw error;
+    }
   });
 }
 

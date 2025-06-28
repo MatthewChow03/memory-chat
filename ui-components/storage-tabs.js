@@ -51,6 +51,7 @@ async function renderTab() {
     const endIndex = startIndex + itemsPerPage;
     const currentCards = cards.slice(startIndex, endIndex);
     
+    // Clear only the content area, preserving any UI elements
     tabContent.innerHTML = '';
     currentCards.forEach((log, idx) => tabContent.appendChild(renderLogCard(log, idx)));
     
@@ -84,17 +85,22 @@ async function renderTab() {
       if (prevBtn && currentPage > 1) {
         prevBtn.onclick = () => {
           window.currentPage = currentPage - 1;
-          renderTab();
+          // Re-render just the cards, not the entire tab
+          renderCardsWithPagination(cards, itemsPerPage);
         };
       }
       
       if (nextBtn && currentPage < totalPages) {
         nextBtn.onclick = () => {
           window.currentPage = currentPage + 1;
-          renderTab();
+          // Re-render just the cards, not the entire tab
+          renderCardsWithPagination(cards, itemsPerPage);
         };
       }
     }
+    
+    // Attach event listeners after rendering
+    setTimeout(attachPlusListeners, 0);
   }
   
   if (activeTab === 'relevant') {
@@ -110,8 +116,6 @@ async function renderTab() {
   } else if (activeTab === 'settings') {
     renderSettingsTab(tabContent);
   }
-  
-  setTimeout(attachPlusListeners, 0);
 }
 
 // Render relevant tab content
@@ -128,27 +132,61 @@ async function renderRelevantTab(tabContent, logs, renderCards) {
   
   try {
     let scored;
+    let searchMethod = 'threshold';
     
     if (window.memoryChatIDB && window.memoryChatIDB.searchMessages) {
-      // Use semantic search for relevance with 80% score threshold
-      const results = await window.memoryChatIDB.searchMessages(prompt, 0.85);
+      // Use advanced semantic search for relevance with 85% score threshold
+      const results = await window.memoryChatIDB.searchMessages(prompt, 0.05);
       scored = results.map(result => ({
         ...result,
         score: result.similarity || result.score || 0
       }));
+      
+      // Check if we got results but they might be from fallback (lower similarity scores)
+      const highSimilarityCount = scored.filter(result => result.similarity >= 0.85).length;
+      if (scored.length > 0 && highSimilarityCount === 0) {
+        searchMethod = 'topk';
+      }
     } else {
-      tabContent.innerHTML = '<div style="text-align:center;color:#888;">Semantic search not available</div>';
+      tabContent.innerHTML = '<div style="text-align:center;color:#888;">Advanced semantic search not available</div>';
       return;
     }
     
     if (scored.length === 0) {
-      tabContent.innerHTML = '<div style="text-align:center;color:#888;">No relevant messages found with score > 80%</div>';
+      tabContent.innerHTML = `<div style="text-align:center;color:#888;padding:20px;">
+        No relevant messages found with AI-powered semantic search<br>
+        <small style="color:#999;">Try rephrasing your prompt or check the "All" tab</small>
+      </div>`;
     } else {
+      // Add search method indicator
+      const methodIndicator = document.createElement('div');
+      methodIndicator.style.cssText = `
+        font-size: 11px;
+        color: #999;
+        text-align: center;
+        margin-bottom: 10px;
+        padding: 4px 8px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        border: 1px solid #e1e5e9;
+      `;
+      
+      if (searchMethod === 'threshold') {
+        methodIndicator.textContent = `Found ${scored.length} relevant messages using AI-powered semantic search (85%+ similarity)`;
+      } else {
+        methodIndicator.textContent = `Found ${scored.length} messages using AI-powered search (top results, some below 85% similarity)`;
+      }
+      
+      tabContent.innerHTML = '';
+      tabContent.appendChild(methodIndicator);
       renderCards(scored);
     }
   } catch (error) {
     console.error('Relevance search error:', error);
-    tabContent.innerHTML = '<div style="text-align:center;color:#ff6b6b;">Error finding relevant messages</div>';
+    tabContent.innerHTML = `<div style="text-align:center;color:#ff6b6b;padding:20px;">
+      Error finding relevant messages<br>
+      <small style="color:#999;">${error.message}</small>
+    </div>`;
   }
 }
 
@@ -174,15 +212,54 @@ function renderAllTab(tabContent, logs, renderCards) {
 
 // Render search tab content
 function renderSearchTab(tabContent, logs, renderCards) {
+  const storageUI = document.getElementById('memory-chat-storage');
+  const isDark = storageUI && storageUI.classList.contains('memory-chat-dark');
+  
+  // Get search status
+  let searchStatus = 'Advanced semantic search not available';
+  let searchType = 'unavailable';
+  
+  if (window.advancedSemanticSearch) {
+    const status = window.advancedSemanticSearch.getLoadingStatus();
+    if (status.modelLoaded) {
+      searchStatus = 'AI-powered transformer search ready';
+      searchType = 'ready';
+    } else if (status.isLoading) {
+      searchStatus = 'Loading AI search model...';
+      searchType = 'loading';
+    } else {
+      searchStatus = 'AI search model failed to load';
+      searchType = 'failed';
+    }
+  }
+
   tabContent.innerHTML = `
     <div id="search-input-container" style="margin-bottom: 12px;">
       <input id="storage-search-input" type="text" placeholder="Type your search and press Enter..." style="width:100%;padding:8px;border-radius:6px;border:1px solid #e1e5e9;outline:none;" />
-      <div style="margin-top: 8px; font-size: 12px; color: #666;">
-        <span id="search-type-indicator">Semantic search enabled</span>
+      <div style="margin-top: 8px; font-size: 12px; color: ${isDark ? '#b2b8c2' : '#666'};">
+        <span id="search-type-indicator">${searchStatus}</span>
+        ${searchType === 'loading' ? '<div style="margin-top: 4px; width: 100%; height: 2px; background: #e1e5e9; border-radius: 1px; overflow: hidden;"><div style="width: 30%; height: 100%; background: #b2f7ef; animation: loading 1.5s infinite;"></div></div>' : ''}
+      </div>
+      <div style="margin-top: 4px; font-size: 11px; color: ${isDark ? '#888' : '#999'};">
+        ${searchType === 'ready' ? '🤖 Using AI-powered semantic understanding (85%+ similarity, falls back to top results)' : 
+          searchType === 'loading' ? '⏳ Loading AI model...' : 
+          '❌ AI search unavailable'}
       </div>
     </div>
     <div id="storage-search-results"></div>
   `;
+  
+  // Add loading animation CSS
+  if (searchType === 'loading') {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes loading {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(400%); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
   
   const input = tabContent.querySelector('#storage-search-input');
   const resultsDiv = tabContent.querySelector('#storage-search-results');
@@ -198,9 +275,16 @@ function renderSearchTab(tabContent, logs, renderCards) {
     const endIndex = startIndex + itemsPerPage;
     const currentResults = results.slice(startIndex, endIndex);
     
-    // Clear only the results div, not the entire tabContent
+    if (currentResults.length === 0) {
+      resultsDiv.innerHTML = '<div style="text-align:center;color:#888;">No results found</div>';
+      return;
+    }
+    
     resultsDiv.innerHTML = '';
-    currentResults.forEach((result, idx) => resultsDiv.appendChild(renderLogCard(result, idx)));
+    currentResults.forEach((result, idx) => {
+      const card = renderLogCard(result, idx);
+      resultsDiv.appendChild(card);
+    });
     
     // Add pagination controls if needed
     if (totalPages > 1) {
@@ -215,12 +299,9 @@ function renderSearchTab(tabContent, logs, renderCards) {
         border-top: 1px solid #e1e5e9;
       `;
       
-      const storageUI = document.getElementById('memory-chat-storage');
-      const isDark = storageUI && storageUI.classList.contains('memory-chat-dark');
-      
       paginationDiv.innerHTML = `
         <button id="prev-page-btn" style="padding:8px 12px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;${currentPage === 1 ? 'opacity:0.5;cursor:not-allowed;' : ''}">← Previous</button>
-        <span style="color:${isDark ? '#f3f6fa' : '#1a1a1a'};font-size:14px;">Page ${currentPage} of ${totalPages} (${results.length} total)</span>
+        <span style="color:${isDark ? '#f3f6fa' : '#1a1a1a'};font-size:14px;">Page ${currentPage} of ${totalPages} (${results.length} results)</span>
         <button id="next-page-btn" style="padding:8px 12px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;${currentPage === totalPages ? 'opacity:0.5;cursor:not-allowed;' : ''}">Next →</button>
       `;
       
@@ -233,17 +314,20 @@ function renderSearchTab(tabContent, logs, renderCards) {
       if (prevBtn && currentPage > 1) {
         prevBtn.onclick = () => {
           window.currentPage = currentPage - 1;
-          renderSearchResultsWithPagination(window.searchResults);
+          renderSearchResultsWithPagination(results, itemsPerPage);
         };
       }
       
       if (nextBtn && currentPage < totalPages) {
         nextBtn.onclick = () => {
           window.currentPage = currentPage + 1;
-          renderSearchResultsWithPagination(window.searchResults);
+          renderSearchResultsWithPagination(results, itemsPerPage);
         };
       }
     }
+    
+    // Attach event listeners after rendering
+    setTimeout(attachPlusListeners, 0);
   }
   
   // Perform search using semantic search
@@ -254,33 +338,59 @@ function renderSearchTab(tabContent, logs, renderCards) {
       return;
     }
     
+    // Show loading state
+    resultsDiv.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">Searching...</div>';
+    
     try {
       let results;
+      let searchMethod = 'threshold';
       
       if (window.memoryChatIDB && window.memoryChatIDB.searchMessages) {
-        // Use semantic search with 80% score threshold
-        results = await window.memoryChatIDB.searchMessages(query, 0.85);
+        // Use advanced semantic search with 85% score threshold
+        results = await window.memoryChatIDB.searchMessages(query, 0.05);
         results = results.map(result => ({
           ...result,
           score: result.similarity || result.score || 0
         }));
+        
+        // Check if we got results but they might be from fallback (lower similarity scores)
+        const highSimilarityCount = results.filter(result => result.similarity >= 0.85).length;
+        if (results.length > 0 && highSimilarityCount === 0) {
+          searchMethod = 'topk';
+        }
       } else {
-        resultsDiv.innerHTML = '<div style="text-align:center;color:#888;">Semantic search not available</div>';
+        resultsDiv.innerHTML = '<div style="text-align:center;color:#888;">Search not available</div>';
         return;
       }
       
       if (results.length === 0) {
-        resultsDiv.innerHTML = '<div style="text-align:center;color:#888;">No results found with score > 80%</div>';
+        resultsDiv.innerHTML = `<div style="text-align:center;color:#888;padding:20px;">
+          No results found with AI-powered semantic search<br>
+          <small style="color:#999;">Try different keywords or check the "All" tab</small>
+        </div>`;
         window.searchResults = [];
       } else {
         // Store results globally and reset to page 1 when searching
         window.searchResults = results;
         window.currentPage = 1;
         renderSearchResultsWithPagination(results);
+        
+        // Update search status indicator
+        const statusIndicator = tabContent.querySelector('#search-type-indicator');
+        if (statusIndicator) {
+          if (searchMethod === 'threshold') {
+            statusIndicator.textContent = `Found ${results.length} results using AI-powered search (85%+ similarity)`;
+          } else {
+            statusIndicator.textContent = `Found ${results.length} results using AI-powered search (top results, some below 85% similarity)`;
+          }
+        }
       }
     } catch (error) {
       console.error('Search error:', error);
-      resultsDiv.innerHTML = '<div style="text-align:center;color:#ff6b6b;">Search error occurred</div>';
+      resultsDiv.innerHTML = `<div style="text-align:center;color:#ff6b6b;padding:20px;">
+        Search error occurred<br>
+        <small style="color:#999;">${error.message}</small>
+      </div>`;
     }
   }
   
@@ -520,7 +630,7 @@ function renderSettingsTab(tabContent) {
       const messageObjs = messages.map(text => ({ text, timestamp: now }));
       progressContainer.style.display = 'block';
       progressBar.style.width = '0%';
-      statusSpan.textContent = 'Importing...';
+      statusSpan.textContent = `Importing ${messageObjs.length} messages... (This may take several minutes for large imports)`;
       // Batch in chunks for progress bar
       const batchSize = 500;
       let imported = 0, skipped = 0, processed = 0;

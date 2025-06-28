@@ -7,10 +7,15 @@ function loadUIComponents() {
   utilsScript.src = chrome.runtime.getURL('utils.js');
   document.head.appendChild(utilsScript);
   
-  // Load semantic search module
-  const semanticSearchScript = document.createElement('script');
-  semanticSearchScript.src = chrome.runtime.getURL('ui-components/semantic-search.js');
-  document.head.appendChild(semanticSearchScript);
+  // Load basic semantic search as fallback
+  const basicSemanticSearchScript = document.createElement('script');
+  basicSemanticSearchScript.src = chrome.runtime.getURL('ui-components/semantic-search.js');
+  document.head.appendChild(basicSemanticSearchScript);
+  
+  // Load advanced semantic search module
+  const advancedSemanticSearchScript = document.createElement('script');
+  advancedSemanticSearchScript.src = chrome.runtime.getURL('ui-components/advanced-semantic-search.js');
+  document.head.appendChild(advancedSemanticSearchScript);
   
   // Load IndexedDB utilities
   const idbScript = document.createElement('script');
@@ -53,29 +58,37 @@ function loadUIComponents() {
   document.head.appendChild(coordinatorScript);
 }
 
-// Initialize semantic search and update existing embeddings
-async function initializeSemanticSearch() {
-  // Wait for semantic search to be available
+// Initialize advanced semantic search and update existing embeddings
+async function initializeAdvancedSemanticSearch() {
+  // Wait for advanced semantic search to be available
   let attempts = 0;
-  while (!window.semanticSearch && attempts < 50) {
+  while (!window.advancedSemanticSearch && attempts < 50) {
     await new Promise(resolve => setTimeout(resolve, 100));
     attempts++;
   }
   
-  if (window.semanticSearch) {
-    console.log('Semantic search initialized');
+  if (window.advancedSemanticSearch) {
+    console.log('Advanced semantic search initialized');
     
-    // Update embeddings for existing messages in the background
-    if (window.memoryChatIDB && window.memoryChatIDB.updateEmbeddingsForExistingMessages) {
-      try {
-        await window.memoryChatIDB.updateEmbeddingsForExistingMessages();
-        console.log('Updated embeddings for existing messages');
-      } catch (error) {
-        console.log('No existing messages to update embeddings for');
+    // Wait for the model to load
+    try {
+      await window.advancedSemanticSearch.loadEmbedder();
+      console.log('Advanced semantic search model loaded successfully');
+      
+      // Update embeddings for existing messages in the background
+      if (window.memoryChatIDB && window.memoryChatIDB.updateEmbeddingsForExistingMessages) {
+        try {
+          const result = await window.memoryChatIDB.updateEmbeddingsForExistingMessages();
+          console.log('Updated embeddings for existing messages:', result);
+        } catch (error) {
+          console.log('No existing messages to update embeddings for or error occurred:', error.message);
+        }
       }
+    } catch (error) {
+      console.warn('Advanced semantic search model failed to load, falling back to basic search:', error);
     }
   } else {
-    console.warn('Semantic search not available');
+    console.warn('Advanced semantic search not available');
   }
 }
 
@@ -93,8 +106,8 @@ function addLogButtonsAndInitialize() {
 // Load UI components and set up observers
 loadUIComponents();
 
-// Initialize semantic search after a short delay
-setTimeout(initializeSemanticSearch, 1000);
+// Initialize advanced semantic search after a short delay
+setTimeout(initializeAdvancedSemanticSearch, 1000);
 
 const observer = new MutationObserver(addLogButtonsAndInitialize);
 observer.observe(document.body, { childList: true, subtree: true });
