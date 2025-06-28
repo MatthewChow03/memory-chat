@@ -130,24 +130,21 @@ async function renderRelevantTab(tabContent, logs, renderCards) {
     let scored;
     
     if (window.memoryChatIDB && window.memoryChatIDB.searchMessages) {
-      // Use semantic search for relevance
-      const results = await window.memoryChatIDB.searchMessages(prompt, 20);
+      // Use semantic search for relevance with 80% score threshold
+      const results = await window.memoryChatIDB.searchMessages(prompt, 0.85);
       scored = results.map(result => ({
         ...result,
         score: result.similarity || result.score || 0
       }));
     } else {
-      // Fallback to TF-IDF
-      scored = logs.map(log => ({...log, score: cosineSimilarity(prompt, log.text, logs.map(l => l.text))}));
-      scored.sort((a, b) => b.score - a.score);
+      tabContent.innerHTML = '<div style="text-align:center;color:#888;">Semantic search not available</div>';
+      return;
     }
     
-    const top = scored.filter(l => l.score > 0);
-    
-    if (top.length === 0) {
-      tabContent.innerHTML = '<div style="text-align:center;color:#888;">No relevant messages found</div>';
+    if (scored.length === 0) {
+      tabContent.innerHTML = '<div style="text-align:center;color:#888;">No relevant messages found with score > 80%</div>';
     } else {
-      renderCards(top);
+      renderCards(scored);
     }
   } catch (error) {
     console.error('Relevance search error:', error);
@@ -178,11 +175,10 @@ function renderAllTab(tabContent, logs, renderCards) {
 // Render search tab content
 function renderSearchTab(tabContent, logs, renderCards) {
   tabContent.innerHTML = `
-    <div style="margin-bottom: 12px;">
+    <div id="search-input-container" style="margin-bottom: 12px;">
       <input id="storage-search-input" type="text" placeholder="Type your search and press Enter..." style="width:100%;padding:8px;border-radius:6px;border:1px solid #e1e5e9;outline:none;" />
       <div style="margin-top: 8px; font-size: 12px; color: #666;">
         <span id="search-type-indicator">Semantic search enabled</span>
-        <button id="toggle-search-type" style="margin-left: 8px; padding: 2px 6px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 3px; font-size: 11px; cursor: pointer;">Switch to TF-IDF</button>
       </div>
     </div>
     <div id="storage-search-results"></div>
@@ -190,54 +186,97 @@ function renderSearchTab(tabContent, logs, renderCards) {
   
   const input = tabContent.querySelector('#storage-search-input');
   const resultsDiv = tabContent.querySelector('#storage-search-results');
-  const searchTypeIndicator = tabContent.querySelector('#search-type-indicator');
-  const toggleSearchTypeBtn = tabContent.querySelector('#toggle-search-type');
   
-  let useSemanticSearch = true;
+  // Store search results globally for pagination
+  window.searchResults = [];
   
-  // Toggle between semantic and TF-IDF search
-  toggleSearchTypeBtn.onclick = () => {
-    useSemanticSearch = !useSemanticSearch;
-    searchTypeIndicator.textContent = useSemanticSearch ? 'Semantic search enabled' : 'TF-IDF search enabled';
-    toggleSearchTypeBtn.textContent = useSemanticSearch ? 'Switch to TF-IDF' : 'Switch to Semantic';
+  // Helper function to render search results with pagination
+  function renderSearchResultsWithPagination(results, itemsPerPage = 10) {
+    const totalPages = Math.ceil(results.length / itemsPerPage);
+    const currentPage = window.currentPage || 1;
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const currentResults = results.slice(startIndex, endIndex);
     
-    // Re-run search if there's a current query
-    const currentQuery = input.value.trim();
-    if (currentQuery) {
-      performSearch(currentQuery);
+    // Clear only the results div, not the entire tabContent
+    resultsDiv.innerHTML = '';
+    currentResults.forEach((result, idx) => resultsDiv.appendChild(renderLogCard(result, idx)));
+    
+    // Add pagination controls if needed
+    if (totalPages > 1) {
+      const paginationDiv = document.createElement('div');
+      paginationDiv.style.cssText = `
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+        margin-top: 20px;
+        padding: 10px;
+        border-top: 1px solid #e1e5e9;
+      `;
+      
+      const storageUI = document.getElementById('memory-chat-storage');
+      const isDark = storageUI && storageUI.classList.contains('memory-chat-dark');
+      
+      paginationDiv.innerHTML = `
+        <button id="prev-page-btn" style="padding:8px 12px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;${currentPage === 1 ? 'opacity:0.5;cursor:not-allowed;' : ''}">← Previous</button>
+        <span style="color:${isDark ? '#f3f6fa' : '#1a1a1a'};font-size:14px;">Page ${currentPage} of ${totalPages} (${results.length} total)</span>
+        <button id="next-page-btn" style="padding:8px 12px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;${currentPage === totalPages ? 'opacity:0.5;cursor:not-allowed;' : ''}">Next →</button>
+      `;
+      
+      resultsDiv.appendChild(paginationDiv);
+      
+      // Setup pagination event handlers
+      const prevBtn = paginationDiv.querySelector('#prev-page-btn');
+      const nextBtn = paginationDiv.querySelector('#next-page-btn');
+      
+      if (prevBtn && currentPage > 1) {
+        prevBtn.onclick = () => {
+          window.currentPage = currentPage - 1;
+          renderSearchResultsWithPagination(window.searchResults);
+        };
+      }
+      
+      if (nextBtn && currentPage < totalPages) {
+        nextBtn.onclick = () => {
+          window.currentPage = currentPage + 1;
+          renderSearchResultsWithPagination(window.searchResults);
+        };
+      }
     }
-  };
+  }
   
-  // Perform search using the selected method
+  // Perform search using semantic search
   async function performSearch(query) {
     if (!query) {
       resultsDiv.innerHTML = '';
+      window.searchResults = [];
       return;
     }
     
     try {
       let results;
       
-      if (useSemanticSearch && window.memoryChatIDB && window.memoryChatIDB.searchMessages) {
-        // Use semantic search
-        results = await window.memoryChatIDB.searchMessages(query, 20);
+      if (window.memoryChatIDB && window.memoryChatIDB.searchMessages) {
+        // Use semantic search with 80% score threshold
+        results = await window.memoryChatIDB.searchMessages(query, 0.85);
         results = results.map(result => ({
           ...result,
           score: result.similarity || result.score || 0
         }));
       } else {
-        // Fallback to TF-IDF search
-        const scored = logs.map(log => ({...log, score: cosineSimilarity(query, log.text, logs.map(l => l.text))}));
-        scored.sort((a, b) => b.score - a.score);
-        results = scored.filter(l => l.score > 0).slice(0, 20);
+        resultsDiv.innerHTML = '<div style="text-align:center;color:#888;">Semantic search not available</div>';
+        return;
       }
       
       if (results.length === 0) {
-        resultsDiv.innerHTML = '<div style="text-align:center;color:#888;">No results found</div>';
+        resultsDiv.innerHTML = '<div style="text-align:center;color:#888;">No results found with score > 80%</div>';
+        window.searchResults = [];
       } else {
-        // Reset to page 1 when searching
+        // Store results globally and reset to page 1 when searching
+        window.searchResults = results;
         window.currentPage = 1;
-        renderCards(results);
+        renderSearchResultsWithPagination(results);
       }
     } catch (error) {
       console.error('Search error:', error);
@@ -251,20 +290,6 @@ function renderSearchTab(tabContent, logs, renderCards) {
       const term = input.value.trim();
       performSearch(term);
     }
-  });
-  
-  // Also search on input change with debouncing
-  let searchTimeout;
-  input.addEventListener('input', (e) => {
-    clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => {
-      const term = input.value.trim();
-      if (term.length >= 2) { // Only search if at least 2 characters
-        performSearch(term);
-      } else if (term.length === 0) {
-        resultsDiv.innerHTML = '';
-      }
-    }, 300); // 300ms debounce
   });
 }
 

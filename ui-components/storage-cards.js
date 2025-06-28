@@ -140,25 +140,32 @@ function attachPlusListeners() {
       let current = prompt.innerText.trim();
       const preface = 'Here is a useful memory for this conversation:';
       
-      // Check if preface exists
       let newText = '';
       if (current.includes(preface)) {
-        // Add as new bullet point
-        newText = current.replace(new RegExp(`(${preface}[\s\S]*?)(\n|$)`), (match, p1) => {
-          // Find where the bullets end
-          return p1.endsWith('\n') ? p1 : p1 + '\n';
-        });
-        // Add bullet
+        // If preface already exists, add as new bullet point
         newText = current + `\n- ${text}`;
       } else {
         // Add preface and bullet
-        newText = (current ? current + '\n' : '') + preface + '\n- ' + text;
+        newText = (current ? current + '\n\n' : '') + preface + '\n- ' + text;
       }
       
-      // Set the prompt text (simulate typing)
+      // Set the prompt text using a more reliable method
       prompt.focus();
-      document.execCommand('selectAll', false, null);
-      document.execCommand('insertText', false, newText);
+      
+      // Clear existing content
+      prompt.innerHTML = '';
+      
+      // Insert new content
+      const textNode = document.createTextNode(newText);
+      prompt.appendChild(textNode);
+      
+      // Move cursor to end
+      const range = document.createRange();
+      const selection = window.getSelection();
+      range.selectNodeContents(prompt);
+      range.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(range);
     };
   });
 }

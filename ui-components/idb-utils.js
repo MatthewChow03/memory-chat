@@ -87,16 +87,15 @@ function getAllMessages() {
   });
 }
 
-function searchMessages(query, topK = 10) {
+function searchMessages(query, minScore = 0.85) {
   return getAllMessages().then(messages => {
     if (!window.semanticSearch) {
-      // Fallback to old cosine similarity if semantic search not available
-      const scored = messages.map(log => ({...log, score: cosineSimilarity(query, log.text, messages.map(l => l.text))}));
-      scored.sort((a, b) => b.score - a.score);
-      return scored.filter(l => l.score > 0).slice(0, topK);
+      return Promise.reject(new Error('Semantic search not available'));
     }
     
-    return window.semanticSearch.search(query, messages, topK);
+    // Get all messages and filter by score threshold
+    const results = window.semanticSearch.search(query, messages, messages.length);
+    return results.filter(result => (result.similarity || result.score || 0) > minScore);
   });
 }
 

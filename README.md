@@ -7,7 +7,6 @@ A Chrome extension that allows you to selectively log and manage ChatGPT convers
 - **Selective Logging**: Add individual messages to your log with one click
 - **Smart Organization**: Create folders to organize related messages
 - **Semantic Search**: Advanced vector-based search for finding relevant messages
-- **TF-IDF Fallback**: Traditional keyword-based search as an alternative
 - **Message Reuse**: Add logged messages back to your prompt with formatting
 - **Bulk Operations**: Add entire conversations or folder contents to your prompt
 - **Modern UI**: Clean, responsive interface with tabs and search functionality
@@ -59,11 +58,6 @@ The extension uses a modular architecture for better maintainability and separat
 - **Performance**: Optimized for browser environments with minimal memory usage
 - **Similarity Scoring**: Cosine similarity provides accurate relevance scores
 
-### Search Modes
-- **Semantic Search**: Understands meaning and context, not just keywords
-- **TF-IDF Search**: Traditional keyword-based search as a fallback option
-- **Toggle Between Modes**: Switch between semantic and TF-IDF search in the search tab
-
 ### Import & Embedding Generation
 - **Automatic Embeddings**: New messages automatically get embeddings generated
 - **Bulk Import**: Import conversations.json files with automatic embedding generation
@@ -87,7 +81,6 @@ The extension uses a modular architecture for better maintainability and separat
 
 ### Search Features
 - **Search Tab**: Use semantic search to find relevant messages
-- **Toggle Search Type**: Switch between semantic and TF-IDF search modes
 - **Real-time Search**: Results update as you type (with debouncing)
 - **Relevance Scores**: See similarity scores for search results
 
@@ -112,6 +105,6 @@ The extension uses a modular architecture for better maintainability and separat
 - **Relevant Tab**: Shows messages similar to your current prompt using semantic search
 - **Recent Tab**: Shows the most recently added messages
 - **All Tab**: Shows all logged messages
-- **Search Tab**: Advanced search with semantic and TF-IDF options
+- **Search Tab**: Advanced semantic search functionality
 - **Folders Tab**: Manage your message folders
 - **Settings Tab**: Import, clear logs, and manage embeddings
