@@ -9,11 +9,11 @@ async function viewFolderContents(folderName) {
   const tabContent = storageUI.querySelector('#memory-chat-tab-content');
   if (!tabContent) return;
   
-  let folders = {};
-  if (window.memoryChatIDB && window.memoryChatIDB.getAllFolders) {
-    folders = await window.memoryChatIDB.getAllFolders();
+  // Get folder contents with resolved message data
+  let folderMessages = [];
+  if (window.memoryChatIDB && window.memoryChatIDB.getFolderContents) {
+    folderMessages = await window.memoryChatIDB.getFolderContents(folderName);
   }
-  const folderMessages = folders[folderName] || [];
   
   let contentHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
@@ -27,21 +27,27 @@ async function viewFolderContents(folderName) {
     contentHTML += '<div style="text-align:center;color:#888;">This folder is empty</div>';
   } else {
     folderMessages.forEach((message, idx) => {
-      // Handle both old format (string) and new format (object with text and timestamp)
-      const messageText = typeof message === 'string' ? message : message.text;
-      const messageTimestamp = typeof message === 'string' ? Date.now() : message.timestamp;
-      const messageLines = messageText.split('\n').length;
+      // Get insights text for display
+      const insights = message.insights || message.text;
+      const insightsText = Array.isArray(insights) 
+        ? insights.map(insight => `• ${insight}`).join('\n')
+        : insights;
+      
+      const messageLines = insightsText.split('\n').length;
       const showMoreBtn = messageLines > 4 ? 'block' : 'none';
       
       contentHTML += `
-        <div style="background:#f8f9fa;border:1px solid #e1e5e9;border-radius:8px;margin-bottom:8px;padding:12px;font-size:14px;line-height:1.4;">
-          <div class="folder-message-content clamped" style="white-space:pre-line;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;max-height:5.6em;">${messageText}</div>
+        <div class="folder-message-card" data-insights-key="${message.insightsKey}" style="background:#f8f9fa;border:1px solid #e1e5e9;border-radius:8px;margin-bottom:8px;padding:12px;font-size:14px;line-height:1.4;">
+          <div class="folder-message-content clamped" style="white-space:pre-line;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;max-height:5.6em;">${insightsText}</div>
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div style="display:flex;align-items:center;gap:8px;">
-              <div style="color:#888;font-size:11px;">${new Date(messageTimestamp).toLocaleString()}</div>
+              <div style="color:#888;font-size:11px;">${new Date(message.timestamp).toLocaleString()}</div>
               <button class="folder-show-btn" data-index="${idx}" style="background:none;border:none;color:#007bff;cursor:pointer;font-size:13px;padding:0;display:${showMoreBtn};">Show more</button>
             </div>
-            <button class="remove-from-folder" data-folder="${folderName}" data-index="${idx}" style="background:#f7e6e6;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px;color:#d32f2f;">Remove</button>
+            <div style="display:flex;gap:4px;">
+              <button class="remove-from-folder" data-folder="${folderName}" data-insights-key="${message.insightsKey}" style="background:#f7e6e6;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;color:#d32f2f;" title="Remove from this folder only">Remove</button>
+              <button class="delete-memory" data-insights-key="${message.insightsKey}" style="background:#ffebee;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;color:#c62828;" title="Delete memory from everywhere">Delete</button>
+            </div>
           </div>
         </div>
       `;
@@ -51,11 +57,11 @@ async function viewFolderContents(folderName) {
   tabContent.innerHTML = contentHTML;
   
   // Setup folder content event handlers
-  setupFolderContentEventHandlers(tabContent, folderName, folders);
+  setupFolderContentEventHandlers(tabContent, folderName);
 }
 
 // Setup folder content event handlers
-function setupFolderContentEventHandlers(tabContent, folderName, folders) {
+function setupFolderContentEventHandlers(tabContent, folderName) {
   // Back button
   tabContent.querySelector('#back-to-folders').onclick = () => {
     if (window.renderTab) {
@@ -93,14 +99,46 @@ function setupFolderContentEventHandlers(tabContent, folderName, folders) {
   tabContent.querySelectorAll('.remove-from-folder').forEach(btn => {
     btn.onclick = async () => {
       const folderName = btn.dataset.folder;
-      const index = parseInt(btn.dataset.index);
+      const insightsKey = btn.dataset.insightsKey;
       
-      if (window.memoryChatIDB && window.memoryChatIDB.getAllFolders && window.memoryChatIDB.addOrUpdateFolder) {
-        const currentFolders = await window.memoryChatIDB.getAllFolders();
-        const folderMessages = currentFolders[folderName] || [];
-        folderMessages.splice(index, 1);
-        await window.memoryChatIDB.addOrUpdateFolder(folderName, folderMessages);
-        viewFolderContents(folderName);
+      if (confirm('Remove this memory from this folder only? (It will remain in storage)')) {
+        if (window.memoryChatIDB && window.memoryChatIDB.removeMessageFromFolder) {
+          await window.memoryChatIDB.removeMessageFromFolder(folderName, insightsKey);
+          // Refresh the folder contents
+          viewFolderContents(folderName);
+        }
+      }
+    };
+  });
+
+  // Delete memory buttons (delete from everywhere)
+  tabContent.querySelectorAll('.delete-memory').forEach(btn => {
+    btn.onclick = async () => {
+      const insightsKey = btn.dataset.insightsKey;
+      
+      if (confirm('Delete this memory from everywhere? This action cannot be undone.')) {
+        try {
+          if (window.memoryChatIDB && window.memoryChatIDB.removeMessage) {
+            await window.memoryChatIDB.removeMessage(insightsKey);
+            
+            // Remove the card from the UI
+            const card = btn.closest('.folder-message-card');
+            if (card) {
+              card.remove();
+            }
+            
+            // Show success feedback
+            if (window.showFeedback) {
+              window.showFeedback('Memory deleted successfully!', 'success');
+            }
+          } else {
+            console.error('removeMessage function not available');
+            alert('Delete functionality not available');
+          }
+        } catch (error) {
+          console.error('Error deleting memory:', error);
+          alert('Failed to delete memory. Please try again.');
+        }
       }
     };
   });
@@ -115,8 +153,8 @@ async function showFolderSelector(messageElement) {
   }
 
   let folders = {};
-  if (window.memoryChatIDB && window.memoryChatIDB.getAllFolders) {
-    folders = await window.memoryChatIDB.getAllFolders();
+  if (window.memoryChatIDB && window.memoryChatIDB.getAllFoldersWithCounts) {
+    folders = await window.memoryChatIDB.getAllFoldersWithCounts();
   }
   const folderNames = Object.keys(folders);
   
@@ -156,7 +194,7 @@ async function showFolderSelector(messageElement) {
     `;
     
     folderNames.forEach(folderName => {
-      const messageCount = folders[folderName].length;
+      const messageCount = folders[folderName].messageCount || 0;
       popupHTML += `
         <div class="folder-option" data-folder="${folderName}" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8f9fa; border: 1px solid #e1e5e9; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s;">
           <div>
@@ -205,8 +243,25 @@ function setupFolderPopupEventHandlers(popup, messageElement, folders) {
     option.onclick = async () => {
       const folderName = option.dataset.folder;
       const messageText = getMessageText(messageElement);
-      if (window.memoryChatIDB && window.memoryChatIDB.addMessageToFolder) {
-        await window.memoryChatIDB.addMessageToFolder(folderName, { text: messageText, timestamp: Date.now() });
+      
+      // Find the corresponding insightsKey for this message
+      let insightsKey = null;
+      
+      // Try to find the message in storage by text content
+      if (window.memoryChatIDB && window.memoryChatIDB.getAllMessages) {
+        const allMessages = await window.memoryChatIDB.getAllMessages();
+        const matchingMessage = allMessages.find(msg => {
+          const msgText = Array.isArray(msg.insights) ? msg.insights.join('\n') : msg.text;
+          return msgText === messageText;
+        });
+        
+        if (matchingMessage) {
+          insightsKey = matchingMessage.insightsKey;
+        }
+      }
+      
+      if (insightsKey && window.memoryChatIDB && window.memoryChatIDB.addMessageToFolder) {
+        await window.memoryChatIDB.addMessageToFolder(folderName, insightsKey);
         // Update the log button state to show "Remove from Log"
         if (messageElement) {
           const logBtn = messageElement.querySelector('.memory-chat-log-btn');
@@ -216,7 +271,9 @@ function setupFolderPopupEventHandlers(popup, messageElement, folders) {
             logBtn.style.color = '#222';
           }
         }
-        showFeedback('Message added to folder and log!', 'success');
+        showFeedback('Message added to folder!', 'success');
+      } else {
+        showFeedback('Could not find message in storage', 'error');
       }
       popup.remove();
     };
@@ -239,7 +296,7 @@ function setupFolderPopupEventHandlers(popup, messageElement, folders) {
 }
 
 // Show folder selector popup for storage insights (no message element needed)
-async function showFolderSelectorForStorage(insightText) {
+async function showFolderSelectorForStorage(insightsKey) {
   // Remove existing popup if any
   const existingPopup = document.getElementById('memory-chat-folder-popup');
   if (existingPopup) {
@@ -247,8 +304,8 @@ async function showFolderSelectorForStorage(insightText) {
   }
 
   let folders = {};
-  if (window.memoryChatIDB && window.memoryChatIDB.getAllFolders) {
-    folders = await window.memoryChatIDB.getAllFolders();
+  if (window.memoryChatIDB && window.memoryChatIDB.getAllFoldersWithCounts) {
+    folders = await window.memoryChatIDB.getAllFoldersWithCounts();
   }
   const folderNames = Object.keys(folders);
   
@@ -288,7 +345,7 @@ async function showFolderSelectorForStorage(insightText) {
     `;
     
     folderNames.forEach(folderName => {
-      const messageCount = folders[folderName].length;
+      const messageCount = folders[folderName].messageCount || 0;
       popupHTML += `
         <div class="folder-option" data-folder="${folderName}" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8f9fa; border: 1px solid #e1e5e9; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s;">
           <div>
@@ -315,11 +372,11 @@ async function showFolderSelectorForStorage(insightText) {
   document.body.appendChild(popup);
   
   // Setup popup event handlers
-  setupFolderPopupEventHandlersForStorage(popup, insightText, folders);
+  setupFolderPopupEventHandlersForStorage(popup, insightsKey, folders);
 }
 
 // Setup folder popup event handlers for storage insights
-function setupFolderPopupEventHandlersForStorage(popup, insightText, folders) {
+function setupFolderPopupEventHandlersForStorage(popup, insightsKey, folders) {
   // Close button
   popup.querySelector('#memory-chat-folder-close').onclick = () => {
     popup.remove();
@@ -336,9 +393,13 @@ function setupFolderPopupEventHandlersForStorage(popup, insightText, folders) {
   popup.querySelectorAll('.folder-option').forEach(option => {
     option.onclick = async () => {
       const folderName = option.dataset.folder;
-      if (window.memoryChatIDB && window.memoryChatIDB.addMessageToFolder) {
-        await window.memoryChatIDB.addMessageToFolder(folderName, { text: insightText, timestamp: Date.now() });
+      
+      // Use the insightsKey directly since we already have it
+      if (insightsKey && window.memoryChatIDB && window.memoryChatIDB.addMessageToFolder) {
+        await window.memoryChatIDB.addMessageToFolder(folderName, insightsKey);
         showFeedback('Memory added to folder!', 'success');
+      } else {
+        showFeedback('Could not add memory to folder', 'error');
       }
       popup.remove();
     };
@@ -354,7 +415,7 @@ function setupFolderPopupEventHandlersForStorage(popup, insightText, folders) {
       if (window.memoryChatIDB && window.memoryChatIDB.addOrUpdateFolder) {
         await window.memoryChatIDB.addOrUpdateFolder(folderName.trim(), []);
         popup.remove();
-        showFolderSelectorForStorage(insightText);
+        showFolderSelectorForStorage(insightsKey);
       }
     }
   };

@@ -4,6 +4,17 @@ const STORE_NAME = 'chatLogs';
 const DB_VERSION = 4;
 const FOLDER_STORE = 'folders';
 
+// Simple hash function to make keys more unique
+function simpleHash(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash).toString(36);
+}
+
 function openDB() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -61,7 +72,7 @@ async function processMessagesForStorage(messages) {
       }
       
       // Create a unique key from insights array
-      const insightsKey = validInsights.join('|');
+      const insightsKey = validInsights.join('|') + '_' + simpleHash(validInsights.join('|'));
       
       processedMessages.push({
         insights: validInsights,
@@ -155,7 +166,7 @@ function addMessages(messages) {
           messageWithEmbedding = { ...messageWithEmbedding, insights: validInsights };
           
           // Create insightsKey for IndexedDB
-          const insightsKey = validInsights.join('|');
+          const insightsKey = validInsights.join('|') + '_' + simpleHash(validInsights.join('|'));
           messageWithEmbedding = { ...messageWithEmbedding, insightsKey: insightsKey };
           
           // Use insightsKey for checking existence
@@ -268,8 +279,10 @@ function messageExists(insights) {
       const tx = db.transaction(STORE_NAME, 'readonly');
       const store = tx.objectStore(STORE_NAME);
       
-      // Convert insights array to key string
-      const insightsKey = Array.isArray(insights) ? insights.join('|') : insights;
+      // Convert insights array to key string with hash
+      const insightsKey = Array.isArray(insights) 
+        ? insights.join('|') + '_' + simpleHash(insights.join('|'))
+        : insights;
       
       const req = store.get(insightsKey);
       req.onsuccess = () => resolve(!!req.result);
@@ -278,12 +291,13 @@ function messageExists(insights) {
   });
 }
 
-function addOrUpdateFolder(name, messages) {
+function addOrUpdateFolder(name, messageRefs) {
   return openDB().then(db => {
     return new Promise((resolve, reject) => {
       const tx = db.transaction(FOLDER_STORE, 'readwrite');
       const store = tx.objectStore(FOLDER_STORE);
-      const req = store.put({ name, messages });
+      // Use the new pointer-based system (messageRefs) instead of old messages array
+      const req = store.put({ name, messageRefs: messageRefs || [] });
       req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
     });
@@ -299,7 +313,8 @@ function getAllFolders() {
       req.onsuccess = () => {
         const result = {};
         req.result.forEach(folder => {
-          result[folder.name] = folder.messages;
+          // Use the new pointer-based system (messageRefs) instead of old messages array
+          result[folder.name] = folder.messageRefs || [];
         });
         resolve(result);
       };
@@ -332,7 +347,7 @@ function clearFolders() {
   });
 }
 
-function addMessageToFolder(name, message) {
+function addMessageToFolder(name, insightsKeyOrMessage) {
   return openDB().then(db => {
     return new Promise((resolve, reject) => {
       const tx = db.transaction(FOLDER_STORE, 'readwrite');
@@ -341,17 +356,296 @@ function addMessageToFolder(name, message) {
       getReq.onsuccess = () => {
         let folder = getReq.result;
         if (!folder) {
-          folder = { name, messages: [message] };
-        } else {
-          if (!folder.messages.some(m => m.text === message.text)) {
-            folder.messages.push(message);
-          }
+          folder = { name, messageRefs: [] };
         }
+        
+        // Ensure messageRefs exists (for backward compatibility with old folders)
+        if (!folder.messageRefs) {
+          folder.messageRefs = [];
+        }
+        
+        // Convert input to insightsKey reference
+        let insightsKey;
+        if (typeof insightsKeyOrMessage === 'string') {
+          // If it's already a string, assume it's an insightsKey
+          insightsKey = insightsKeyOrMessage;
+        } else if (insightsKeyOrMessage && insightsKeyOrMessage.insightsKey) {
+          // If it's an object with insightsKey, use that
+          insightsKey = insightsKeyOrMessage.insightsKey;
+        } else if (insightsKeyOrMessage && insightsKeyOrMessage.insights) {
+          // If it's an object with insights, create the key
+          insightsKey = insightsKeyOrMessage.insights.join('|') + '_' + simpleHash(insightsKeyOrMessage.insights.join('|'));
+        } else if (insightsKeyOrMessage && insightsKeyOrMessage.text) {
+          // Legacy support: if it's an object with text, we need to find the corresponding insightsKey
+          // This is a fallback for backward compatibility
+          insightsKey = insightsKeyOrMessage.text; // This will be resolved later
+        } else {
+          reject(new Error('Invalid message format for folder reference'));
+          return;
+        }
+        
+        // Add reference if it doesn't already exist
+        if (!folder.messageRefs.includes(insightsKey)) {
+          folder.messageRefs.push(insightsKey);
+        }
+        
         const putReq = store.put(folder);
         putReq.onsuccess = () => resolve();
         putReq.onerror = () => reject(putReq.error);
       };
       getReq.onerror = () => reject(getReq.error);
+    });
+  });
+}
+
+// Get folder contents with resolved message data
+function getFolderContents(folderName) {
+  return openDB().then(db => {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([FOLDER_STORE, STORE_NAME], 'readonly');
+      const folderStore = tx.objectStore(FOLDER_STORE);
+      const messageStore = tx.objectStore(STORE_NAME);
+      
+      const getFolderReq = folderStore.get(folderName);
+      getFolderReq.onsuccess = () => {
+        const folder = getFolderReq.result;
+        if (!folder || !folder.messageRefs || folder.messageRefs.length === 0) {
+          resolve([]);
+          return;
+        }
+        
+        // Resolve all message references
+        const resolvedMessages = [];
+        let resolvedCount = 0;
+        
+        folder.messageRefs.forEach(insightsKey => {
+          const getMessageReq = messageStore.get(insightsKey);
+          getMessageReq.onsuccess = () => {
+            const message = getMessageReq.result;
+            if (message) {
+              resolvedMessages.push(message);
+            }
+            resolvedCount++;
+            
+            if (resolvedCount === folder.messageRefs.length) {
+              // Sort by timestamp (newest first)
+              resolvedMessages.sort((a, b) => b.timestamp - a.timestamp);
+              resolve(resolvedMessages);
+            }
+          };
+          getMessageReq.onerror = () => {
+            resolvedCount++;
+            if (resolvedCount === folder.messageRefs.length) {
+              // Sort by timestamp (newest first)
+              resolvedMessages.sort((a, b) => b.timestamp - a.timestamp);
+              resolve(resolvedMessages);
+            }
+          };
+        });
+      };
+      getFolderReq.onerror = () => reject(getFolderReq.error);
+    });
+  });
+}
+
+// Get all folders with resolved message counts
+function getAllFoldersWithCounts() {
+  return openDB().then(db => {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([FOLDER_STORE, STORE_NAME], 'readonly');
+      const folderStore = tx.objectStore(FOLDER_STORE);
+      const messageStore = tx.objectStore(STORE_NAME);
+      
+      const getAllFoldersReq = folderStore.getAll();
+      getAllFoldersReq.onsuccess = () => {
+        const folders = getAllFoldersReq.result;
+        const result = {};
+        
+        if (folders.length === 0) {
+          resolve(result);
+          return;
+        }
+        
+        let processedFolders = 0;
+        
+        folders.forEach(folder => {
+          if (!folder.messageRefs || folder.messageRefs.length === 0) {
+            result[folder.name] = { messageRefs: [], messageCount: 0 };
+            processedFolders++;
+            if (processedFolders === folders.length) {
+              resolve(result);
+            }
+            return;
+          }
+          
+          // Count valid references
+          let validRefs = 0;
+          let checkedRefs = 0;
+          
+          folder.messageRefs.forEach(insightsKey => {
+            const getMessageReq = messageStore.get(insightsKey);
+            getMessageReq.onsuccess = () => {
+              if (getMessageReq.result) {
+                validRefs++;
+              }
+              checkedRefs++;
+              
+              if (checkedRefs === folder.messageRefs.length) {
+                result[folder.name] = { 
+                  messageRefs: folder.messageRefs, 
+                  messageCount: validRefs 
+                };
+                processedFolders++;
+                if (processedFolders === folders.length) {
+                  resolve(result);
+                }
+              }
+            };
+            getMessageReq.onerror = () => {
+              checkedRefs++;
+              if (checkedRefs === folder.messageRefs.length) {
+                result[folder.name] = { 
+                  messageRefs: folder.messageRefs, 
+                  messageCount: validRefs 
+                };
+                processedFolders++;
+                if (processedFolders === folders.length) {
+                  resolve(result);
+                }
+              }
+            };
+          });
+        });
+      };
+      getAllFoldersReq.onerror = () => reject(getAllFoldersReq.error);
+    });
+  });
+}
+
+// Remove message reference from folder
+function removeMessageFromFolder(folderName, insightsKey) {
+  return openDB().then(db => {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(FOLDER_STORE, 'readwrite');
+      const store = tx.objectStore(FOLDER_STORE);
+      const getReq = store.get(folderName);
+      getReq.onsuccess = () => {
+        const folder = getReq.result;
+        if (!folder) {
+          resolve();
+          return;
+        }
+        
+        // Remove the reference
+        folder.messageRefs = folder.messageRefs.filter(ref => ref !== insightsKey);
+        
+        const putReq = store.put(folder);
+        putReq.onsuccess = () => resolve();
+        putReq.onerror = () => reject(putReq.error);
+      };
+      getReq.onerror = () => reject(getReq.error);
+    });
+  });
+}
+
+// Clean up orphaned references (remove references to deleted messages)
+function cleanupFolderReferences() {
+  return openDB().then(db => {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([FOLDER_STORE, STORE_NAME], 'readwrite');
+      const folderStore = tx.objectStore(FOLDER_STORE);
+      const messageStore = tx.objectStore(STORE_NAME);
+      
+      const getAllFoldersReq = folderStore.getAll();
+      getAllFoldersReq.onsuccess = () => {
+        const folders = getAllFoldersReq.result;
+        let processedFolders = 0;
+        let totalCleaned = 0;
+        
+        if (folders.length === 0) {
+          resolve({ cleanedFolders: 0, totalCleaned: 0 });
+          return;
+        }
+        
+        folders.forEach(folder => {
+          if (!folder.messageRefs || folder.messageRefs.length === 0) {
+            processedFolders++;
+            if (processedFolders === folders.length) {
+              resolve({ cleanedFolders: totalCleaned > 0 ? 1 : 0, totalCleaned });
+            }
+            return;
+          }
+          
+          const originalRefs = [...folder.messageRefs];
+          let checkedRefs = 0;
+          let validRefs = [];
+          
+          folder.messageRefs.forEach(insightsKey => {
+            const getMessageReq = messageStore.get(insightsKey);
+            getMessageReq.onsuccess = () => {
+              if (getMessageReq.result) {
+                validRefs.push(insightsKey);
+              }
+              checkedRefs++;
+              
+              if (checkedRefs === folder.messageRefs.length) {
+                // Update folder with only valid references
+                if (validRefs.length !== originalRefs.length) {
+                  folder.messageRefs = validRefs;
+                  const putReq = folderStore.put(folder);
+                  putReq.onsuccess = () => {
+                    totalCleaned += (originalRefs.length - validRefs.length);
+                    processedFolders++;
+                    if (processedFolders === folders.length) {
+                      resolve({ cleanedFolders: totalCleaned > 0 ? 1 : 0, totalCleaned });
+                    }
+                  };
+                  putReq.onerror = () => {
+                    processedFolders++;
+                    if (processedFolders === folders.length) {
+                      resolve({ cleanedFolders: totalCleaned > 0 ? 1 : 0, totalCleaned });
+                    }
+                  };
+                } else {
+                  processedFolders++;
+                  if (processedFolders === folders.length) {
+                    resolve({ cleanedFolders: totalCleaned > 0 ? 1 : 0, totalCleaned });
+                  }
+                }
+              }
+            };
+            getMessageReq.onerror = () => {
+              checkedRefs++;
+              if (checkedRefs === folder.messageRefs.length) {
+                // Update folder with only valid references
+                if (validRefs.length !== originalRefs.length) {
+                  folder.messageRefs = validRefs;
+                  const putReq = folderStore.put(folder);
+                  putReq.onsuccess = () => {
+                    totalCleaned += (originalRefs.length - validRefs.length);
+                    processedFolders++;
+                    if (processedFolders === folders.length) {
+                      resolve({ cleanedFolders: totalCleaned > 0 ? 1 : 0, totalCleaned });
+                    }
+                  };
+                  putReq.onerror = () => {
+                    processedFolders++;
+                    if (processedFolders === folders.length) {
+                      resolve({ cleanedFolders: totalCleaned > 0 ? 1 : 0, totalCleaned });
+                    }
+                  };
+                } else {
+                  processedFolders++;
+                  if (processedFolders === folders.length) {
+                    resolve({ cleanedFolders: totalCleaned > 0 ? 1 : 0, totalCleaned });
+                  }
+                }
+              }
+            };
+          });
+        });
+      };
+      getAllFoldersReq.onerror = () => reject(getAllFoldersReq.error);
     });
   });
 }
@@ -437,6 +731,201 @@ function debugIndexedDB() {
   });
 }
 
+// Remove a specific message from storage
+function removeMessage(insightsKeyOrInsights) {
+  return openDB().then(db => {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([STORE_NAME, FOLDER_STORE], 'readwrite');
+      const messageStore = tx.objectStore(STORE_NAME);
+      const folderStore = tx.objectStore(FOLDER_STORE);
+      
+      let insightsKey;
+      
+      // Handle different input formats
+      if (Array.isArray(insightsKeyOrInsights)) {
+        // If it's an insights array, create the key
+        insightsKey = insightsKeyOrInsights.join('|') + '_' + simpleHash(insightsKeyOrInsights.join('|'));
+      } else if (typeof insightsKeyOrInsights === 'string') {
+        // If it's already a key string, use it as is
+        insightsKey = insightsKeyOrInsights;
+      } else {
+        reject(new Error('Invalid input format for removeMessage'));
+        return;
+      }
+      
+      // First, remove the message
+      const deleteMessageReq = messageStore.delete(insightsKey);
+      deleteMessageReq.onsuccess = () => {
+        console.log('Successfully removed message with key:', insightsKey);
+        
+        // Then, clean up folder references
+        const getAllFoldersReq = folderStore.getAll();
+        getAllFoldersReq.onsuccess = () => {
+          const folders = getAllFoldersReq.result;
+          let processedFolders = 0;
+          let cleanedFolders = 0;
+          
+          if (folders.length === 0) {
+            resolve();
+            return;
+          }
+          
+          folders.forEach(folder => {
+            if (!folder.messageRefs || folder.messageRefs.length === 0) {
+              processedFolders++;
+              if (processedFolders === folders.length) {
+                resolve();
+              }
+              return;
+            }
+            
+            // Check if this folder contains a reference to the deleted message
+            const hasReference = folder.messageRefs.includes(insightsKey);
+            if (hasReference) {
+              // Remove the reference
+              folder.messageRefs = folder.messageRefs.filter(ref => ref !== insightsKey);
+              const putFolderReq = folderStore.put(folder);
+              putFolderReq.onsuccess = () => {
+                cleanedFolders++;
+                processedFolders++;
+                if (processedFolders === folders.length) {
+                  console.log(`Cleaned up references in ${cleanedFolders} folder(s)`);
+                  resolve();
+                }
+              };
+              putFolderReq.onerror = () => {
+                processedFolders++;
+                if (processedFolders === folders.length) {
+                  resolve();
+                }
+              };
+            } else {
+              processedFolders++;
+              if (processedFolders === folders.length) {
+                resolve();
+              }
+            }
+          });
+        };
+        getAllFoldersReq.onerror = () => {
+          console.error('Failed to get folders for cleanup:', getAllFoldersReq.error);
+          resolve(); // Still resolve since the message was deleted successfully
+        };
+      };
+      deleteMessageReq.onerror = () => {
+        console.error('Failed to remove message with key:', insightsKey, deleteMessageReq.error);
+        reject(deleteMessageReq.error);
+      };
+    });
+  });
+}
+
+// Migrate existing folders from old format to new pointer-based format
+function migrateFoldersToPointers() {
+  return openDB().then(db => {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction([FOLDER_STORE, STORE_NAME], 'readwrite');
+      const folderStore = tx.objectStore(FOLDER_STORE);
+      const messageStore = tx.objectStore(STORE_NAME);
+      
+      const getAllFoldersReq = folderStore.getAll();
+      getAllFoldersReq.onsuccess = () => {
+        const folders = getAllFoldersReq.result;
+        let processedFolders = 0;
+        let migratedFolders = 0;
+        
+        if (folders.length === 0) {
+          resolve({ migratedFolders: 0, totalFolders: 0 });
+          return;
+        }
+        
+        folders.forEach(folder => {
+          // Check if folder needs migration (has 'messages' array instead of 'messageRefs')
+          if (folder.messages && Array.isArray(folder.messages) && !folder.messageRefs) {
+            console.log(`Migrating folder: ${folder.name}`);
+            
+            // Convert messages to insightsKey references
+            const messageRefs = [];
+            let processedMessages = 0;
+            
+            folder.messages.forEach(message => {
+              // Handle different message formats
+              let messageText = '';
+              if (typeof message === 'string') {
+                messageText = message;
+              } else if (message && message.text) {
+                messageText = message.text;
+              } else {
+                processedMessages++;
+                if (processedMessages === folder.messages.length) {
+                  finishFolderMigration();
+                }
+                return;
+              }
+              
+              // Find matching message in storage by text content
+              const getAllMessagesReq = messageStore.getAll();
+              getAllMessagesReq.onsuccess = () => {
+                const allMessages = getAllMessagesReq.result;
+                const matchingMessage = allMessages.find(msg => {
+                  const msgText = Array.isArray(msg.insights) ? msg.insights.join('\n') : msg.text;
+                  return msgText === messageText;
+                });
+                
+                if (matchingMessage && matchingMessage.insightsKey) {
+                  messageRefs.push(matchingMessage.insightsKey);
+                }
+                
+                processedMessages++;
+                if (processedMessages === folder.messages.length) {
+                  finishFolderMigration();
+                }
+              };
+              getAllMessagesReq.onerror = () => {
+                processedMessages++;
+                if (processedMessages === folder.messages.length) {
+                  finishFolderMigration();
+                }
+              };
+            });
+            
+            function finishFolderMigration() {
+              // Update folder with new format
+              const updatedFolder = {
+                name: folder.name,
+                messageRefs: messageRefs
+              };
+              
+              const putReq = folderStore.put(updatedFolder);
+              putReq.onsuccess = () => {
+                migratedFolders++;
+                processedFolders++;
+                console.log(`Migrated folder ${folder.name} with ${messageRefs.length} references`);
+                if (processedFolders === folders.length) {
+                  resolve({ migratedFolders, totalFolders: folders.length });
+                }
+              };
+              putReq.onerror = () => {
+                processedFolders++;
+                if (processedFolders === folders.length) {
+                  resolve({ migratedFolders, totalFolders: folders.length });
+                }
+              };
+            }
+          } else {
+            // Folder is already in new format or empty
+            processedFolders++;
+            if (processedFolders === folders.length) {
+              resolve({ migratedFolders, totalFolders: folders.length });
+            }
+          }
+        });
+      };
+      getAllFoldersReq.onerror = () => reject(getAllFoldersReq.error);
+    });
+  });
+}
+
 window.memoryChatIDB = {
   openDB,
   addMessages,
@@ -444,11 +933,17 @@ window.memoryChatIDB = {
   searchMessages,
   clearMessages,
   messageExists,
+  removeMessage,
   addOrUpdateFolder,
   getAllFolders,
   removeFolder,
   clearFolders,
   addMessageToFolder,
   updateEmbeddingsForExistingMessages,
-  debugIndexedDB
+  debugIndexedDB,
+  getFolderContents,
+  getAllFoldersWithCounts,
+  removeMessageFromFolder,
+  cleanupFolderReferences,
+  migrateFoldersToPointers
 }; 

@@ -1,6 +1,17 @@
 // Storage Cards Module
 // Handles individual message card rendering and interactions
 
+// Simple hash function to make keys more unique (same as in idb-utils.js)
+function simpleHash(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash).toString(36);
+}
+
 // Render a log card with plus button (safe DOM, with show more/less, footer always visible)
 function renderLogCard(log, idx) {
   // Card container
@@ -28,6 +39,17 @@ function renderLogCard(log, idx) {
   const insightsText = Array.isArray(insights) 
     ? insights.map(insight => `• ${insight}`).join('\n')
     : insights;
+
+  // Create unique key for this card (same format as IndexedDB key)
+  const insightsKey = Array.isArray(insights) 
+    ? insights.join('|') + '_' + simpleHash(insights.join('|'))
+    : insights;
+  card.setAttribute('data-insights-key', insightsKey);
+  card.className = 'storage-card'; // Add a unique class for easy identification
+  
+  // Debug: Log the card structure
+  console.log('Created card with class:', card.className);
+  console.log('Card data-insights-key:', card.getAttribute('data-insights-key'));
 
   // Message text (clamped, single block)
   const textDiv = document.createElement('div');
@@ -152,7 +174,7 @@ function renderLogCard(log, idx) {
   // Folder button
   const folderBtn = document.createElement('button');
   folderBtn.className = 'storage-folder-btn';
-  folderBtn.setAttribute('data-log', encodeURIComponent(insightsText));
+  folderBtn.setAttribute('data-insights-key', insightsKey);
   folderBtn.title = 'Add to folder';
   folderBtn.style.background = isDark ? '#2e3a4a' : '#e6f3ff';
   folderBtn.style.border = 'none';
@@ -168,6 +190,25 @@ function renderLogCard(log, idx) {
   folderBtn.style.color = isDark ? '#b2f7ef' : '#1a73e8';
   folderBtn.style.marginLeft = '8px';
 
+  // Delete button
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'storage-delete-btn';
+  deleteBtn.setAttribute('data-insights-key', insightsKey);
+  deleteBtn.title = 'Delete memory';
+  deleteBtn.style.background = isDark ? '#3a2323' : '#f7e6e6';
+  deleteBtn.style.border = 'none';
+  deleteBtn.style.borderRadius = '50%';
+  deleteBtn.style.width = '32px';
+  deleteBtn.style.height = '32px';
+  deleteBtn.style.display = 'flex';
+  deleteBtn.style.alignItems = 'center';
+  deleteBtn.style.justifyContent = 'center';
+  deleteBtn.style.cursor = 'pointer';
+  deleteBtn.style.fontSize = '16px';
+  deleteBtn.textContent = '🗑️';
+  deleteBtn.style.color = isDark ? '#ffb2b2' : '#d32f2f';
+  deleteBtn.style.marginLeft = '8px';
+
   // Button container
   const buttonContainer = document.createElement('div');
   buttonContainer.style.display = 'flex';
@@ -175,6 +216,7 @@ function renderLogCard(log, idx) {
   buttonContainer.style.gap = '8px';
   buttonContainer.appendChild(plusBtn);
   buttonContainer.appendChild(folderBtn);
+  buttonContainer.appendChild(deleteBtn);
 
   // Stack text, footer, button container
   const leftCol = document.createElement('div');
@@ -193,60 +235,125 @@ function attachStorageListeners() {
   const storageUI = document.getElementById('memory-chat-storage');
   if (!storageUI) return;
   
-  // Plus button listeners
-  const plusBtns = storageUI.querySelectorAll('.storage-plus-btn');
-  plusBtns.forEach(btn => {
-    btn.onclick = () => {
-      const text = decodeURIComponent(btn.getAttribute('data-log'));
-      const prompt = document.querySelector('.ProseMirror');
-      if (!prompt) return;
-      
-      let current = prompt.innerText.trim();
-      const preface = 'Here is a useful memory for this conversation:';
-      
-      let newText = '';
-      if (current.includes(preface)) {
-        // If preface already exists, add as new memory with separator
-        newText = current + `\n---\n${text}`;
-      } else {
-        // Add preface and first memory
-        newText = (current ? current + '\n\n' : '') + preface + '\n\n---\n' + text;
-      }
-      
-      // Set the prompt text using a more reliable method that preserves newlines
-      prompt.focus();
-      
-      // Clear existing content
-      prompt.innerHTML = '';
-      
-      // Convert newlines to <br> tags and insert as HTML to preserve formatting
-      const formattedText = newText.replace(/\n/g, '<br>');
-      prompt.innerHTML = formattedText;
-      
-      // Move cursor to end
-      const range = document.createRange();
-      const selection = window.getSelection();
-      range.selectNodeContents(prompt);
-      range.collapse(false);
-      selection.removeAllRanges();
-      selection.addRange(range);
-    };
-  });
+  // Use event delegation for better reliability
+  // Remove any existing event listeners to prevent duplicates
+  storageUI.removeEventListener('click', handleStorageCardClick);
+  storageUI.addEventListener('click', handleStorageCardClick);
+}
 
-  // Folder button listeners
-  const folderBtns = storageUI.querySelectorAll('.storage-folder-btn');
-  folderBtns.forEach(btn => {
-    btn.onclick = async () => {
-      const text = decodeURIComponent(btn.getAttribute('data-log'));
+// Event delegation handler for all storage card interactions
+function handleStorageCardClick(event) {
+  const target = event.target;
+  
+  // Handle plus button clicks
+  if (target.classList.contains('storage-plus-btn')) {
+    const text = decodeURIComponent(target.getAttribute('data-log'));
+    const prompt = document.querySelector('.ProseMirror');
+    if (!prompt) return;
+    
+    let current = prompt.innerText.trim();
+    const preface = 'Here is a useful memory for this conversation:';
+    
+    let newText = '';
+    if (current.includes(preface)) {
+      // If preface already exists, add as new memory with separator
+      newText = current + `\n---\n${text}`;
+    } else {
+      // Add preface and first memory
+      newText = (current ? current + '\n\n' : '') + preface + '\n\n---\n' + text;
+    }
+    
+    // Set the prompt text using a more reliable method that preserves newlines
+    prompt.focus();
+    
+    // Clear existing content
+    prompt.innerHTML = '';
+    
+    // Convert newlines to <br> tags and insert as HTML to preserve formatting
+    const formattedText = newText.replace(/\n/g, '<br>');
+    prompt.innerHTML = formattedText;
+    
+    // Move cursor to end
+    const range = document.createRange();
+    const selection = window.getSelection();
+    range.selectNodeContents(prompt);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+  
+  // Handle folder button clicks
+  if (target.classList.contains('storage-folder-btn')) {
+    const insightsKey = target.getAttribute('data-insights-key');
+    
+    // Show folder selector popup for storage insights
+    if (window.showFolderSelectorForStorage) {
+      window.showFolderSelectorForStorage(insightsKey);
+    } else {
+      console.error('showFolderSelectorForStorage function not available');
+    }
+  }
+  
+  // Handle delete button clicks
+  if (target.classList.contains('storage-delete-btn')) {
+    const insightsKey = target.getAttribute('data-insights-key');
+    console.log('Delete button clicked, insightsKey:', insightsKey);
+    console.log('Button element:', target);
+    
+    // Confirm deletion
+    if (confirm('Are you sure you want to delete this memory?')) {
+      handleDeleteCard(target, insightsKey);
+    }
+  }
+}
+
+// Handle the actual deletion process
+async function handleDeleteCard(button, insightsKey) {
+  try {
+    // Remove from storage using the insightsKey
+    if (window.memoryChatIDB && window.memoryChatIDB.removeMessage) {
+      await window.memoryChatIDB.removeMessage(insightsKey);
+      console.log('Successfully removed from IndexedDB');
       
-      // Show folder selector popup for storage insights
-      if (window.showFolderSelectorForStorage) {
-        await window.showFolderSelectorForStorage(text);
+      // Find and remove the card using the storage-card class
+      const card = button.closest('.storage-card');
+      console.log('Card found by class:', card);
+      if (card) {
+        console.log('Found card by class, removing:', card);
+        card.remove();
+        console.log('Card removed successfully');
       } else {
-        console.error('showFolderSelectorForStorage function not available');
+        console.error('Could not find card with storage-card class');
+        // Fallback: try to find by data-insights-key
+        const storageUI = document.getElementById('memory-chat-storage');
+        const cardByKey = storageUI.querySelector(`[data-insights-key="${insightsKey}"]`);
+        console.log('Card found by key:', cardByKey);
+        if (cardByKey) {
+          console.log('Found card by key, removing:', cardByKey);
+          cardByKey.remove();
+          console.log('Card removed by key successfully');
+        } else {
+          console.error('Could not find card by key either');
+          // As a last resort, refresh the tab
+          if (window.renderStorageTab) {
+            console.log('Refreshing storage tab as fallback');
+            window.renderStorageTab();
+          }
+        }
       }
-    };
-  });
+      
+      // Show success feedback
+      if (window.showFeedback) {
+        window.showFeedback('Memory deleted successfully!', 'success');
+      }
+    } else {
+      console.error('removeMessage function not available');
+      alert('Delete functionality not available');
+    }
+  } catch (error) {
+    console.error('Error deleting memory:', error);
+    alert('Failed to delete memory. Please try again.');
+  }
 }
 
 // Render folder message card

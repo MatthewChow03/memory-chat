@@ -117,7 +117,8 @@ async function renderTab() {
     renderSettingsTab(tabContent);
   }
   
-  setTimeout(attachStorageListeners, 0);
+  // Note: attachStorageListeners is called within renderCardsWithPagination
+  // so we don't need to call it here again
 }
 
 // Render relevant tab content
@@ -408,8 +409,8 @@ function renderSearchTab(tabContent, logs, renderCards) {
 // Render folders tab content
 async function renderFoldersTab(tabContent) {
   let folders = {};
-  if (window.memoryChatIDB && window.memoryChatIDB.getAllFolders) {
-    folders = await window.memoryChatIDB.getAllFolders();
+  if (window.memoryChatIDB && window.memoryChatIDB.getAllFoldersWithCounts) {
+    folders = await window.memoryChatIDB.getAllFoldersWithCounts();
   }
   const folderNames = Object.keys(folders);
   const storageUI = document.getElementById('memory-chat-storage');
@@ -438,7 +439,7 @@ async function renderFoldersTab(tabContent) {
       </div>
     `;
     folderNames.forEach(folderName => {
-      const messageCount = folders[folderName].length;
+      const messageCount = folders[folderName].messageCount || 0;
       foldersHTML += `
         <div class="folder-item" data-folder="${folderName}" style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:${isDark ? '#23272f' : '#f8f9fa'};border:1px solid ${isDark ? '#2c2f36' : '#e1e5e9'};border-radius:8px;margin-bottom:8px;cursor:pointer;">
           <div style="flex:1;">
@@ -485,6 +486,7 @@ function renderSettingsTab(tabContent) {
       <button id="clear-logs-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Clear All Logs</button>
       <button id="add-full-chat-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#2e4a3a' : '#b2f7ef'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Add Full Chat to Log</button>
       <button id="update-embeddings-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#4a2e3a' : '#f7b2d6'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Update Embeddings for Existing Messages</button>
+      <button id="migrate-folders-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#2e3a4a' : '#b2c7f7'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Migrate Folders to New Format</button>
       <button id="debug-indexeddb-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#3a4a2e' : '#d6f7b2'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Debug IndexedDB</button>
       <button id="theme-toggle-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#2e3a4a' : '#b2c7f7'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Switch to ${isDark ? 'Light' : 'Dark'} Mode</button>
       <div style="margin: 24px 0 0 0;">
@@ -721,6 +723,30 @@ function renderSettingsTab(tabContent) {
       }
     };
 
+    // Migrate folders button
+    const migrateFoldersBtn = tabContent.querySelector('#migrate-folders-btn');
+    migrateFoldersBtn.onclick = async () => {
+      migrateFoldersBtn.disabled = true;
+      migrateFoldersBtn.textContent = 'Migrating...';
+      
+      try {
+        if (window.memoryChatIDB && window.memoryChatIDB.migrateFoldersToPointers) {
+          const result = await window.memoryChatIDB.migrateFoldersToPointers();
+          if (window.showFeedback) window.showFeedback(`Migrated ${result.migratedFolders} folders to new format!`, 'success');
+          // Refresh the storage tab to show updated folder counts
+          if (window.renderStorageTab) window.renderStorageTab();
+        } else {
+          if (window.showFeedback) window.showFeedback('IndexedDB not available.', 'error');
+        }
+      } catch (error) {
+        console.error('Error migrating folders:', error);
+        if (window.showFeedback) window.showFeedback('Error migrating folders: ' + error.message, 'error');
+      } finally {
+        migrateFoldersBtn.disabled = false;
+        migrateFoldersBtn.textContent = 'Migrate Folders to New Format';
+      }
+    };
+
     // Debug IndexedDB button
     const debugIndexedDBBtn = tabContent.querySelector('#debug-indexeddb-btn');
     debugIndexedDBBtn.onclick = async () => {
@@ -921,7 +947,8 @@ function setupFolderEventHandlers(tabContent, folders) {
       }
     };
   }
-  // Folder click to view contents (not implemented here, but could be added)
+  
+  // Folder click to view contents
   tabContent.querySelectorAll('.folder-item').forEach(item => {
     item.onclick = (e) => {
       if (!e.target.classList.contains('folder-plus-btn') && !e.target.classList.contains('folder-delete-btn')) {
@@ -932,22 +959,36 @@ function setupFolderEventHandlers(tabContent, folders) {
       }
     };
   });
+  
   // Folder plus button (add all messages to prompt)
   tabContent.querySelectorAll('.folder-plus-btn').forEach(btn => {
-    btn.onclick = (e) => {
+    btn.onclick = async (e) => {
       e.stopPropagation();
       const folderName = btn.dataset.folder;
-      const folderMessages = folders[folderName];
+      
+      // Get folder contents with resolved message data
+      let folderMessages = [];
+      if (window.memoryChatIDB && window.memoryChatIDB.getFolderContents) {
+        folderMessages = await window.memoryChatIDB.getFolderContents(folderName);
+      }
+      
       if (folderMessages.length > 0) {
         const prompt = document.querySelector('.ProseMirror');
         if (prompt) {
           let current = prompt.innerText.trim();
           const preface = `Here are messages from folder "${folderName}":`;
           let newText = '';
+          
+          // Convert messages to text format
+          const messageTexts = folderMessages.map(msg => {
+            const insights = msg.insights || msg.text;
+            return Array.isArray(insights) ? insights.join('\n') : insights;
+          });
+          
           if (current.includes(preface)) {
-            newText = current + '\n' + folderMessages.map(msg => `- ${typeof msg === 'string' ? msg : msg.text}`).join('\n');
+            newText = current + '\n' + messageTexts.map(text => `- ${text}`).join('\n');
           } else {
-            newText = (current ? current + '\n' : '') + preface + '\n' + folderMessages.map(msg => `- ${typeof msg === 'string' ? msg : msg.text}`).join('\n');
+            newText = (current ? current + '\n' : '') + preface + '\n' + messageTexts.map(text => `- ${text}`).join('\n');
           }
           
           // Set the prompt text using a more reliable method that preserves newlines
@@ -971,6 +1012,7 @@ function setupFolderEventHandlers(tabContent, folders) {
       }
     };
   });
+  
   // Folder delete button
   tabContent.querySelectorAll('.folder-delete-btn').forEach(btn => {
     btn.onclick = async (e) => {

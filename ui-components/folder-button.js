@@ -53,8 +53,8 @@ async function showFolderSelector(messageElement) {
   }
 
   let folders = {};
-  if (window.memoryChatIDB && window.memoryChatIDB.getAllFolders) {
-    folders = await window.memoryChatIDB.getAllFolders();
+  if (window.memoryChatIDB && window.memoryChatIDB.getAllFoldersWithCounts) {
+    folders = await window.memoryChatIDB.getAllFoldersWithCounts();
   }
   const folderNames = Object.keys(folders);
 
@@ -93,7 +93,7 @@ async function showFolderSelector(messageElement) {
       <div style="margin-bottom: 16px; font-weight: bold; color: #1a1a1a;">Select a folder:</div>
     `;
     folderNames.forEach(folderName => {
-      const messageCount = folders[folderName].length;
+      const messageCount = folders[folderName].messageCount || 0;
       popupHTML += `
         <div class="folder-option" data-folder="${folderName}" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8f9fa; border: 1px solid #e1e5e9; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s;">
           <div>

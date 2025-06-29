@@ -140,17 +140,42 @@ class InsightExtractionService {
         messages: [
           {
             role: 'system',
-            content: `You are an AI assistant that extracts key insights from messages. 
-            Extract exactly 3 or fewer key insights from the given message. 
-            Each insight should be a concise bullet point that captures the main idea or important information.
-            Return only the insights as a JSON array of strings, no additional text or formatting.`
+            content: `You are a *Memory Synthesizer*.
+
+              INPUT  
+              One assistant message that the user explicitly chose to save.
+
+              GOAL  
+              Return a JSON object containing *1 – 5* concise insights that are worth storing as long-term memory.  
+              Never return an empty list—the user has signalled this message matters, so capture at least one takeaway.
+
+              WHAT COUNTS AS A "MEMORY"  
+              1. *Durable:* Still relevant weeks from now (principle, fact, plan, differentiator).  
+              2. *Self-contained:* Understandable without the full conversation.  
+              3. *High-signal:* Concrete idea, strategy, or decision-critical fact—not filler.  
+              4. *Non-redundant:* Each line adds new information.  
+              5. *Concise:* ≤ 18 words (≈120 chars) and written as a standalone sentence.  
+              6. *Language-preserving:* Output in the same language as the input.
+
+              EDGE CASES  
+              * If the message is light on substance, distill the single most useful idea—do *not* leave the list empty.  
+              * For very dense texts, include only the 1–5 most distinct insights.
+
+              OUTPUT FORMAT (strict)  
+              json
+              {
+                "memories": [
+                  "First distilled insight.",
+                  "Second distinct insight if any."
+                ]
+              }`
           },
           {
             role: 'user',
             content: messageText
           }
         ],
-        max_tokens: 200,
+        max_tokens: 500,
         temperature: 0.3
       });
 
@@ -162,7 +187,17 @@ class InsightExtractionService {
       // Parse the JSON response
       let insights;
       try {
-        insights = JSON.parse(content);
+        const parsedResponse = JSON.parse(content);
+        
+        // Handle the new response format with "memories" key
+        if (parsedResponse && parsedResponse.memories && Array.isArray(parsedResponse.memories)) {
+          insights = parsedResponse.memories;
+        } else if (Array.isArray(parsedResponse)) {
+          // Fallback for old format where response was directly an array
+          insights = parsedResponse;
+        } else {
+          throw new Error('Invalid response format - expected memories array');
+        }
       } catch (parseError) {
         // If JSON parsing fails, try to extract insights from plain text
         insights = this.parseInsightsFromText(content);
