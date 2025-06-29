@@ -485,21 +485,26 @@ function renderSettingsTab(tabContent) {
       </div>
       <button id="clear-logs-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Clear All Logs</button>
       <button id="add-full-chat-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#2e4a3a' : '#b2f7ef'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Add Full Chat to Log</button>
-      <button id="update-embeddings-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#4a2e3a' : '#f7b2d6'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Update Embeddings for Existing Messages</button>
-      <button id="migrate-folders-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#2e3a4a' : '#b2c7f7'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Migrate Folders to New Format</button>
-      <button id="debug-indexeddb-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#3a4a2e' : '#d6f7b2'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Debug IndexedDB</button>
-      <button id="theme-toggle-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#2e3a4a' : '#b2c7f7'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Switch to ${isDark ? 'Light' : 'Dark'} Mode</button>
-      <div style="margin: 24px 0 0 0;">
-        <div style="margin-bottom:8px;font-weight:bold;">Import ChatGPT conversations.json</div>
-        <label for="import-chatgpt-json" id="import-chatgpt-label" style="display:inline-block;padding:18px 32px;background:${isDark ? '#23272f' : '#f4f6fa'};border-radius:12px;text-align:center;cursor:pointer;font-size:17px;color:${isDark ? '#b2f7ef' : '#007bff'};font-weight:bold;border:1.5px solid ${isDark ? '#b2f7ef' : '#b2c7f7'};transition:background 0.2s;">
-          <span id="import-chatgpt-label-text">Select conversations.json file...</span>
-          <input type="file" id="import-chatgpt-json" accept="application/json" style="display:none;" />
-        </label>
-        <div id="import-chatgpt-filename" style="margin-top:8px;font-size:14px;color:${isDark ? '#fff' : '#007bff'}"></div>
-        <button id="import-chatgpt-btn" style="margin-top:12px;padding:10px 32px;background:${isDark ? '#2e3a4a' : '#b2f7ef'};border:none;border-radius:8px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;font-size:16px;">Import</button>
-        <span id="import-chatgpt-status" style="margin-left:12px;font-size:13px;color:${isDark ? '#fff' : '#007bff'}"></span>
-        <div id="import-chatgpt-progress-container" style="margin-top:12px;height:18px;width:100%;background:${isDark ? '#23272f' : '#e1e5e9'};border-radius:8px;display:none;overflow:hidden;">
-          <div id="import-chatgpt-progress" style="height:100%;width:0%;background:${isDark ? '#fff' : '#b2c7f7'};transition:width 0.2s;"></div>
+      
+      <div style="margin: 32px 0 16px 0; padding: 16px; background:${isDark ? '#2a2e36' : '#f8f9fa'}; border-radius: 12px; border: 1px solid ${isDark ? '#444a58' : '#e1e5e9'};">
+        <div style="margin-bottom: 16px; font-weight: bold; font-size: 18px; color:${isDark ? '#b2b8c2' : '#666'}; text-align: center;">🚧 Coming Soon 🚧</div>
+        <div style="padding: 10px 20px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid #e1e5e9;">Buttons all functional for testing</div>
+        <button id="update-embeddings-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#555' : '#ccc'};border:none;border-radius:10px;color:${isDark ? '#aaa' : '#666'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;opacity:0.6;">Update Embeddings for Existing Messages</button>
+        <button id="migrate-folders-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#555' : '#ccc'};border:none;border-radius:10px;color:${isDark ? '#aaa' : '#666'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;opacity:0.6;">Migrate Folders to New Format</button>
+        <button id="debug-indexeddb-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#555' : '#ccc'};border:none;border-radius:10px;color:${isDark ? '#aaa' : '#666'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;opacity:0.6;">Debug IndexedDB</button>
+        <button id="theme-toggle-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#555' : '#ccc'};border:none;border-radius:10px;color:${isDark ? '#aaa' : '#666'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;opacity:0.6;">Switch to ${isDark ? 'Light' : 'Dark'} Mode</button>
+        <div style="margin: 24px 0 0 0;">
+          <div style="margin-bottom:8px;font-weight:bold;">Import ChatGPT conversations.json</div>
+          <label for="import-chatgpt-json" id="import-chatgpt-label" style="display:inline-block;padding:18px 32px;background:${isDark ? '#23272f' : '#f4f6fa'};border-radius:12px;text-align:center;cursor:pointer;font-size:17px;color:${isDark ? '#b2f7ef' : '#007bff'};font-weight:bold;border:1.5px solid ${isDark ? '#b2f7ef' : '#b2c7f7'};transition:background 0.2s;">
+            <span id="import-chatgpt-label-text">Select conversations.json file...</span>
+            <input type="file" id="import-chatgpt-json" accept="application/json" style="display:none;" />
+          </label>
+          <div id="import-chatgpt-filename" style="margin-top:8px;font-size:14px;color:${isDark ? '#fff' : '#007bff'}"></div>
+          <button id="import-chatgpt-btn" style="margin-top:12px;padding:10px 32px;background:${isDark ? '#555' : '#ccc'};border:none;border-radius:8px;color:${isDark ? '#aaa' : '#666'};font-weight:bold;cursor:pointer;font-size:16px;opacity:0.6;">Import</button>
+          <span id="import-chatgpt-status" style="margin-left:12px;font-size:13px;color:${isDark ? '#fff' : '#007bff'}"></span>
+          <div id="import-chatgpt-progress-container" style="margin-top:12px;height:18px;width:100%;background:${isDark ? '#23272f' : '#e1e5e9'};border-radius:8px;display:none;overflow:hidden;">
+            <div id="import-chatgpt-progress" style="height:100%;width:0%;background:${isDark ? '#fff' : '#b2c7f7'};transition:width 0.2s;"></div>
+          </div>
         </div>
       </div>
     `;
