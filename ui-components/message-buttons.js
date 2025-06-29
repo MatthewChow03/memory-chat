@@ -63,9 +63,19 @@ function addLogButtons() {
         }
         
         try {
+          // Show processing indicator
+          const progressToast = window.MemoryChatUtils.createProgressToast('Extracting insights...');
+          
           // Extract insights and add to log
           const insights = await window.insightExtractionService.extractInsights(text);
+          
+          // Update progress
+          window.MemoryChatUtils.updateProgressToast(progressToast, 1, 2, 'Checking for duplicates...');
+          
           const exists = await window.memoryChatIDB.messageExists(insights);
+          
+          // Remove progress toast
+          window.MemoryChatUtils.removeProgressToast(progressToast);
           
           if (!exists) {
             // Add to log
@@ -73,6 +83,16 @@ function addLogButtons() {
             // Mark message as processed and remove button permanently
             msg.setAttribute('data-memory-chat-processed', 'true');
             btn.remove();
+            
+            // Re-render storage tab to show new memory immediately
+            if (window.renderStorageTab) {
+              // Only re-render if storage tab is currently visible to avoid unnecessary work
+              const storageUI = document.getElementById('memory-chat-storage');
+              if (storageUI && storageUI.style.display !== 'none') {
+                window.renderStorageTab();
+              }
+            }
+            
             window.MemoryChatUtils.showFeedback('Memory added to storage!', 'success');
           } else {
             // Message already exists in log, mark as processed and remove button permanently
