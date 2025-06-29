@@ -161,6 +161,17 @@ async function renderRelevantTab(tabContent, logs, renderCards) {
         <small style="color:#999;">Try rephrasing your prompt or check the "All" tab</small>
       </div>`;
     } else {
+      // Filter out memories that are already included in the prompt
+      const filteredResults = filterOutPromptIncludedMemories(scored, prompt);
+      
+      if (filteredResults.length === 0) {
+        tabContent.innerHTML = `<div style="text-align:center;color:#888;padding:20px;">
+          All relevant messages are already included in your prompt<br>
+          <small style="color:#999;">Try adding more context to your prompt or check the "All" tab</small>
+        </div>`;
+        return;
+      }
+      
       // Add search method indicator
       const methodIndicator = document.createElement('div');
       methodIndicator.style.cssText = `
@@ -174,15 +185,19 @@ async function renderRelevantTab(tabContent, logs, renderCards) {
         border: 1px solid #e1e5e9;
       `;
       
+      const filteredCount = filteredResults.length;
+      const originalCount = scored.length;
+      const filteredOutCount = originalCount - filteredCount;
+      
       if (searchMethod === 'threshold') {
-        methodIndicator.textContent = `Found ${scored.length} relevant messages using AI-powered semantic search (85%+ similarity)`;
+        methodIndicator.textContent = `Found ${filteredCount} relevant messages using AI-powered semantic search (85%+ similarity)${filteredOutCount > 0 ? `, ${filteredOutCount} already in prompt` : ''}`;
       } else {
-        methodIndicator.textContent = `Found ${scored.length} messages using AI-powered search (top results, some below 85% similarity)`;
+        methodIndicator.textContent = `Found ${filteredCount} messages using AI-powered search (top results, some below 85% similarity)${filteredOutCount > 0 ? `, ${filteredOutCount} already in prompt` : ''}`;
       }
       
       tabContent.innerHTML = '';
       tabContent.appendChild(methodIndicator);
-      renderCards(scored);
+      renderCards(filteredResults);
     }
   } catch (error) {
     console.error('Relevance search error:', error);
@@ -191,6 +206,65 @@ async function renderRelevantTab(tabContent, logs, renderCards) {
       <small style="color:#999;">${error.message}</small>
     </div>`;
   }
+}
+
+/**
+ * Filters out memories that are already included in the prompt text
+ * This function checks for text matches between search results and the current prompt
+ * 
+ * Note: This could be changed from text match to omitting the messages that have had 
+ * the plus sign add to prompt button clicked because they shouldn't show up in search 
+ * results again. However, that change has many dependencies and the user may edit 
+ * the memory after it's been added to the prompt, so text matching is more reliable.
+ * 
+ * @param {Array} searchResults - Array of search result objects with text/insights properties
+ * @param {string} promptText - The current prompt text to check against
+ * @returns {Array} Filtered search results excluding those already in the prompt
+ */
+function filterOutPromptIncludedMemories(searchResults, promptText) {
+  if (!promptText || !searchResults || searchResults.length === 0) {
+    return searchResults;
+  }
+  
+  const normalizedPrompt = promptText.toLowerCase().trim();
+  
+  return searchResults.filter(result => {
+    // Get the memory text - could be in text or insights field
+    let memoryText = '';
+    if (result.text) {
+      memoryText = result.text;
+    } else if (result.insights) {
+      // Handle both string and array formats for insights
+      if (Array.isArray(result.insights)) {
+        memoryText = result.insights.join(' ');
+      } else {
+        memoryText = result.insights;
+      }
+    }
+    
+    if (!memoryText) {
+      return true; // Keep results without text
+    }
+    
+    const normalizedMemory = memoryText.toLowerCase().trim();
+    
+    // Check if the memory text is contained within the prompt
+    // Use a more sophisticated check to avoid false positives
+    const memoryWords = normalizedMemory.split(/\s+/).filter(word => word.length > 3);
+    const promptWords = normalizedPrompt.split(/\s+/).filter(word => word.length > 3);
+    
+    // If memory has very few words, use exact substring matching
+    if (memoryWords.length <= 3) {
+      return !normalizedPrompt.includes(normalizedMemory);
+    }
+    
+    // For longer memories, check if a significant portion of words match
+    const matchingWords = memoryWords.filter(word => promptWords.includes(word));
+    const matchRatio = matchingWords.length / memoryWords.length;
+    
+    // If more than 80% of the memory words are in the prompt, consider it included
+    return matchRatio < 0.8;
+  });
 }
 
 // Render recent tab content
