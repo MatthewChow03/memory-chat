@@ -79,9 +79,9 @@ async function addMessageToStorage(text) {
         if (window.renderStorageTab) {
           window.renderStorageTab();
         }
-        showFeedback('Message insights added to storage!', 'success');
+        showFeedback('Memory added to storage!', 'success');
       } else {
-        showFeedback('Message insights already in storage', 'info');
+        showFeedback('Memory already in storage', 'info');
       }
     } catch (error) {
       console.error('Failed to add message to storage:', error);
@@ -104,11 +104,11 @@ async function removeMessageFromStorage(text) {
 async function addMessageToFolder(folderName, messageText, messageElement) {
   if (window.memoryChatIDB && window.memoryChatIDB.addMessageToFolder) {
     await window.memoryChatIDB.addMessageToFolder(folderName, { text: messageText, timestamp: Date.now() });
-    // Update the log button state to show "Remove from Log"
+    // Update the log button state to show "Remove from Memories"
     if (messageElement) {
       const logBtn = messageElement.querySelector('.memory-chat-log-btn');
       if (logBtn) {
-        logBtn.textContent = 'Remove from Log';
+        logBtn.textContent = 'Remove from Memories';
         logBtn.style.background = '#f7b2b2';
         logBtn.style.color = '#222';
       }
@@ -156,7 +156,7 @@ async function clearAllLogs() {
     await window.memoryChatIDB.clearFolders();
   }
   document.querySelectorAll('.memory-chat-log-btn').forEach(b => {
-    b.textContent = 'Add to Log';
+    b.textContent = 'Add to Memories';
     b.style.background = 'linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%)';
     b.style.color = '#222';
   });

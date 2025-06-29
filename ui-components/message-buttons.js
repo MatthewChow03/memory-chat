@@ -9,7 +9,7 @@ function addLogButtons() {
     if (!msg.querySelector('.memory-chat-log-btn')) {
       // Create a modern pastel green button
       const btn = document.createElement('button');
-      btn.textContent = 'Add to Log';
+      btn.textContent = 'Add to Memories';
       btn.className = 'memory-chat-log-btn';
       btn.style.marginLeft = '8px';
       btn.style.padding = '6px 16px';
@@ -24,13 +24,13 @@ function addLogButtons() {
       
       // Dynamic hover handlers that respect current state
       btn.onmouseenter = () => {
-        if (btn.textContent === 'Add to Log') {
+        if (btn.textContent === 'Add to Memories') {
           btn.style.background = '#a0eec0';
         }
       };
       
       btn.onmouseleave = () => {
-        if (btn.textContent === 'Add to Log') {
+        if (btn.textContent === 'Add to Memories') {
           btn.style.background = 'linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%)';
         }
       };
@@ -73,12 +73,12 @@ function addLogButtons() {
             // Mark message as processed and remove button permanently
             msg.setAttribute('data-memory-chat-processed', 'true');
             btn.remove();
-            window.MemoryChatUtils.showFeedback('Message insights added to log!', 'success');
+            window.MemoryChatUtils.showFeedback('Memory added to storage!', 'success');
           } else {
             // Message already exists in log, mark as processed and remove button permanently
             msg.setAttribute('data-memory-chat-processed', 'true');
             btn.remove();
-            window.MemoryChatUtils.showFeedback('Message already in log', 'info');
+            window.MemoryChatUtils.showFeedback('Memory already in storage', 'info');
           }
         } catch (error) {
           console.error('Failed to process message:', error);

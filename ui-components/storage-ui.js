@@ -28,7 +28,7 @@ function createStorageUI() {
   
   storageUI.innerHTML = `
     <div style="padding: 20px; border-bottom: 1px solid #e1e5e9; display: flex; justify-content: space-between; align-items: center;">
-      <h3 style="margin: 0; font-size: 18px;">Message Storage</h3>
+      <h3 style="margin: 0; font-size: 18px;">Memory Storage</h3>
       <button id="memory-chat-close" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #666;">×</button>
     </div>
     <div id="memory-chat-tabs" style="display: flex; border-bottom: 1px solid #e1e5e9;">
@@ -195,7 +195,7 @@ function addStorageButton() {
   const storageBtn = document.createElement('button');
   storageBtn.className = 'memory-chat-view-btn';
   storageBtn.innerHTML = '📋';
-  storageBtn.title = 'View Message Storage';
+  storageBtn.title = 'View Memory Storage';
   storageBtn.style.cssText = `
     background: linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%);
     border: none;
