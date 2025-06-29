@@ -45,8 +45,8 @@ async function viewFolderContents(folderName) {
               <button class="folder-show-btn" data-index="${idx}" style="background:none;border:none;color:#007bff;cursor:pointer;font-size:13px;padding:0;display:${showMoreBtn};">Show more</button>
             </div>
             <div style="display:flex;gap:4px;">
-              <button class="remove-from-folder" data-folder="${folderName}" data-insights-key="${message.insightsKey}" style="background:#f7e6e6;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;color:#d32f2f;" title="Remove from this folder only">Remove</button>
-              <button class="delete-memory" data-insights-key="${message.insightsKey}" style="background:#ffebee;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;color:#c62828;" title="Delete memory from everywhere">Delete</button>
+              <button class="remove-from-folder" data-folder="${folderName}" data-insights-key="${message.insightsKey}" style="background:#ffebee;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;color:#c62828;transition:background 0.2s;" title="Remove from this folder only" onmouseenter="this.style.background='#ffcdd2'" onmouseleave="this.style.background='#ffebee'">Remove From Folder</button>
+              <button class="delete-memory" data-insights-key="${message.insightsKey}" style="background:#666;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;color:#fff;transition:background 0.2s;" title="Delete memory from everywhere" onmouseenter="this.style.background='#555'" onmouseleave="this.style.background='#666'">Delete Everywhere</button>
             </div>
           </div>
         </div>
