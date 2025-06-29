@@ -73,6 +73,11 @@ function addLogButtonsAndInitialize() {
   addLogButtons();
   addFolderButtons();
   
+  // Always try to add storage button to ensure it persists
+  if (window.addStorageButton) {
+    window.addStorageButton();
+  }
+  
   // Initialize storage system if not already done
   if (window.initializeStorageSystem && !document.getElementById('memory-chat-storage')) {
     window.initializeStorageSystem();
@@ -94,4 +99,12 @@ window.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'MEMORY_CHAT_LOG') {
     chrome.runtime.sendMessage({ type: 'LOG_MESSAGE', text: event.data.text });
   }
-}); 
+});
+
+// Periodic check to ensure storage button persists
+setInterval(() => {
+  const footerActions = document.querySelector('div[data-testid="composer-footer-actions"]');
+  if (footerActions && !footerActions.querySelector('.memory-chat-view-btn') && window.addStorageButton) {
+    window.addStorageButton();
+  }
+}, 2000); 

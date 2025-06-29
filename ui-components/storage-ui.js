@@ -178,11 +178,19 @@ function setupBasicEventHandlers(storageUI) {
 
 // Add storage button to ChatGPT interface
 function addStorageButton() {
-  if (document.querySelector('.memory-chat-view-btn')) return;
-  
   // Find the composer footer actions container
   const footerActions = document.querySelector('div[data-testid="composer-footer-actions"]');
   if (!footerActions) return;
+
+  // Check if button already exists in the correct location
+  const existingBtn = footerActions.querySelector('.memory-chat-view-btn');
+  if (existingBtn) return;
+
+  // Remove any existing button that might be in the wrong location
+  const oldBtn = document.querySelector('.memory-chat-view-btn');
+  if (oldBtn) {
+    oldBtn.remove();
+  }
 
   const storageBtn = document.createElement('button');
   storageBtn.className = 'memory-chat-view-btn';
