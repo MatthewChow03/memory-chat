@@ -280,6 +280,11 @@ function handleStorageCardClick(event) {
     range.collapse(false);
     selection.removeAllRanges();
     selection.addRange(range);
+    
+    // Immediately hide the card if it should be filtered out
+    setTimeout(() => {
+      hideCardIfIncludedInPrompt(target, text);
+    }, 0);
   }
   
   // Handle folder button clicks
@@ -303,6 +308,51 @@ function handleStorageCardClick(event) {
     // Confirm deletion
     if (confirm('Are you sure you want to delete this memory?')) {
       handleDeleteCard(target, insightsKey);
+    }
+  }
+}
+
+// Helper function to hide a card if its content is now included in the prompt
+function hideCardIfIncludedInPrompt(button, memoryText) {
+  const prompt = document.querySelector('.ProseMirror');
+  if (!prompt) return;
+  
+  const promptText = prompt.innerText.trim();
+  if (!promptText || !memoryText) return;
+  
+  const normalizedPrompt = promptText.toLowerCase().trim();
+  const normalizedMemory = memoryText.toLowerCase().trim();
+  
+  // Use the same logic as filterOutPromptIncludedMemories
+  const memoryWords = normalizedMemory.split(/\s+/).filter(word => word.length > 3);
+  const promptWords = normalizedPrompt.split(/\s+/).filter(word => word.length > 3);
+  
+  let shouldHide = false;
+  
+  // If memory has very few words, use exact substring matching
+  if (memoryWords.length <= 3) {
+    shouldHide = normalizedPrompt.includes(normalizedMemory);
+  } else {
+    // For longer memories, check if a significant portion of words match
+    const matchingWords = memoryWords.filter(word => promptWords.includes(word));
+    const matchRatio = matchingWords.length / memoryWords.length;
+    
+    // If more than 80% of the memory words are in the prompt, consider it included
+    shouldHide = matchRatio >= 0.8;
+  }
+  
+  if (shouldHide) {
+    const card = button.closest('.storage-card');
+    if (card) {
+      // Add a fade-out animation
+      card.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
+      card.style.opacity = '0';
+      card.style.transform = 'translateX(-20px)';
+      
+      // Remove the card after animation
+      setTimeout(() => {
+        card.remove();
+      }, 300);
     }
   }
 }
