@@ -30,7 +30,6 @@
         "ui-components/insight-extraction.js",
         "ui-components/semantic-search.js",
         "ui-components/advanced-semantic-search.js",
-        "ui-components/idb-utils.js",
         "ui-components/storage-utils.js",
         "ui-components/storage-styles.js",
         "ui-components/storage-cards.js",

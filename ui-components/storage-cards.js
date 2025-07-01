@@ -205,9 +205,37 @@ function renderLogCard(log, idx) {
   deleteBtn.style.justifyContent = 'center';
   deleteBtn.style.cursor = 'pointer';
   deleteBtn.style.fontSize = '16px';
-  deleteBtn.textContent = '🗑️';
+  deleteBtn.textContent = '×';
   deleteBtn.style.color = isDark ? '#ffb2b2' : '#d32f2f';
   deleteBtn.style.marginLeft = '8px';
+
+  // Add delete functionality
+  deleteBtn.onclick = async (e) => {
+    e.stopPropagation();
+    
+    if (confirm('Delete this memory? This action cannot be undone.')) {
+      try {
+        const res = await fetch(`http://localhost:3000/api/messages/${encodeURIComponent(insightsKey)}`, {
+          method: 'DELETE'
+        });
+        
+        if (res.ok) {
+          // Remove the card from the UI
+          card.remove();
+          
+          // Show success feedback
+          if (window.showFeedback) {
+            window.showFeedback('Memory deleted successfully!', 'success');
+          }
+        } else {
+          throw new Error('Failed to delete message from backend');
+        }
+      } catch (error) {
+        console.error('Error deleting memory:', error);
+        alert('Failed to delete memory. Please try again.');
+      }
+    }
+  };
 
   // Button container
   const buttonContainer = document.createElement('div');
@@ -354,55 +382,6 @@ function hideCardIfIncludedInPrompt(button, memoryText) {
         card.remove();
       }, 300);
     }
-  }
-}
-
-// Handle the actual deletion process
-async function handleDeleteCard(button, insightsKey) {
-  try {
-    // Remove from storage using the insightsKey
-    if (window.memoryChatIDB && window.memoryChatIDB.removeMessage) {
-      await window.memoryChatIDB.removeMessage(insightsKey);
-      console.log('Successfully removed from IndexedDB');
-      
-      // Find and remove the card using the storage-card class
-      const card = button.closest('.storage-card');
-      console.log('Card found by class:', card);
-      if (card) {
-        console.log('Found card by class, removing:', card);
-        card.remove();
-        console.log('Card removed successfully');
-      } else {
-        console.error('Could not find card with storage-card class');
-        // Fallback: try to find by data-insights-key
-        const storageUI = document.getElementById('memory-chat-storage');
-        const cardByKey = storageUI.querySelector(`[data-insights-key="${insightsKey}"]`);
-        console.log('Card found by key:', cardByKey);
-        if (cardByKey) {
-          console.log('Found card by key, removing:', cardByKey);
-          cardByKey.remove();
-          console.log('Card removed by key successfully');
-        } else {
-          console.error('Could not find card by key either');
-          // As a last resort, refresh the tab
-          if (window.renderStorageTab) {
-            console.log('Refreshing storage tab as fallback');
-            window.renderStorageTab();
-          }
-        }
-      }
-      
-      // Show success feedback
-      if (window.showFeedback) {
-        window.showFeedback('Memory deleted successfully!', 'success');
-      }
-    } else {
-      console.error('removeMessage function not available');
-      alert('Delete functionality not available');
-    }
-  } catch (error) {
-    console.error('Error deleting memory:', error);
-    alert('Failed to delete memory. Please try again.');
   }
 }
 

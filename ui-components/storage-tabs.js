@@ -38,9 +38,19 @@ async function renderTab() {
   const tabContent = storageUI.querySelector('#memory-chat-tab-content');
   if (!tabContent) return;
   
+  // Fetch logs/messages from backend
   let logs = [];
-  if (window.memoryChatIDB && window.memoryChatIDB.getAllMessages) {
-    logs = await window.memoryChatIDB.getAllMessages();
+  try {
+    const res = await fetch('http://localhost:3000/api/messages');
+    if (res.ok) {
+      logs = await res.json();
+    } else {
+      tabContent.innerHTML = '<div style="text-align:center;color:#ff6b6b;padding:20px;">Failed to load messages from backend</div>';
+      return;
+    }
+  } catch (error) {
+    tabContent.innerHTML = `<div style="text-align:center;color:#ff6b6b;padding:20px;">Error loading messages: ${error.message}</div>`;
+    return;
   }
   
   // Helper to clear and append cards with pagination
@@ -134,17 +144,15 @@ async function renderRelevantTab(tabContent, logs, renderCards) {
   }
   
   try {
-    let scored;
+    let scored = [];
     let searchMethod = 'threshold';
-    
-    if (window.memoryChatIDB && window.memoryChatIDB.searchMessages) {
-      // Use advanced semantic search for relevance with 85% score threshold
-      const results = await window.memoryChatIDB.searchMessages(prompt, 0.05);
+    // Use client-side semantic search if available
+    if (window.advancedSemanticSearch) {
+      const results = await window.advancedSemanticSearch.searchMessages(prompt, logs, logs.length, 0.05);
       scored = results.map(result => ({
         ...result,
         score: result.similarity || result.score || 0
       }));
-      
       // Check if we got results but they might be from fallback (lower similarity scores)
       const highSimilarityCount = scored.filter(result => result.similarity >= 0.85).length;
       if (scored.length > 0 && highSimilarityCount === 0) {
@@ -171,7 +179,6 @@ async function renderRelevantTab(tabContent, logs, renderCards) {
         </div>`;
         return;
       }
-      
       // Add search method indicator
       const methodIndicator = document.createElement('div');
       methodIndicator.style.cssText = `
@@ -184,17 +191,14 @@ async function renderRelevantTab(tabContent, logs, renderCards) {
         border-radius: 4px;
         border: 1px solid #e1e5e9;
       `;
-      
       const filteredCount = filteredResults.length;
       const originalCount = scored.length;
       const filteredOutCount = originalCount - filteredCount;
-      
       if (searchMethod === 'threshold') {
         methodIndicator.textContent = `Found ${filteredCount} relevant messages using AI-powered semantic search (85%+ similarity)${filteredOutCount > 0 ? `, ${filteredOutCount} already in prompt` : ''}`;
       } else {
         methodIndicator.textContent = `Found ${filteredCount} messages using AI-powered search (top results, some below 85% similarity)${filteredOutCount > 0 ? `, ${filteredOutCount} already in prompt` : ''}`;
       }
-      
       tabContent.innerHTML = '';
       tabContent.appendChild(methodIndicator);
       renderCards(filteredResults);
@@ -293,50 +297,21 @@ function renderSearchTab(tabContent, logs, renderCards) {
   const isDark = storageUI && storageUI.classList.contains('memory-chat-dark');
   
   // Get search status
-  let searchStatus = 'Advanced semantic search not available';
-  let searchType = 'unavailable';
-  
-  if (window.advancedSemanticSearch) {
-    const status = window.advancedSemanticSearch.getLoadingStatus();
-    if (status.modelLoaded) {
-      searchStatus = 'AI-powered transformer search ready';
-      searchType = 'ready';
-    } else if (status.isLoading) {
-      searchStatus = 'Loading AI search model...';
-      searchType = 'loading';
-    } else {
-      searchStatus = 'AI search model failed to load';
-      searchType = 'failed';
-    }
-  }
+  let searchStatus = 'Search ready';
+  let searchType = 'ready';
 
   tabContent.innerHTML = `
     <div id="search-input-container" style="margin-bottom: 12px;">
       <input id="storage-search-input" type="text" placeholder="Type your search and press Enter..." style="width:100%;padding:8px;border-radius:6px;border:1px solid #e1e5e9;outline:none;" />
       <div style="margin-top: 8px; font-size: 12px; color: ${isDark ? '#b2b8c2' : '#666'};">
         <span id="search-type-indicator">${searchStatus}</span>
-        ${searchType === 'loading' ? '<div style="margin-top: 4px; width: 100%; height: 2px; background: #e1e5e9; border-radius: 1px; overflow: hidden;"><div style="width: 30%; height: 100%; background: #b2f7ef; animation: loading 1.5s infinite;"></div></div>' : ''}
       </div>
       <div style="margin-top: 4px; font-size: 11px; color: ${isDark ? '#888' : '#999'};">
-        ${searchType === 'ready' ? '🤖 Using AI-powered semantic understanding (85%+ similarity, falls back to top results)' : 
-          searchType === 'loading' ? '⏳ Loading AI model...' : 
-          '❌ AI search unavailable'}
+        \ud83e\udd16 Using backend-powered search
       </div>
     </div>
     <div id="storage-search-results"></div>
   `;
-  
-  // Add loading animation CSS
-  if (searchType === 'loading') {
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes loading {
-        0% { transform: translateX(-100%); }
-        100% { transform: translateX(400%); }
-      }
-    `;
-    document.head.appendChild(style);
-  }
   
   const input = tabContent.querySelector('#storage-search-input');
   const resultsDiv = tabContent.querySelector('#storage-search-results');
@@ -377,9 +352,9 @@ function renderSearchTab(tabContent, logs, renderCards) {
       `;
       
       paginationDiv.innerHTML = `
-        <button id="prev-page-btn" style="padding:8px 12px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;${currentPage === 1 ? 'opacity:0.5;cursor:not-allowed;' : ''}">← Previous</button>
+        <button id="prev-page-btn" style="padding:8px 12px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;${currentPage === 1 ? 'opacity:0.5;cursor:not-allowed;' : ''}">\u2190 Previous</button>
         <span style="color:${isDark ? '#f3f6fa' : '#1a1a1a'};font-size:14px;">Page ${currentPage} of ${totalPages} (${results.length} results)</span>
-        <button id="next-page-btn" style="padding:8px 12px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;${currentPage === totalPages ? 'opacity:0.5;cursor:not-allowed;' : ''}">Next →</button>
+        <button id="next-page-btn" style="padding:8px 12px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;${currentPage === totalPages ? 'opacity:0.5;cursor:not-allowed;' : ''}">Next \u2192</button>
       `;
       
       resultsDiv.appendChild(paginationDiv);
@@ -407,70 +382,48 @@ function renderSearchTab(tabContent, logs, renderCards) {
     setTimeout(attachStorageListeners, 0);
   }
   
-  // Perform search using semantic search
+  // Perform search using backend
   async function performSearch(query) {
     if (!query) {
       resultsDiv.innerHTML = '';
       window.searchResults = [];
       return;
     }
-    
     // Show loading state
     resultsDiv.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">Searching...</div>';
-    
     try {
-      let results;
-      let searchMethod = 'threshold';
-      
-      if (window.memoryChatIDB && window.memoryChatIDB.searchMessages) {
-        // Use advanced semantic search with 85% score threshold
-        results = await window.memoryChatIDB.searchMessages(query, 0.05);
-        results = results.map(result => ({
-          ...result,
-          score: result.similarity || result.score || 0
-        }));
-        
-        // Check if we got results but they might be from fallback (lower similarity scores)
-        const highSimilarityCount = results.filter(result => result.similarity >= 0.85).length;
-        if (results.length > 0 && highSimilarityCount === 0) {
-          searchMethod = 'topk';
-        }
-      } else {
-        resultsDiv.innerHTML = '<div style="text-align:center;color:#888;">Search not available</div>';
-        return;
+      const res = await fetch('http://localhost:3000/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
+      });
+      if (!res.ok) {
+        throw new Error('Search failed');
       }
-      
+      const results = await res.json();
       if (results.length === 0) {
         resultsDiv.innerHTML = `<div style="text-align:center;color:#888;padding:20px;">
-          No results found with AI-powered semantic search<br>
+          No results found<br>
           <small style="color:#999;">Try different keywords or check the "All" tab</small>
         </div>`;
         window.searchResults = [];
       } else {
-        // Store results globally and reset to page 1 when searching
         window.searchResults = results;
         window.currentPage = 1;
         renderSearchResultsWithPagination(results);
-        
         // Update search status indicator
         const statusIndicator = tabContent.querySelector('#search-type-indicator');
         if (statusIndicator) {
-          if (searchMethod === 'threshold') {
-            statusIndicator.textContent = `Found ${results.length} results using AI-powered search (85%+ similarity)`;
-          } else {
-            statusIndicator.textContent = `Found ${results.length} results using AI-powered search (top results, some below 85% similarity)`;
-          }
+          statusIndicator.textContent = `Found ${results.length} results using backend search`;
         }
       }
     } catch (error) {
-      console.error('Search error:', error);
       resultsDiv.innerHTML = `<div style="text-align:center;color:#ff6b6b;padding:20px;">
         Search error occurred<br>
         <small style="color:#999;">${error.message}</small>
       </div>`;
     }
   }
-  
   // Search only on Enter key press
   input.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
@@ -483,8 +436,17 @@ function renderSearchTab(tabContent, logs, renderCards) {
 // Render folders tab content
 async function renderFoldersTab(tabContent) {
   let folders = {};
-  if (window.memoryChatIDB && window.memoryChatIDB.getAllFoldersWithCounts) {
-    folders = await window.memoryChatIDB.getAllFoldersWithCounts();
+  try {
+    const res = await fetch('http://localhost:3000/api/folders');
+    if (res.ok) {
+      folders = await res.json();
+    } else {
+      tabContent.innerHTML = '<div style="text-align:center;color:#ff6b6b;padding:20px;">Failed to load folders from backend</div>';
+      return;
+    }
+  } catch (error) {
+    tabContent.innerHTML = `<div style="text-align:center;color:#ff6b6b;padding:20px;">Error loading folders: ${error.message}</div>`;
+    return;
   }
   const folderNames = Object.keys(folders);
   const storageUI = document.getElementById('memory-chat-storage');
@@ -499,9 +461,16 @@ async function renderFoldersTab(tabContent) {
     createBtn.onclick = async () => {
       const folderName = prompt('Enter folder name:');
       if (folderName && folderName.trim()) {
-        if (window.memoryChatIDB && window.memoryChatIDB.addOrUpdateFolder) {
-          await window.memoryChatIDB.addOrUpdateFolder(folderName.trim(), []);
+        try {
+          const res = await fetch('http://localhost:3000/api/folders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: folderName.trim() })
+          });
+          if (!res.ok) throw new Error('Failed to create folder');
           renderFoldersTab(tabContent);
+        } catch (error) {
+          tabContent.innerHTML = `<div style=\"text-align:center;color:#ff6b6b;padding:20px;\">Error creating folder: ${error.message}</div>`;
         }
       }
     };
@@ -530,6 +499,42 @@ async function renderFoldersTab(tabContent) {
     tabContent.innerHTML = foldersHTML;
     // Setup folder event handlers
     setupFolderEventHandlers(tabContent, folders);
+    // Add create folder event handler
+    const createBtn = tabContent.querySelector('#create-folder-btn');
+    createBtn.onclick = async () => {
+      const folderName = prompt('Enter folder name:');
+      if (folderName && folderName.trim()) {
+        try {
+          const res = await fetch('http://localhost:3000/api/folders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: folderName.trim() })
+          });
+          if (!res.ok) throw new Error('Failed to create folder');
+          renderFoldersTab(tabContent);
+        } catch (error) {
+          tabContent.innerHTML = `<div style=\"text-align:center;color:#ff6b6b;padding:20px;\">Error creating folder: ${error.message}</div>`;
+        }
+      }
+    };
+    // Add delete folder event handlers
+    tabContent.querySelectorAll('.folder-delete-btn').forEach(btn => {
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        const folderName = btn.dataset.folder;
+        if (confirm(`Delete folder '${folderName}'? This cannot be undone.`)) {
+          try {
+            const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderName)}`, {
+              method: 'DELETE'
+            });
+            if (!res.ok) throw new Error('Failed to delete folder');
+            renderFoldersTab(tabContent);
+          } catch (error) {
+            tabContent.innerHTML = `<div style=\"text-align:center;color:#ff6b6b;padding:20px;\">Error deleting folder: ${error.message}</div>`;
+          }
+        }
+      };
+    });
   }
 }
 
@@ -889,24 +894,6 @@ function renderSettingsTab(tabContent) {
       };
       reader.readAsText(file);
     });
-
-    // Helper to wait for memoryChatIDB to be available
-    function waitForIDBMethod(method, maxRetries = 20, delay = 1000) {
-      return new Promise((resolve, reject) => {
-        let tries = 0;
-        function check() {
-          if (window.memoryChatIDB && window.memoryChatIDB[method]) {
-            resolve(window.memoryChatIDB[method]);
-          } else if (tries < maxRetries) {
-            tries++;
-            setTimeout(check, delay);
-          } else {
-            reject(new Error('IndexedDB is not available.'));
-          }
-        }
-        check();
-      });
-    }
 
     importBtn.onclick = async () => {
       if (!fileContent) {

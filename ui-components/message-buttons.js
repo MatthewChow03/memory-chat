@@ -48,12 +48,6 @@ function addLogButtons() {
           return;
         }
         
-        if (!window.memoryChatIDB) {
-          // Show button again on error
-          btn.style.display = 'inline-block';
-          return;
-        }
-        
         const text = window.MemoryChatUtils.getMessageText(msg);
         if (!text || text.trim().length === 0) {
           window.MemoryChatUtils.showFeedback('No message text found', 'error');
@@ -66,20 +60,27 @@ function addLogButtons() {
           // Show processing indicator
           const progressToast = window.MemoryChatUtils.createProgressToast('Extracting insights...');
           
-          // Extract insights and add to log
+          // Extract insights and add to backend
           const insights = await window.insightExtractionService.extractInsights(text);
           
           // Update progress
-          window.MemoryChatUtils.updateProgressToast(progressToast, 1, 2, 'Checking for duplicates...');
+          window.MemoryChatUtils.updateProgressToast(progressToast, 1, 2, 'Saving to backend...');
           
-          const exists = await window.memoryChatIDB.messageExists(insights);
+          // Send message to backend
+          const res = await fetch('http://localhost:3000/api/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text: text,
+              insights: insights,
+              timestamp: Date.now()
+            })
+          });
           
           // Remove progress toast
           window.MemoryChatUtils.removeProgressToast(progressToast);
           
-          if (!exists) {
-            // Add to log
-            await window.memoryChatIDB.addMessages([{ text, timestamp: Date.now() }]);
+          if (res.ok) {
             // Mark message as processed and remove button permanently
             msg.setAttribute('data-memory-chat-processed', 'true');
             btn.remove();
@@ -95,10 +96,7 @@ function addLogButtons() {
             
             window.MemoryChatUtils.showFeedback('Memory added to storage!', 'success');
           } else {
-            // Message already exists in log, mark as processed and remove button permanently
-            msg.setAttribute('data-memory-chat-processed', 'true');
-            btn.remove();
-            window.MemoryChatUtils.showFeedback('Memory already in storage', 'info');
+            throw new Error('Failed to save message to backend');
           }
         } catch (error) {
           console.error('Failed to process message:', error);

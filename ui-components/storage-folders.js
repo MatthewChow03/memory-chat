@@ -9,15 +9,24 @@ async function viewFolderContents(folderName) {
   const tabContent = storageUI.querySelector('#memory-chat-tab-content');
   if (!tabContent) return;
   
-  // Get folder contents with resolved message data
+  // Get folder contents from backend
   let folderMessages = [];
-  if (window.memoryChatIDB && window.memoryChatIDB.getFolderContents) {
-    folderMessages = await window.memoryChatIDB.getFolderContents(folderName);
+  try {
+    const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderName)}`);
+    if (res.ok) {
+      folderMessages = await res.json();
+    } else {
+      tabContent.innerHTML = '<div style="text-align:center;color:#ff6b6b;padding:20px;">Failed to load folder contents from backend</div>';
+      return;
+    }
+  } catch (error) {
+    tabContent.innerHTML = `<div style="text-align:center;color:#ff6b6b;padding:20px;">Error loading folder contents: ${error.message}</div>`;
+    return;
   }
   
   let contentHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-      <button id="back-to-folders" style="background:none;border:none;color:#007bff;cursor:pointer;font-size:14px;padding:0;">← Back to Folders</button>
+      <button id="back-to-folders" style="background:none;border:none;color:#007bff;cursor:pointer;font-size:14px;padding:0;">\u2190 Back to Folders</button>
       <h4 style="margin:0;color:#1a1a1a;">${folderName}</h4>
       <div style="width:80px;"></div>
     </div>
@@ -30,7 +39,7 @@ async function viewFolderContents(folderName) {
       // Get insights text for display
       const insights = message.insights || message.text;
       const insightsText = Array.isArray(insights) 
-        ? insights.map(insight => `• ${insight}`).join('\n')
+        ? insights.map(insight => `\u2022 ${insight}`).join('\n')
         : insights;
       
       const messageLines = insightsText.split('\n').length;
@@ -102,10 +111,15 @@ function setupFolderContentEventHandlers(tabContent, folderName) {
       const insightsKey = btn.dataset.insightsKey;
       
       if (confirm('Remove this memory from this folder only? (It will remain in storage)')) {
-        if (window.memoryChatIDB && window.memoryChatIDB.removeMessageFromFolder) {
-          await window.memoryChatIDB.removeMessageFromFolder(folderName, insightsKey);
+        try {
+          const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderName)}/${encodeURIComponent(insightsKey)}`, {
+            method: 'DELETE'
+          });
+          if (!res.ok) throw new Error('Failed to remove message from folder');
           // Refresh the folder contents
           viewFolderContents(folderName);
+        } catch (error) {
+          tabContent.innerHTML = `<div style="text-align:center;color:#ff6b6b;padding:20px;">Error removing message from folder: ${error.message}</div>`;
         }
       }
     };
@@ -118,22 +132,20 @@ function setupFolderContentEventHandlers(tabContent, folderName) {
       
       if (confirm('Delete this memory from everywhere? This action cannot be undone.')) {
         try {
-          if (window.memoryChatIDB && window.memoryChatIDB.removeMessage) {
-            await window.memoryChatIDB.removeMessage(insightsKey);
-            
-            // Remove the card from the UI
-            const card = btn.closest('.folder-message-card');
-            if (card) {
-              card.remove();
-            }
-            
-            // Show success feedback
-            if (window.showFeedback) {
-              window.showFeedback('Memory deleted successfully!', 'success');
-            }
-          } else {
-            console.error('removeMessage function not available');
-            alert('Delete functionality not available');
+          const res = await fetch(`http://localhost:3000/api/messages/${encodeURIComponent(insightsKey)}`, {
+            method: 'DELETE'
+          });
+          if (!res.ok) throw new Error('Failed to delete message');
+          
+          // Remove the card from the UI
+          const card = btn.closest('.folder-message-card');
+          if (card) {
+            card.remove();
+          }
+          
+          // Show success feedback
+          if (window.showFeedback) {
+            window.showFeedback('Memory deleted successfully!', 'success');
           }
         } catch (error) {
           console.error('Error deleting memory:', error);
@@ -153,8 +165,17 @@ async function showFolderSelector(messageElement) {
   }
 
   let folders = {};
-  if (window.memoryChatIDB && window.memoryChatIDB.getAllFoldersWithCounts) {
-    folders = await window.memoryChatIDB.getAllFoldersWithCounts();
+  try {
+    const res = await fetch('http://localhost:3000/api/folders');
+    if (res.ok) {
+      folders = await res.json();
+    } else {
+      console.error('Failed to load folders from backend');
+      return;
+    }
+  } catch (error) {
+    console.error('Error loading folders:', error);
+    return;
   }
   const folderNames = Object.keys(folders);
   
@@ -201,26 +222,18 @@ async function showFolderSelector(messageElement) {
             <div style="font-weight: bold; color: #1a1a1a;">${folderName}</div>
             <div style="font-size: 12px; color: #888;">${messageCount} message${messageCount !== 1 ? 's' : ''}</div>
           </div>
-          <div style="color: #007bff; font-size: 14px;">→</div>
+          <div style="color: #007bff; font-size: 14px;">+</div>
         </div>
       `;
     });
-    
-    popupHTML += `
-      <div style="margin-top: 20px; text-align: center;">
-        <button id="create-folder-from-popup" style="padding: 8px 16px; background: linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%); border: none; border-radius: 6px; color: #222; font-weight: bold; cursor: pointer; font-size: 12px;">+ Create New Folder</button>
-      </div>
-    `;
   }
   
-  popupHTML += `
-    </div>
-  `;
-  
+  popupHTML += '</div>';
   popup.innerHTML = popupHTML;
+  
   document.body.appendChild(popup);
   
-  // Setup popup event handlers
+  // Setup folder popup event handlers
   setupFolderPopupEventHandlers(popup, messageElement, folders);
 }
 
@@ -231,68 +244,68 @@ function setupFolderPopupEventHandlers(popup, messageElement, folders) {
     popup.remove();
   };
   
-  // Close on outside click
-  popup.onclick = (e) => {
-    if (e.target === popup) {
-      popup.remove();
-    }
-  };
+  // Create folder from popup
+  const createBtn = popup.querySelector('#create-folder-from-popup');
+  if (createBtn) {
+    createBtn.onclick = async () => {
+      const folderName = prompt('Enter folder name:');
+      if (folderName && folderName.trim()) {
+        try {
+          const res = await fetch('http://localhost:3000/api/folders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: folderName.trim() })
+          });
+          if (!res.ok) throw new Error('Failed to create folder');
+          
+          // Close popup and show success feedback
+          popup.remove();
+          if (window.showFeedback) {
+            window.showFeedback('Folder created successfully!', 'success');
+          }
+        } catch (error) {
+          console.error('Error creating folder:', error);
+          alert('Failed to create folder. Please try again.');
+        }
+      }
+    };
+  }
   
   // Folder option clicks
   popup.querySelectorAll('.folder-option').forEach(option => {
     option.onclick = async () => {
       const folderName = option.dataset.folder;
-      const messageText = getMessageText(messageElement);
+      const messageText = window.MemoryChatUtils.getMessageText(messageElement);
       
-      // Find the corresponding insightsKey for this message
-      let insightsKey = null;
+      if (!messageText || messageText.trim().length === 0) {
+        alert('No message text found');
+        return;
+      }
       
-      // Try to find the message in storage by text content
-      if (window.memoryChatIDB && window.memoryChatIDB.getAllMessages) {
-        const allMessages = await window.memoryChatIDB.getAllMessages();
-        const matchingMessage = allMessages.find(msg => {
-          const msgText = Array.isArray(msg.insights) ? msg.insights.join('\n') : msg.text;
-          return msgText === messageText;
+      try {
+        // Add message to folder
+        const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderName)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            text: messageText,
+            timestamp: Date.now()
+          })
         });
         
-        if (matchingMessage) {
-          insightsKey = matchingMessage.insightsKey;
-        }
-      }
-      
-      if (insightsKey && window.memoryChatIDB && window.memoryChatIDB.addMessageToFolder) {
-        await window.memoryChatIDB.addMessageToFolder(folderName, insightsKey);
-        // Update the log button state to show "Remove from Log"
-        if (messageElement) {
-          const logBtn = messageElement.querySelector('.memory-chat-log-btn');
-          if (logBtn) {
-            logBtn.textContent = 'Remove from Log';
-            logBtn.style.background = '#f7b2b2';
-            logBtn.style.color = '#222';
-          }
-        }
-        showFeedback('Message added to folder!', 'success');
-      } else {
-        showFeedback('Could not find message in storage', 'error');
-      }
-      popup.remove();
-    };
-    
-    option.onmouseenter = () => option.style.background = '#e9ecef';
-    option.onmouseleave = () => option.style.background = '#f8f9fa';
-  });
-  
-  // Create folder button
-  popup.querySelector('#create-folder-from-popup').onclick = async () => {
-    const folderName = prompt('Enter folder name:');
-    if (folderName && folderName.trim()) {
-      if (window.memoryChatIDB && window.memoryChatIDB.addOrUpdateFolder) {
-        await window.memoryChatIDB.addOrUpdateFolder(folderName.trim(), []);
+        if (!res.ok) throw new Error('Failed to add message to folder');
+        
+        // Close popup and show success feedback
         popup.remove();
-        showFolderSelector(messageElement);
+        if (window.showFeedback) {
+          window.showFeedback(`Message added to folder '${folderName}'!`, 'success');
+        }
+      } catch (error) {
+        console.error('Error adding message to folder:', error);
+        alert('Failed to add message to folder. Please try again.');
       }
-    }
-  };
+    };
+  });
 }
 
 // Show folder selector popup for storage insights (no message element needed)

@@ -60,79 +60,6 @@ function cosineSimilarity(text1, text2, allTexts = []) {
   return dotProduct / (magnitude1 * magnitude2);
 }
 
-// Add message to storage
-async function addMessageToStorage(text) {
-  if (!window.insightExtractionService || !window.insightExtractionService.isReady()) {
-    showFeedback('Insight extraction service not available. Please check your OpenAI API key in settings.', 'error');
-    return;
-  }
-
-  if (window.memoryChatIDB && window.memoryChatIDB.addMessages) {
-    try {
-      // Show processing indicator
-      const progressToast = createProgressToast('Extracting insights...');
-      
-      // Extract insights from the message text
-      const insights = await window.insightExtractionService.extractInsights(text);
-      
-      // Update progress
-      updateProgressToast(progressToast, 1, 2, 'Checking for duplicates...');
-      
-      // Check if insights already exist
-      const exists = await window.memoryChatIDB.messageExists(insights);
-      
-      // Remove progress toast
-      removeProgressToast(progressToast);
-      
-      if (!exists) {
-        await window.memoryChatIDB.addMessages([{ text, timestamp: Date.now() }]);
-        if (window.renderStorageTab) {
-          // Only re-render if storage tab is currently visible to avoid unnecessary work
-          const storageUI = document.getElementById('memory-chat-storage');
-          if (storageUI && storageUI.style.display !== 'none') {
-            window.renderStorageTab();
-          }
-        }
-        showFeedback('Memory added to storage!', 'success');
-      } else {
-        showFeedback('Memory already in storage', 'info');
-      }
-    } catch (error) {
-      console.error('Failed to add message to storage:', error);
-      showFeedback(`Failed to add message: ${error.message}`, 'error');
-    }
-  }
-}
-
-// Remove message from storage
-async function removeMessageFromStorage(text) {
-  if (window.memoryChatIDB && window.memoryChatIDB.removeMessage) {
-    await window.memoryChatIDB.removeMessage(text);
-    if (window.renderStorageTab) {
-      window.renderStorageTab();
-    }
-  }
-}
-
-// Add message to folder (using IndexedDB for consistency)
-async function addMessageToFolder(folderName, messageText, messageElement) {
-  if (window.memoryChatIDB && window.memoryChatIDB.addMessageToFolder) {
-    await window.memoryChatIDB.addMessageToFolder(folderName, { text: messageText, timestamp: Date.now() });
-    // Update the log button state to show "Remove from Memories"
-    if (messageElement) {
-      const logBtn = messageElement.querySelector('.memory-chat-log-btn');
-      if (logBtn) {
-        logBtn.textContent = 'Remove from Memories';
-        logBtn.style.background = '#f7b2b2';
-        logBtn.style.color = '#222';
-      }
-    }
-    showFeedback('Message added to folder and log!', 'success');
-  } else {
-    showFeedback('IndexedDB not available', 'error');
-  }
-}
-
 // Show feedback message
 function showFeedback(message, type) {
   const feedback = document.createElement('div');
@@ -159,111 +86,6 @@ function showFeedback(message, type) {
     feedback.style.transition = 'opacity 0.3s, transform 0.3s';
     setTimeout(() => feedback.remove(), 300);
   }, 2000);
-}
-
-// Clear all logs and folders
-async function clearAllLogs() {
-  if (window.memoryChatIDB && window.memoryChatIDB.clearMessages) {
-    await window.memoryChatIDB.clearMessages();
-  }
-  if (window.memoryChatIDB && window.memoryChatIDB.clearFolders) {
-    await window.memoryChatIDB.clearFolders();
-  }
-  document.querySelectorAll('.memory-chat-log-btn').forEach(b => {
-    b.textContent = 'Add to Memories';
-    b.style.background = 'linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%)';
-    b.style.color = '#222';
-  });
-  if (window.renderStorageTab) {
-    window.renderStorageTab();
-  }
-}
-
-// Add full chat to log
-async function addFullChatToLog() {
-  if (!window.insightExtractionService || !window.insightExtractionService.isReady()) {
-    showFeedback('Insight extraction service not available. Please check your OpenAI API key in settings.', 'error');
-    return;
-  }
-
-  const messages = Array.from(document.querySelectorAll('[data-message-author-role]'));
-  const texts = messages.map(msg => getMessageText(msg)).filter(text => text.trim().length > 0);
-  
-  if (texts.length === 0) {
-    showFeedback('No messages found to add', 'info');
-    return;
-  }
-
-  if (window.memoryChatIDB && window.memoryChatIDB.addMessages) {
-    try {
-      // Create progress toast
-      const progressToast = createProgressToast(`Processing ${texts.length} messages...`);
-      
-      let processedCount = 0;
-      let addedCount = 0;
-      let skippedCount = 0;
-      
-      // Process messages one by one
-      for (let i = 0; i < texts.length; i++) {
-        const text = texts[i];
-        
-        try {
-          // Update progress
-          processedCount++;
-          updateProgressToast(progressToast, processedCount, texts.length, `Processing message ${processedCount}/${texts.length}...`);
-          
-          // Extract insights for this message
-          const insights = await window.insightExtractionService.extractInsights(text);
-          
-          // Check if insights already exist
-          const exists = await window.memoryChatIDB.messageExists(insights);
-          if (!exists) {
-            // Add single message to IndexedDB
-            await window.memoryChatIDB.addMessages([{ text, timestamp: Date.now() }]);
-            addedCount++;
-            
-            // Re-render storage tab after each successful addition to show new memories in real-time
-            if (window.renderStorageTab) {
-              // Only re-render if storage tab is currently visible to avoid unnecessary work
-              const storageUI = document.getElementById('memory-chat-storage');
-              if (storageUI && storageUI.style.display !== 'none') {
-                window.renderStorageTab();
-              }
-            }
-          } else {
-            skippedCount++;
-          }
-          
-          // Small delay to prevent overwhelming the UI
-          await new Promise(resolve => setTimeout(resolve, 100));
-          
-        } catch (error) {
-          console.error(`Failed to process message ${i + 1}:`, error);
-          // Continue with next message instead of failing completely
-        }
-      }
-      
-      // Remove progress toast
-      removeProgressToast(progressToast);
-      
-      // Remove all log buttons after adding full chat to log
-      document.querySelectorAll('.memory-chat-log-btn').forEach(b => {
-        b.remove();
-      });
-      
-      if (window.renderStorageTab) {
-        window.renderStorageTab();
-      }
-      
-      // Show final result
-      const resultMessage = `Chat processing complete! Added: ${addedCount}, Skipped: ${skippedCount}`;
-      showFeedback(resultMessage, 'success');
-      
-    } catch (error) {
-      console.error('Failed to add full chat to log:', error);
-      showFeedback(`Failed to add chat: ${error.message}`, 'error');
-    }
-  }
 }
 
 // Create a progress toast with progress bar
@@ -344,11 +166,7 @@ function removeProgressToast(toast) {
 window.MemoryChatUtils.getPromptText = getPromptText;
 window.MemoryChatUtils.getMessageText = getMessageText;
 window.MemoryChatUtils.cosineSimilarity = cosineSimilarity;
-window.MemoryChatUtils.addMessageToStorage = addMessageToStorage;
-window.MemoryChatUtils.addMessageToFolder = addMessageToFolder;
 window.MemoryChatUtils.showFeedback = showFeedback;
-window.MemoryChatUtils.clearAllLogs = clearAllLogs;
-window.MemoryChatUtils.addFullChatToLog = addFullChatToLog;
 window.MemoryChatUtils.createProgressToast = createProgressToast;
 window.MemoryChatUtils.updateProgressToast = updateProgressToast;
 window.MemoryChatUtils.removeProgressToast = removeProgressToast;
@@ -357,11 +175,7 @@ window.MemoryChatUtils.removeProgressToast = removeProgressToast;
 window.getPromptText = getPromptText;
 window.getMessageText = getMessageText;
 window.cosineSimilarity = cosineSimilarity;
-window.addMessageToStorage = addMessageToStorage;
-window.addMessageToFolder = addMessageToFolder;
 window.showFeedback = showFeedback;
-window.clearAllLogs = clearAllLogs;
-window.addFullChatToLog = addFullChatToLog;
 window.createProgressToast = createProgressToast;
 window.updateProgressToast = updateProgressToast;
 window.removeProgressToast = removeProgressToast; 
