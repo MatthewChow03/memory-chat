@@ -1,3 +1,6 @@
+// Import server configuration
+importScripts('constants.js');
+
 // Create context menu on extension installation
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
@@ -13,7 +16,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     
     try {
       // Send the selected text to the backend API
-      const response = await fetch('http://localhost:3000/api/messages', {
+      const response = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.MESSAGES}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

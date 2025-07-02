@@ -1,8 +1,6 @@
 // Storage Cards Module
 // Handles individual message card rendering and interactions
 
-
-
 // Render a log card with plus button (safe DOM, with show more/less, footer always visible)
 function renderLogCard(log, idx) {
   // Card container
@@ -204,7 +202,7 @@ function renderLogCard(log, idx) {
 
     if (confirm('Delete this memory? This action cannot be undone.')) {
       try {
-        const res = await fetch('http://localhost:3000/api/messages/delete', {
+        const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.MESSAGES}/delete`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: messageId })

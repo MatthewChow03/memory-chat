@@ -41,7 +41,7 @@ async function renderTab() {
   // Fetch logs/messages from backend
   let logs = [];
   try {
-    const res = await fetch('http://localhost:3000/api/messages');
+    const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/messages`);
     if (res.ok) {
       logs = await res.json();
     } else {
@@ -392,7 +392,7 @@ function renderSearchTab(tabContent, logs, renderCards) {
     // Show loading state
     resultsDiv.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">Searching...</div>';
     try {
-      const res = await fetch('http://localhost:3000/api/search', {
+      const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query })
@@ -437,7 +437,7 @@ function renderSearchTab(tabContent, logs, renderCards) {
 async function renderFoldersTab(tabContent) {
   let folders = {};
   try {
-    const res = await fetch('http://localhost:3000/api/folders');
+    const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/folders`);
     if (res.ok) {
       folders = await res.json();
     } else {
@@ -461,7 +461,7 @@ async function renderFoldersTab(tabContent) {
       const folderName = prompt('Enter folder name:');
       if (folderName && folderName.trim()) {
         try {
-          const res = await fetch('http://localhost:3000/api/folders', {
+          const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/folders`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: folderName.trim() })
@@ -504,7 +504,7 @@ async function renderFoldersTab(tabContent) {
       const folderName = prompt('Enter folder name:');
       if (folderName && folderName.trim()) {
         try {
-          const res = await fetch('http://localhost:3000/api/folders', {
+          const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/folders`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: folderName.trim() })
@@ -524,7 +524,7 @@ async function renderFoldersTab(tabContent) {
         const folderName = btn.dataset.folder;
         if (confirm(`Delete folder '${folderName}'? This cannot be undone.`)) {
           try {
-            const res = await fetch('http://localhost:3000/api/folders/delete', {
+            const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/folders/delete`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ id: folderId })
@@ -553,7 +553,7 @@ function renderSettingsTab(tabContent) {
           <div style="font-size:14px;color:${isDark ? '#b2b8c2' : '#666'};">
             <strong>Insight Generation:</strong> Handled by backend server<br>
             <strong>API Key:</strong> Configured on backend (no frontend key needed)<br>
-            <strong>Server:</strong> http://localhost:3000
+            <strong>Server:</strong> ${SERVER_CONFIG.BASE_URL}
           </div>
         </div>
       </div>
@@ -785,7 +785,7 @@ function renderSettingsTab(tabContent) {
           // Process batch in parallel
           const promises = batch.map(async (text) => {
             try {
-              const res = await fetch('http://localhost:3000/api/messages', {
+              const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.MESSAGES}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -928,7 +928,7 @@ function setupFolderEventHandlers(tabContent, folders) {
       const folderName = btn.dataset.folder;
       if (confirm(`Delete folder '${folderName}'? This cannot be undone.`)) {
         try {
-          const res = await fetch('http://localhost:3000/api/folders/delete', {
+          const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}/delete`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: folderId })

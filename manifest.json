@@ -23,7 +23,8 @@
     }
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "content_scripts": [
     {
@@ -41,6 +42,7 @@
         "ui-components/storage-button.js",
         "ui-components/message-buttons.js",
         "ui-components/folder-button.js",
+        "ui-components/constants.js",
         "content.js"
       ],
       "run_at": "document_idle"

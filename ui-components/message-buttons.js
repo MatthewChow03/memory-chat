@@ -54,7 +54,7 @@ function addLogButtons() {
           const progressToast = window.MemoryChatUtils.createProgressToast('Processing message...');
 
           // Send message to backend (insights will be generated automatically)
-          const res = await fetch('http://localhost:3000/api/messages', {
+          const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.MESSAGES}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

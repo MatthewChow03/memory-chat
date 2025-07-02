@@ -12,7 +12,7 @@ async function viewFolderContents(folderName, folderId) {
   // Get folder contents from backend
   let folderMessages = [];
   try {
-    const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderId)}/contents`);
+    const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}/${encodeURIComponent(folderId)}/contents`);
     if (res.ok) {
       folderMessages = await res.json();
     } else {
@@ -112,7 +112,7 @@ function setupFolderContentEventHandlers(tabContent, folderName, folderId) {
 
       if (confirm('Remove this memory from this folder only? (It will remain in storage)')) {
         try {
-          const res = await fetch('http://localhost:3000/api/folders/remove-message', {
+          const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}/remove-message`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -137,7 +137,7 @@ function setupFolderContentEventHandlers(tabContent, folderName, folderId) {
 
       if (confirm('Delete this memory from everywhere? This action cannot be undone.')) {
         try {
-          const res = await fetch('http://localhost:3000/api/messages/delete', {
+          const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.MESSAGES}/delete`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: messageId })
@@ -173,7 +173,7 @@ async function showFolderSelector(messageElement) {
 
   let folders = {};
   try {
-    const res = await fetch('http://localhost:3000/api/folders');
+    const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}`);
     if (res.ok) {
       folders = await res.json();
     } else {
@@ -256,7 +256,7 @@ function setupFolderPopupEventHandlers(popup, messageElement, folders) {
       const folderName = prompt('Enter folder name:');
       if (folderName && folderName.trim()) {
         try {
-          const res = await fetch('http://localhost:3000/api/folders', {
+          const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: folderName.trim() })
@@ -285,7 +285,7 @@ function setupFolderPopupEventHandlers(popup, messageElement, folders) {
       if (messageText !== undefined) {
         // Add message by text
         try {
-          const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderId)}/add-message`, {
+          const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}/${encodeURIComponent(folderId)}/add-message`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -326,7 +326,7 @@ async function showFolderSelectorForStorage(messageId) {
 
   let folders = {};
   try {
-    const res = await fetch('http://localhost:3000/api/folders');
+    const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}`);
     if (res.ok) {
       folders = await res.json();
     } else {
@@ -427,7 +427,7 @@ function setupFolderPopupEventHandlersForStorage(popup, messageId, folders) {
       if (typeof messageId !== 'undefined') {
         // Add message by id
         try {
-          const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderId)}/add-message`, {
+          const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}/${encodeURIComponent(folderId)}/add-message`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ messageId: messageId })
@@ -458,7 +458,7 @@ function setupFolderPopupEventHandlersForStorage(popup, messageId, folders) {
     const folderName = prompt('Enter folder name:');
     if (folderName && folderName.trim()) {
       try {
-        const res = await fetch('http://localhost:3000/api/folders', {
+        const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: folderName.trim() })

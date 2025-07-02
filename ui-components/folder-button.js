@@ -15,7 +15,7 @@ function addFolderButtons() {
       if (messageText && messageText.trim().length > 0) {
         try {
           // Get folders from backend
-          const foldersRes = await fetch('http://localhost:3000/api/folders');
+          const foldersRes = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}`);
           if (foldersRes.ok) {
             const folders = await foldersRes.json();
 
@@ -100,7 +100,7 @@ async function showFolderSelector(messageElement) {
   // Get folders from backend
   let folders = [];
   try {
-    const foldersRes = await fetch('http://localhost:3000/api/folders');
+    const foldersRes = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}`);
     if (foldersRes.ok) {
       folders = await foldersRes.json();
     }
@@ -113,7 +113,7 @@ async function showFolderSelector(messageElement) {
   const unavailableFolders = [];
   for (const folder of folders) {
     try {
-      const folderRes = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folder._id)}/contents`);
+      const folderRes = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}/${encodeURIComponent(folder._id)}/contents`);
       if (folderRes.ok) {
         const folderMessages = await folderRes.json();
         // Check if messageText matches any text in the folder
@@ -235,7 +235,7 @@ async function showFolderSelector(messageElement) {
       const folderId = option.dataset.folderId;
       try {
         // Send message to backend with folder assignment
-        const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderId)}/add-message`, {
+        const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}/${encodeURIComponent(folderId)}/add-message`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -273,7 +273,7 @@ async function showFolderSelector(messageElement) {
     const folderName = prompt('Enter folder name:');
     if (folderName && folderName.trim()) {
       try {
-        const res = await fetch('http://localhost:3000/api/folders', {
+        const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: folderName.trim() })
@@ -298,7 +298,7 @@ async function showFolderSelector(messageElement) {
 async function addMessageToFolder(folderId, messageText, messageElement) {
   try {
     // Send message to backend with folder assignment
-    const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderId)}/add-message`, {
+    const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}/${encodeURIComponent(folderId)}/add-message`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -359,7 +359,7 @@ function showFolderFeedback(message, type) {
 // Check if a message is already in a folder using text matching
 async function isMessageInFolder(messageText, folderId) {
   try {
-    const folderRes = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderId)}/contents`);
+    const folderRes = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}/${encodeURIComponent(folderId)}/contents`);
     if (!folderRes.ok) {
       return false;
     }
