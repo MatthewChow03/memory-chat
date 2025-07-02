@@ -152,3 +152,7 @@ docs/_build/
 # Local development files
 local/
 dev/ 
+
+# Python files
+venv/
+__pycache__/
