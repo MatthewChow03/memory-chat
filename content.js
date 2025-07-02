@@ -87,7 +87,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         font-weight: bold;
         z-index: 10002;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        background: ${message.type === 'success' ? '#28a745' : '#dc3545'};
+        background: ${message.feedbackType === 'success' ? '#28a745' : '#dc3545'};
         box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       `;
       feedback.textContent = message.message;

@@ -10,7 +10,6 @@ chrome.runtime.onInstalled.addListener(() => {
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "addToMemory" && info.selectionText) {
-    console.log("Selected text for memory:", info.selectionText);
     
     try {
       // Send the selected text to the backend API
@@ -29,25 +28,25 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
       if (response.ok) {
         // Show success feedback in the active tab
-        chrome.tabs.sendMessage(tab.id, {
+        await chrome.tabs.sendMessage(tab.id, {
           type: 'SHOW_MEMORY_FEEDBACK',
           message: 'Text added to memory successfully!',
-          type: 'success'
+          feedbackType: 'success'
         });
       } else {
         const errorData = await response.json();
-        chrome.tabs.sendMessage(tab.id, {
+        await chrome.tabs.sendMessage(tab.id, {
           type: 'SHOW_MEMORY_FEEDBACK',
           message: 'Error adding to memory: ' + (errorData.error || 'Unknown error'),
-          type: 'error'
+          feedbackType: 'error'
         });
       }
     } catch (error) {
       console.error('Error adding text to memory:', error);
-      chrome.tabs.sendMessage(tab.id, {
+      await chrome.tabs.sendMessage(tab.id, {
         type: 'SHOW_MEMORY_FEEDBACK',
         message: 'Error adding to memory: ' + error.message,
-        type: 'error'
+        feedbackType: 'error'
       });
     }
   }
