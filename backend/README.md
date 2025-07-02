@@ -108,8 +108,9 @@ Get all folders with message counts.
 ```json
 [
   {
+    "_id": "507f1f77bcf86cd799439011",
     "name": "Folder Name",
-    "messages": ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439012"],
+    "messages": ["507f1f77bcf86cd799439012", "507f1f77bcf86cd799439013"],
     "messageCount": 2,
     "created_at": "2023-12-01T10:30:00"
   }
@@ -126,14 +127,21 @@ Create a new folder.
 }
 ```
 
-#### DELETE /api/folders/{folderName}
-Delete a folder.
+#### POST /api/folders/delete
+Delete a folder by MongoDB _id.
 
-#### GET /api/folders/{folderName}
-Get messages in a specific folder.
+**Request Body:**
+```json
+{
+  "id": "507f1f77bcf86cd799439011"
+}
+```
 
-#### POST /api/folders/{folderName}
-Add a message to a folder. Can either create a new message or add an existing message.
+#### GET /api/folders/{folderId}/contents
+Get messages in a specific folder by MongoDB _id.
+
+#### POST /api/folders/{folderId}/add-message
+Add a message to a folder by MongoDB _id. Can either create a new message or add an existing message.
 
 **Request Body (create new message):**
 ```json
@@ -150,8 +158,16 @@ Add a message to a folder. Can either create a new message or add an existing me
 }
 ```
 
-#### DELETE /api/folders/{folderName}/{messageKey}
-Remove a message from a folder.
+#### POST /api/folders/remove-message
+Remove a message from a folder by MongoDB _id.
+
+**Request Body:**
+```json
+{
+  "folderId": "507f1f77bcf86cd799439011",
+  "messageId": "507f1f77bcf86cd799439012"
+}
+```
 
 ### Search
 
@@ -206,6 +222,7 @@ Check if the backend is running.
 ### Folder
 ```json
 {
+  "_id": "string (MongoDB ObjectId)",
   "name": "string",
   "messages": ["messageId"],
   "created_at": "ISO datetime string"

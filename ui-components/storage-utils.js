@@ -22,44 +22,6 @@ function getMessageText(messageElement) {
   return text.trim();
 }
 
-// Calculate cosine similarity between two texts
-function cosineSimilarity(text1, text2, allTexts = []) {
-  // Simple TF-IDF based similarity
-  const words1 = text1.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-  const words2 = text2.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-  
-  if (words1.length === 0 || words2.length === 0) return 0;
-  
-  // Create vocabulary from all texts
-  const vocab = new Set();
-  [text1, text2, ...allTexts].forEach(text => {
-    text.toLowerCase().split(/\s+/).filter(w => w.length > 2).forEach(word => vocab.add(word));
-  });
-  
-  // Calculate TF-IDF vectors
-  const vector1 = Array.from(vocab).map(word => {
-    const tf = words1.filter(w => w === word).length / words1.length;
-    const idf = Math.log(allTexts.length / (allTexts.filter(text => 
-      text.toLowerCase().includes(word)).length + 1));
-    return tf * idf;
-  });
-  
-  const vector2 = Array.from(vocab).map(word => {
-    const tf = words2.filter(w => w === word).length / words2.length;
-    const idf = Math.log(allTexts.length / (allTexts.filter(text => 
-      text.toLowerCase().includes(word)).length + 1));
-    return tf * idf;
-  });
-  
-  // Calculate cosine similarity
-  const dotProduct = vector1.reduce((sum, val, i) => sum + val * vector2[i], 0);
-  const magnitude1 = Math.sqrt(vector1.reduce((sum, val) => sum + val * val, 0));
-  const magnitude2 = Math.sqrt(vector2.reduce((sum, val) => sum + val * val, 0));
-  
-  if (magnitude1 === 0 || magnitude2 === 0) return 0;
-  return dotProduct / (magnitude1 * magnitude2);
-}
-
 // Show feedback message
 function showFeedback(message, type) {
   const feedback = document.createElement('div');
@@ -165,7 +127,6 @@ function removeProgressToast(toast) {
 // Export functions to the MemoryChatUtils namespace
 window.MemoryChatUtils.getPromptText = getPromptText;
 window.MemoryChatUtils.getMessageText = getMessageText;
-window.MemoryChatUtils.cosineSimilarity = cosineSimilarity;
 window.MemoryChatUtils.showFeedback = showFeedback;
 window.MemoryChatUtils.createProgressToast = createProgressToast;
 window.MemoryChatUtils.updateProgressToast = updateProgressToast;
@@ -174,7 +135,6 @@ window.MemoryChatUtils.removeProgressToast = removeProgressToast;
 // Also export to global scope for backward compatibility (but use namespace as primary)
 window.getPromptText = getPromptText;
 window.getMessageText = getMessageText;
-window.cosineSimilarity = cosineSimilarity;
 window.showFeedback = showFeedback;
 window.createProgressToast = createProgressToast;
 window.updateProgressToast = updateProgressToast;

@@ -2,7 +2,7 @@
 // Handles folder management, folder contents viewing, and folder operations
 
 // View folder contents
-async function viewFolderContents(folderName) {
+async function viewFolderContents(folderName, folderId) {
   const storageUI = document.getElementById('memory-chat-storage');
   if (!storageUI) return;
   
@@ -12,7 +12,7 @@ async function viewFolderContents(folderName) {
   // Get folder contents from backend
   let folderMessages = [];
   try {
-    const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderName)}`);
+    const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderId)}/contents`);
     if (res.ok) {
       folderMessages = await res.json();
     } else {
@@ -54,7 +54,7 @@ async function viewFolderContents(folderName) {
               <button class="folder-show-btn" data-index="${idx}" style="background:none;border:none;color:#007bff;cursor:pointer;font-size:13px;padding:0;display:${showMoreBtn};">Show more</button>
             </div>
             <div style="display:flex;gap:4px;">
-              <button class="remove-from-folder" data-folder="${folderName}" data-message-id="${message._id}" style="background:#ffebee;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;color:#c62828;transition:background 0.2s;" title="Remove from this folder only" onmouseenter="this.style.background='#ffcdd2'" onmouseleave="this.style.background='#ffebee'">Remove From Folder</button>
+              <button class="remove-from-folder" data-folder="${folderName}" data-folder-id="${folderId}" data-message-id="${message._id}" style="background:#ffebee;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;color:#c62828;transition:background 0.2s;" title="Remove from this folder only" onmouseenter="this.style.background='#ffcdd2'" onmouseleave="this.style.background='#ffebee'">Remove From Folder</button>
               <button class="delete-memory" data-message-id="${message._id}" style="background:#666;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;color:#fff;transition:background 0.2s;" title="Delete memory from everywhere" onmouseenter="this.style.background='#555'" onmouseleave="this.style.background='#666'">Delete Everywhere</button>
             </div>
           </div>
@@ -66,11 +66,11 @@ async function viewFolderContents(folderName) {
   tabContent.innerHTML = contentHTML;
   
   // Setup folder content event handlers
-  setupFolderContentEventHandlers(tabContent, folderName);
+  setupFolderContentEventHandlers(tabContent, folderName, folderId);
 }
 
 // Setup folder content event handlers
-function setupFolderContentEventHandlers(tabContent, folderName) {
+function setupFolderContentEventHandlers(tabContent, folderName, folderId) {
   // Back button
   tabContent.querySelector('#back-to-folders').onclick = () => {
     if (window.renderTab) {
@@ -112,12 +112,17 @@ function setupFolderContentEventHandlers(tabContent, folderName) {
       
       if (confirm('Remove this memory from this folder only? (It will remain in storage)')) {
         try {
-          const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderName)}/${encodeURIComponent(messageId)}`, {
-            method: 'DELETE'
+          const res = await fetch('http://localhost:3000/api/folders/remove-message', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              folderId: btn.dataset.folderId,
+              messageId: messageId 
+            })
           });
           if (!res.ok) throw new Error('Failed to remove message from folder');
           // Refresh the folder contents
-          viewFolderContents(folderName);
+          viewFolderContents(folderName, btn.dataset.folderId);
         } catch (error) {
           tabContent.innerHTML = `<div style="text-align:center;color:#ff6b6b;padding:20px;">Error removing message from folder: ${error.message}</div>`;
         }
@@ -179,8 +184,6 @@ async function showFolderSelector(messageElement) {
     console.error('Error loading folders:', error);
     return;
   }
-  const folderNames = Object.keys(folders);
-  
   const popup = document.createElement('div');
   popup.id = 'memory-chat-folder-popup';
   popup.style.cssText = `
@@ -206,7 +209,7 @@ async function showFolderSelector(messageElement) {
     <div style="padding: 20px;">
   `;
   
-  if (folderNames.length === 0) {
+  if (folders.length === 0) {
     popupHTML += `
       <div style="text-align: center; color: #888; margin-bottom: 20px;">No folders created yet</div>
       <button id="create-folder-from-popup" style="display: block; margin: 0 auto; padding: 10px 20px; background: linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%); border: none; border-radius: 8px; color: #222; font-weight: bold; cursor: pointer;">Create New Folder</button>
@@ -216,12 +219,12 @@ async function showFolderSelector(messageElement) {
       <div style="margin-bottom: 16px; font-weight: bold; color: #1a1a1a;">Select a folder:</div>
     `;
     
-    folderNames.forEach(folderName => {
-      const messageCount = folders[folderName].messageCount || 0;
+    folders.forEach(folder => {
+      const messageCount = folder.messageCount || 0;
       popupHTML += `
-        <div class="folder-option" data-folder="${folderName}" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8f9fa; border: 1px solid #e1e5e9; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s;">
+        <div class="folder-option" data-folder="${folder.name}" data-folder-id="${folder._id}" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8f9fa; border: 1px solid #e1e5e9; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s;">
           <div>
-            <div style="font-weight: bold; color: #1a1a1a;">${folderName}</div>
+            <div style="font-weight: bold; color: #1a1a1a;">${folder.name}</div>
             <div style="font-size: 12px; color: #888;">${messageCount} message${messageCount !== 1 ? 's' : ''}</div>
           </div>
           <div style="color: #007bff; font-size: 14px;">+</div>
@@ -286,7 +289,7 @@ function setupFolderPopupEventHandlers(popup, messageElement, folders) {
       
       try {
         // Add message to folder
-        const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderName)}`, {
+        const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(option.dataset.folderId)}/add-message`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
@@ -331,8 +334,6 @@ async function showFolderSelectorForStorage(messageId) {
     console.error('Error loading folders:', error);
     return;
   }
-  const folderNames = Object.keys(folders);
-  
   const popup = document.createElement('div');
   popup.id = 'memory-chat-folder-popup';
   popup.style.cssText = `
@@ -358,7 +359,7 @@ async function showFolderSelectorForStorage(messageId) {
     <div style="padding: 20px;">
   `;
   
-  if (folderNames.length === 0) {
+  if (folders.length === 0) {
     popupHTML += `
       <div style="text-align: center; color: #888; margin-bottom: 20px;">No folders created yet</div>
       <button id="create-folder-from-popup" style="display: block; margin: 0 auto; padding: 10px 20px; background: linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%); border: none; border-radius: 8px; color: #222; font-weight: bold; cursor: pointer;">Create New Folder</button>
@@ -368,12 +369,12 @@ async function showFolderSelectorForStorage(messageId) {
       <div style="margin-bottom: 16px; font-weight: bold; color: #1a1a1a;">Select a folder:</div>
     `;
     
-    folderNames.forEach(folderName => {
-      const messageCount = folders[folderName].messageCount || 0;
+    folders.forEach(folder => {
+      const messageCount = folder.messageCount || 0;
       popupHTML += `
-        <div class="folder-option" data-folder="${folderName}" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8f9fa; border: 1px solid #e1e5e9; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s;">
+        <div class="folder-option" data-folder="${folder.name}" data-folder-id="${folder._id}" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8f9fa; border: 1px solid #e1e5e9; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s;">
           <div>
-            <div style="font-weight: bold; color: #1a1a1a;">${folderName}</div>
+            <div style="font-weight: bold; color: #1a1a1a;">${folder.name}</div>
             <div style="font-size: 12px; color: #888;">${messageCount} message${messageCount !== 1 ? 's' : ''}</div>
           </div>
           <div style="color: #007bff; font-size: 14px;">→</div>
@@ -421,7 +422,7 @@ function setupFolderPopupEventHandlersForStorage(popup, messageId, folders) {
       // Use the messageId directly since we already have it
       if (messageId) {
         try {
-          const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderName)}`, {
+          const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(option.dataset.folderId)}/add-message`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ messageId: messageId })

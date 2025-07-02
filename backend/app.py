@@ -88,8 +88,6 @@ def delete_message():
         if not message_id:
             return jsonify({'error': 'id is required'}), 400
         
-        print(f"Deleting message with id: {message_id}")
-        
         # Remove from messages collection
         result = messages_collection.delete_one({'_id': ObjectId(message_id)})
         
@@ -102,7 +100,7 @@ def delete_message():
         if result.deleted_count > 0:
             return jsonify({'message': 'Message deleted successfully'}), 200
         else:
-            return jsonify({'error': 'Message not found'}), 404
+            return jsonify({'error': 'Message not found'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -110,11 +108,12 @@ def delete_message():
 def get_folders():
     """Get all folders with message counts"""
     try:
-        folders = list(folders_collection.find({}, {'_id': 0}))
+        folders = list(folders_collection.find({}))
         
-        # Add message counts
+        # Add message counts and convert ObjectId to string
         for folder in folders:
             folder['messageCount'] = len(folder.get('messages', []))
+            folder['_id'] = str(folder['_id'])  # Convert ObjectId to string
         
         return jsonify(folders)
     except Exception as e:
@@ -146,26 +145,32 @@ def create_folder():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/folders/<folder_name>', methods=['DELETE'])
-def delete_folder(folder_name):
-    """Delete a folder"""
+@app.route('/api/folders/delete', methods=['POST'])
+def delete_folder():
+    """Delete a folder by MongoDB _id"""
     try:
-        result = folders_collection.delete_one({'name': folder_name})
+        data = request.json
+        folder_id = data.get('id')
+        
+        if not folder_id:
+            return jsonify({'error': 'Folder ID is required'}), 400
+        
+        result = folders_collection.delete_one({'_id': ObjectId(folder_id)})
         
         if result.deleted_count > 0:
             return jsonify({'message': 'Folder deleted successfully'}), 200
         else:
-            return jsonify({'error': 'Folder not found'}), 404
+            return jsonify({'error': 'Folder not found'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/folders/<folder_name>', methods=['GET'])
-def get_folder_contents(folder_name):
-    """Get messages in a folder"""
+@app.route('/api/folders/<folder_id>/contents', methods=['GET'])
+def get_folder_contents(folder_id):
+    """Get messages in a folder by MongoDB _id"""
     try:
-        folder = folders_collection.find_one({'name': folder_name})
+        folder = folders_collection.find_one({'_id': ObjectId(folder_id)})
         if not folder:
-            return jsonify({'error': 'Folder not found'}), 404
+            return jsonify({'error': 'Folder not found'}), 500
         
         # Get messages by MongoDB _id
         message_ids = folder.get('messages', [])
@@ -185,9 +190,9 @@ def get_folder_contents(folder_name):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/folders/<folder_name>', methods=['POST'])
-def add_message_to_folder(folder_name):
-    """Add a message to a folder - either create new message or add existing message"""
+@app.route('/api/folders/<folder_id>/add-message', methods=['POST'])
+def add_message_to_folder(folder_id):
+    """Add a message to a folder by MongoDB _id - either create new message or add existing message"""
     try:
         data = request.json
         message_text = data.get('text', '').strip()
@@ -212,28 +217,38 @@ def add_message_to_folder(folder_name):
         
         # Add to folder
         folder_result = folders_collection.update_one(
-            {'name': folder_name},
+            {'_id': ObjectId(folder_id)},
             {'$addToSet': {'messages': message_id}}
         )
         
         if folder_result.matched_count == 0:
-            return jsonify({'error': 'Folder not found'}), 404
+            return jsonify({'error': 'Folder not found'}), 500
         
         return jsonify({'message': 'Message added to folder successfully', 'id': message_id}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/folders/<folder_name>/<message_id>', methods=['DELETE'])
-def remove_message_from_folder(folder_name, message_id):
-    """Remove a message from a folder"""
+@app.route('/api/folders/remove-message', methods=['POST'])
+def remove_message_from_folder():
+    """Remove a message from a folder by MongoDB _id"""
     try:
+        data = request.json
+        folder_id = data.get('folderId')
+        message_id = data.get('messageId')
+        
+        if not folder_id:
+            return jsonify({'error': 'Folder ID is required'}), 400
+        
+        if not message_id:
+            return jsonify({'error': 'Message ID is required'}), 400
+        
         result = folders_collection.update_one(
-            {'name': folder_name},
+            {'_id': ObjectId(folder_id)},
             {'$pull': {'messages': message_id}}
         )
         
         if result.matched_count == 0:
-            return jsonify({'error': 'Folder not found'}), 404
+            return jsonify({'error': 'Folder not found'}), 500
         
         return jsonify({'message': 'Message removed from folder successfully'}), 200
     except Exception as e:

@@ -448,11 +448,10 @@ async function renderFoldersTab(tabContent) {
     tabContent.innerHTML = `<div style="text-align:center;color:#ff6b6b;padding:20px;">Error loading folders: ${error.message}</div>`;
     return;
   }
-  const folderNames = Object.keys(folders);
   const storageUI = document.getElementById('memory-chat-storage');
   const isDark = storageUI && storageUI.classList.contains('memory-chat-dark');
 
-  if (folderNames.length === 0) {
+  if (folders.length === 0) {
     tabContent.innerHTML = `
       <div style="text-align:center;color:#888;margin-bottom:20px;">No folders created yet</div>
       <button id="create-folder-btn" style="display:block;margin:0 auto;padding:10px 20px;background:linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%);border:none;border-radius:8px;color:#222;font-weight:bold;cursor:pointer;">Create New Folder</button>
@@ -481,17 +480,17 @@ async function renderFoldersTab(tabContent) {
         <button id="create-folder-btn" style="padding:8px 16px;background:linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%);border:none;border-radius:6px;color:#222;font-weight:bold;cursor:pointer;font-size:12px;">+ New Folder</button>
       </div>
     `;
-    folderNames.forEach(folderName => {
-      const messageCount = folders[folderName].messageCount || 0;
+    folders.forEach(folder => {
+      const messageCount = folder.messageCount || 0;
       foldersHTML += `
-        <div class="folder-item" data-folder="${folderName}" style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:${isDark ? '#23272f' : '#f8f9fa'};border:1px solid ${isDark ? '#2c2f36' : '#e1e5e9'};border-radius:8px;margin-bottom:8px;cursor:pointer;">
+        <div class="folder-item" data-folder="${folder.name}" data-folder-id="${folder._id}" style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:${isDark ? '#23272f' : '#f8f9fa'};border:1px solid ${isDark ? '#2c2f36' : '#e1e5e9'};border-radius:8px;margin-bottom:8px;cursor:pointer;">
           <div style="flex:1;">
-            <div style="font-weight:bold;${isDark ? 'color:#f3f6fa;' : 'color:#1a1a1a;'}">${folderName}</div>
+            <div style="font-weight:bold;${isDark ? 'color:#f3f6fa;' : 'color:#1a1a1a;'}">${folder.name}</div>
             <div style="font-size:12px;${isDark ? 'color:#b2b8c2;' : 'color:#888;'}">${messageCount} message${messageCount !== 1 ? 's' : ''}</div>
           </div>
           <div style="display:flex;gap:8px;">
-            <button class="folder-plus-btn" data-folder="${folderName}" style="background:${isDark ? '#2e3a4a' : '#e6f7e6'};border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:${isDark ? '#b2f7ef' : '#222'};" title="Add all messages to prompt">+</button>
-            <button class="folder-delete-btn" data-folder="${folderName}" style="background:${isDark ? '#3a2323' : '#f7e6e6'};border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:${isDark ? '#ffb2b2' : '#d32f2f'};" title="Delete folder">×</button>
+            <button class="folder-plus-btn" data-folder="${folder.name}" data-folder-id="${folder._id}" style="background:${isDark ? '#2e3a4a' : '#e6f7e6'};border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:${isDark ? '#b2f7ef' : '#222'};" title="Add all messages to prompt">+</button>
+            <button class="folder-delete-btn" data-folder="${folder.name}" data-folder-id="${folder._id}" style="background:${isDark ? '#3a2323' : '#f7e6e6'};border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:${isDark ? '#ffb2b2' : '#d32f2f'};" title="Delete folder">×</button>
           </div>
         </div>
       `;
@@ -524,8 +523,10 @@ async function renderFoldersTab(tabContent) {
         const folderName = btn.dataset.folder;
         if (confirm(`Delete folder '${folderName}'? This cannot be undone.`)) {
           try {
-            const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderName)}`, {
-              method: 'DELETE'
+            const res = await fetch('http://localhost:3000/api/folders/delete', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: btn.dataset.folderId })
             });
             if (!res.ok) throw new Error('Failed to delete folder');
             renderFoldersTab(tabContent);
@@ -857,8 +858,9 @@ function setupFolderEventHandlers(tabContent, folders) {
     item.onclick = (e) => {
       if (!e.target.classList.contains('folder-plus-btn') && !e.target.classList.contains('folder-delete-btn')) {
         const folderName = item.dataset.folder;
+        const folderId = item.dataset.folderId;
         if (window.viewFolderContents) {
-          window.viewFolderContents(folderName);
+          window.viewFolderContents(folderName, folderId);
         }
       }
     };
@@ -923,9 +925,17 @@ function setupFolderEventHandlers(tabContent, folders) {
       e.stopPropagation();
       const folderName = btn.dataset.folder;
       if (confirm(`Are you sure you want to delete the folder "${folderName}"?`)) {
-        if (window.memoryChatIDB && window.memoryChatIDB.removeFolder) {
-          await window.memoryChatIDB.removeFolder(folderName);
+        try {
+          const res = await fetch('http://localhost:3000/api/folders/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: btn.dataset.folderId })
+          });
+          if (!res.ok) throw new Error('Failed to delete folder');
           if (window.renderTab) window.renderTab();
+        } catch (error) {
+          console.error('Error deleting folder:', error);
+          alert('Failed to delete folder. Please try again.');
         }
       }
     };
