@@ -13,25 +13,30 @@ function addFolderButtons() {
       // Check if message is already in all folders
       const messageText = window.MemoryChatUtils.getMessageText(msg);
       if (messageText && messageText.trim().length > 0) {
-        let folders = {};
-        if (window.memoryChatIDB && window.memoryChatIDB.getAllFoldersWithCounts) {
-          folders = await window.memoryChatIDB.getAllFoldersWithCounts();
-        }
-        
-        // Check if message is in all folders
-        let inAllFolders = true;
-        for (const folderName of Object.keys(folders)) {
-          const isInFolder = await isMessageInFolder(messageText, folderName);
-          if (!isInFolder) {
-            inAllFolders = false;
-            break;
+        try {
+          // Get folders from backend
+          const foldersRes = await fetch('http://localhost:3000/api/folders');
+          if (foldersRes.ok) {
+            const folders = await foldersRes.json();
+            
+            // Check if message is in all folders
+            let inAllFolders = true;
+            for (const folder of folders) {
+              const isInFolder = await isMessageInFolder(messageText, folder.name);
+              if (!isInFolder) {
+                inAllFolders = false;
+                break;
+              }
+            }
+            
+            // If message is in all folders, mark it as processed and skip
+            if (inAllFolders && folders.length > 0) {
+              msg.setAttribute('data-memory-chat-processed', 'true');
+              continue;
+            }
           }
-        }
-        
-        // If message is in all folders, mark it as processed and skip
-        if (inAllFolders && Object.keys(folders).length > 0) {
-          msg.setAttribute('data-memory-chat-processed', 'true');
-          continue;
+        } catch (error) {
+          console.error('Error checking folders:', error);
         }
       }
       
@@ -92,22 +97,37 @@ async function showFolderSelector(messageElement) {
     return;
   }
 
-  let folders = {};
-  if (window.memoryChatIDB && window.memoryChatIDB.getAllFoldersWithCounts) {
-    folders = await window.memoryChatIDB.getAllFoldersWithCounts();
+  // Get folders from backend
+  let folders = [];
+  try {
+    const foldersRes = await fetch('http://localhost:3000/api/folders');
+    if (foldersRes.ok) {
+      folders = await foldersRes.json();
+    }
+  } catch (error) {
+    console.error('Error fetching folders:', error);
   }
   
   // Filter out folders where the message is already present
-  const availableFolders = {};
-  const unavailableFolders = {};
-  for (const [folderName, folderData] of Object.entries(folders)) {
-    const folderMessages = await window.memoryChatIDB.getFolderContents(folderName);
-    // Check if messageText matches any originalText in the folder
-    const hasOriginalText = folderMessages && folderMessages.some(msg => msg.originalText === messageText);
-    if (!hasOriginalText) {
-      availableFolders[folderName] = folderData;
-    } else {
-      unavailableFolders[folderName] = folderData;
+  const availableFolders = [];
+  const unavailableFolders = [];
+  for (const folder of folders) {
+    try {
+      const folderRes = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folder.name)}`);
+      if (folderRes.ok) {
+        const folderMessages = await folderRes.json();
+        // Check if messageText matches any text in the folder
+        const hasMessage = folderMessages && folderMessages.some(msg => msg.text === messageText);
+        if (!hasMessage) {
+          availableFolders.push(folder);
+        } else {
+          unavailableFolders.push(folder);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking folder contents:', error);
+      // If we can't check, assume it's available
+      availableFolders.push(folder);
     }
   }
   
@@ -139,10 +159,10 @@ async function showFolderSelector(messageElement) {
     <div style="padding: 20px;">
   `;
 
-  if (folderNames.length === 0) {
+  if (availableFolders.length === 0) {
     popupHTML += `
       <div style="text-align: center; color: #888; margin-bottom: 20px;">
-        ${Object.keys(folders).length > 0 ? 
+        ${folders.length > 0 ? 
           'Message already exists in all folders' : 
           'No folders created yet'
         }
@@ -153,12 +173,12 @@ async function showFolderSelector(messageElement) {
     popupHTML += `
       <div style="margin-bottom: 16px; font-weight: bold; color: #1a1a1a;">Available folders:</div>
     `;
-    folderNames.forEach(folderName => {
-      const messageCount = availableFolders[folderName].messageCount || 0;
+    availableFolders.forEach(folder => {
+      const messageCount = folder.messageCount || 0;
       popupHTML += `
-        <div class="folder-option" data-folder="${folderName}" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8f9fa; border: 1px solid #e1e5e9; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s;">
+        <div class="folder-option" data-folder="${folder.name}" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8f9fa; border: 1px solid #e1e5e9; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s;">
           <div>
-            <div style="font-weight: bold; color: #1a1a1a;">${folderName}</div>
+            <div style="font-weight: bold; color: #1a1a1a;">${folder.name}</div>
             <div style="font-size: 12px; color: #888;">${messageCount} message${messageCount !== 1 ? 's' : ''}</div>
           </div>
           <div style="color: #007bff; font-size: 14px;">→</div>
@@ -166,16 +186,16 @@ async function showFolderSelector(messageElement) {
       `;
     });
     // Show unavailable folders if any exist
-    if (unavailableFolderNames.length > 0) {
+    if (unavailableFolders.length > 0) {
       popupHTML += `
         <div style="margin: 24px 0 16px 0; font-weight: bold; color: #666; font-size: 14px;">Already in these folders:</div>
       `;
-      unavailableFolderNames.forEach(folderName => {
-        const messageCount = unavailableFolders[folderName].messageCount || 0;
+      unavailableFolders.forEach(folder => {
+        const messageCount = folder.messageCount || 0;
         popupHTML += `
-          <div class="folder-option-disabled" data-folder="${folderName}" title="Message already in this folder" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 8px; opacity: 0.6; pointer-events: none; cursor: not-allowed;">
+          <div class="folder-option-disabled" data-folder="${folder.name}" title="Message already in this folder" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f0f0f0; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 8px; opacity: 0.6; pointer-events: none; cursor: not-allowed;">
             <div>
-              <div style="font-weight: bold; color: #666;">${folderName}</div>
+              <div style="font-weight: bold; color: #666;">${folder.name}</div>
               <div style="font-size: 12px; color: #999;">${messageCount} message${messageCount !== 1 ? 's' : ''} • Already contains this message</div>
             </div>
             <div style="color: #999; font-size: 14px;">✓</div>
@@ -214,50 +234,28 @@ async function showFolderSelector(messageElement) {
     option.onclick = async () => {
       const folderName = option.dataset.folder;
       try {
-        // First, process the message through insight extraction and storage
-        if (window.memoryChatIDB && window.memoryChatIDB.addMessages) {
-          const result = await window.memoryChatIDB.addMessages([{ text: messageText, timestamp: Date.now() }]);
-          if (result.added > 0 && result.keys && result.keys.length > 0) {
-            // Message was just added to memory, use the returned key
-            const insightsKey = result.keys[0];
-            await window.memoryChatIDB.addMessageToFolder(folderName, insightsKey);
-            // Remove the log button since message has been added
-            const logBtn = messageElement.querySelector('.memory-chat-log-btn');
-            if (logBtn) {
-              logBtn.remove();
-            }
-            // Mark message as processed
-            messageElement.setAttribute('data-memory-chat-processed', 'true');
-            showFolderFeedback('Message added to folder and memory!', 'success');
-          } else {
-            // Message already exists in memory, find it and add to folder
-            const folderMessages = await window.memoryChatIDB.getFolderContents(folderName);
-            let storedMessage = folderMessages.find(msg => 
-              msg.originalText === messageText || 
-              (Array.isArray(msg.insights) && msg.insights.join('\n').includes(messageText.substring(0, 50)))
-            );
-            if (!storedMessage) {
-              // Fallback: search all messages in memory
-              const allMessages = await window.memoryChatIDB.getAllMessages();
-              storedMessage = allMessages.find(msg => 
-                msg.originalText === messageText || 
-                (Array.isArray(msg.insights) && msg.insights.join('\n').includes(messageText.substring(0, 50)))
-              );
-            }
-            if (storedMessage && storedMessage.insightsKey) {
-              await window.memoryChatIDB.addMessageToFolder(folderName, storedMessage.insightsKey);
-              const logBtn = messageElement.querySelector('.memory-chat-log-btn');
-              if (logBtn) {
-                logBtn.remove();
-              }
-              messageElement.setAttribute('data-memory-chat-processed', 'true');
-              showFolderFeedback('Message added to folder and memory!', 'success');
-            } else {
-              showFolderFeedback('Failed to find stored message', 'error');
-            }
+        // Send message to backend with folder assignment
+        const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderName)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: messageText,
+            timestamp: Date.now()
+          })
+        });
+        
+        if (res.ok) {
+          // Remove the log button since message has been added
+          const logBtn = messageElement.querySelector('.memory-chat-log-btn');
+          if (logBtn) {
+            logBtn.remove();
           }
+          // Mark message as processed
+          messageElement.setAttribute('data-memory-chat-processed', 'true');
+          showFolderFeedback('Message added to folder and memory!', 'success');
         } else {
-          showFolderFeedback('IndexedDB not available', 'error');
+          const errorData = await res.json();
+          showFolderFeedback('Error adding message to folder: ' + (errorData.error || 'Unknown error'), 'error');
         }
       } catch (error) {
         console.error('Error adding message to folder:', error);
@@ -274,11 +272,24 @@ async function showFolderSelector(messageElement) {
   popup.querySelector('#create-folder-from-popup').onclick = async () => {
     const folderName = prompt('Enter folder name:');
     if (folderName && folderName.trim()) {
-      if (window.memoryChatIDB && window.memoryChatIDB.addOrUpdateFolder) {
-        await window.memoryChatIDB.addOrUpdateFolder(folderName.trim(), []);
+      try {
+        const res = await fetch('http://localhost:3000/api/folders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: folderName.trim() })
+        });
+        
+        if (res.ok) {
+          popup.remove();
+          showFolderSelector(messageElement);
+        } else {
+          const errorData = await res.json();
+          showFolderFeedback('Error creating folder: ' + (errorData.error || 'Unknown error'), 'error');
+        }
+      } catch (error) {
+        console.error('Error creating folder:', error);
+        showFolderFeedback('Error creating folder: ' + error.message, 'error');
       }
-      popup.remove();
-      showFolderSelector(messageElement);
     }
   };
 }
@@ -286,55 +297,30 @@ async function showFolderSelector(messageElement) {
 // Add message to folder (for other usages)
 async function addMessageToFolder(folderName, messageText, messageElement) {
   try {
-    // First, process the message through insight extraction and storage
-    if (window.memoryChatIDB && window.memoryChatIDB.addMessages) {
-      const result = await window.memoryChatIDB.addMessages([{ text: messageText, timestamp: Date.now() }]);
-      
-      if (result.added > 0 && result.keys && result.keys.length > 0) {
-        // Message was just added to memory, use the returned key
-        const insightsKey = result.keys[0];
-        await window.memoryChatIDB.addMessageToFolder(folderName, insightsKey);
-        // Remove the log button since message has been added
-        if (messageElement) {
-          const logBtn = messageElement.querySelector('.memory-chat-log-btn');
-          if (logBtn) {
-            logBtn.remove();
-          }
-          // Mark message as processed
-          messageElement.setAttribute('data-memory-chat-processed', 'true');
+    // Send message to backend with folder assignment
+    const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderName)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: messageText,
+        timestamp: Date.now()
+      })
+    });
+    
+    if (res.ok) {
+      // Remove the log button since message has been added
+      if (messageElement) {
+        const logBtn = messageElement.querySelector('.memory-chat-log-btn');
+        if (logBtn) {
+          logBtn.remove();
         }
-        showFolderFeedback('Message added to folder and memory!', 'success');
-      } else {
-        // Message already exists in memory, find it and add to folder
-        const folderMessages = await window.memoryChatIDB.getFolderContents(folderName);
-        let storedMessage = folderMessages.find(msg => 
-          msg.originalText === messageText || 
-          (Array.isArray(msg.insights) && msg.insights.join('\n').includes(messageText.substring(0, 50)))
-        );
-        if (!storedMessage) {
-          // Fallback: search all messages in memory
-          const allMessages = await window.memoryChatIDB.getAllMessages();
-          storedMessage = allMessages.find(msg => 
-            msg.originalText === messageText || 
-            (Array.isArray(msg.insights) && msg.insights.join('\n').includes(messageText.substring(0, 50)))
-          );
-        }
-        if (storedMessage && storedMessage.insightsKey) {
-          await window.memoryChatIDB.addMessageToFolder(folderName, storedMessage.insightsKey);
-          if (messageElement) {
-            const logBtn = messageElement.querySelector('.memory-chat-log-btn');
-            if (logBtn) {
-              logBtn.remove();
-            }
-            messageElement.setAttribute('data-memory-chat-processed', 'true');
-          }
-          showFolderFeedback('Message added to folder and memory!', 'success');
-        } else {
-          showFolderFeedback('Failed to find stored message', 'error');
-        }
+        // Mark message as processed
+        messageElement.setAttribute('data-memory-chat-processed', 'true');
       }
+      showFolderFeedback('Message added to folder and memory!', 'success');
     } else {
-      showFolderFeedback('IndexedDB not available', 'error');
+      const errorData = await res.json();
+      showFolderFeedback('Error adding message to folder: ' + (errorData.error || 'Unknown error'), 'error');
     }
   } catch (error) {
     console.error('Error adding message to folder:', error);
@@ -373,11 +359,12 @@ function showFolderFeedback(message, type) {
 // Check if a message is already in a folder using text matching
 async function isMessageInFolder(messageText, folderName) {
   try {
-    if (!window.memoryChatIDB || !window.memoryChatIDB.getFolderContents) {
+    const folderRes = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderName)}`);
+    if (!folderRes.ok) {
       return false;
     }
     
-    const folderMessages = await window.memoryChatIDB.getFolderContents(folderName);
+    const folderMessages = await folderRes.json();
     if (!folderMessages || folderMessages.length === 0) {
       return false;
     }

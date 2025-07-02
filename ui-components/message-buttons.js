@@ -41,13 +41,6 @@ function addLogButtons() {
         // Hide button immediately for better UX
         btn.style.display = 'none';
         
-        if (!window.insightExtractionService || !window.insightExtractionService.isReady()) {
-          window.MemoryChatUtils.showFeedback('Insight extraction service not available. Please check your OpenAI API key in settings.', 'error');
-          // Show button again on error
-          btn.style.display = 'inline-block';
-          return;
-        }
-        
         const text = window.MemoryChatUtils.getMessageText(msg);
         if (!text || text.trim().length === 0) {
           window.MemoryChatUtils.showFeedback('No message text found', 'error');
@@ -58,21 +51,14 @@ function addLogButtons() {
         
         try {
           // Show processing indicator
-          const progressToast = window.MemoryChatUtils.createProgressToast('Extracting insights...');
+          const progressToast = window.MemoryChatUtils.createProgressToast('Processing message...');
           
-          // Extract insights and add to backend
-          const insights = await window.insightExtractionService.extractInsights(text);
-          
-          // Update progress
-          window.MemoryChatUtils.updateProgressToast(progressToast, 1, 2, 'Saving to backend...');
-          
-          // Send message to backend
+          // Send message to backend (insights will be generated automatically)
           const res = await fetch('http://localhost:3000/api/messages', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               text: text,
-              insights: insights,
               timestamp: Date.now()
             })
           });

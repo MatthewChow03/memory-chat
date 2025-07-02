@@ -57,7 +57,9 @@ npm install
 - Node.js (v14 or higher)
 - Chrome browser (for testing)
 - Git
-- OpenAI API key (for insight extraction)
+- Python 3.8+ (for backend)
+- MongoDB (for data storage)
+- OpenAI API key (configured on backend)
 
 ### Installation
 ```bash
@@ -70,8 +72,8 @@ npm install
 ```
 
 ### Development Workflow
-1. **Load Extension**: Load the extension in Chrome using Developer mode
-2. **Set up API Key**: Enter your OpenAI API key in the Settings tab
+1. **Start Backend**: Run the Flask backend server (see backend/README.md)
+2. **Load Extension**: Load the extension in Chrome using Developer mode
 3. **Make Changes**: Edit files in the project
 4. **Test Changes**: Refresh the extension in `chrome://extensions/` and test on ChatGPT
 5. **Reload**: Click the refresh button on the extension card to reload changes
@@ -112,9 +114,8 @@ The extension uses a modular architecture for better maintainability and separat
 - `ui-components/storage-button.js`: Coordinator that initializes all storage modules
 
 #### AI-Powered Features
-- `ui-components/insight-extraction.js`: **OpenAI-powered insight extraction** using GPT-4o-mini
 - `ui-components/advanced-semantic-search.js`: **AI-powered semantic search** using @xenova/transformers
-- `ui-components/idb-utils.js`: IndexedDB utilities with insight storage and search capabilities
+- Backend API integration for insight extraction and data storage
 
 #### Tab System
 - `ui-components/storage-tabs.js`: Tab management, rendering, and tab-specific content (Relevant, Recent, All, Search, Folders, Settings)
@@ -136,13 +137,13 @@ The extension uses a modular architecture for better maintainability and separat
 
 ## 🤖 AI-Powered Features
 
-### OpenAI Insight Extraction
+### OpenAI Insight Extraction (Backend)
 - **Model**: Uses OpenAI's GPT-4o-mini for high-quality insight extraction
 - **Key Insights**: Extracts 3 or fewer key insights from each message
 - **Bullet Point Format**: Insights are formatted as concise bullet points
 - **Rate Limiting**: Built-in rate limiting to respect API limits
 - **Error Handling**: Comprehensive error handling for API failures
-- **Persistent Storage**: API key is securely stored and persists across sessions
+- **Secure**: API key is configured on backend server, not stored in frontend
 
 ### Transformer-Based Search
 - **Model**: Uses `Xenova/all-MiniLM-L6-v2` for high-quality semantic embeddings
@@ -159,7 +160,7 @@ The extension uses **only** the AI-powered transformer search:
 - **No Fallbacks**: Pure AI-powered search for consistent quality
 
 ### Import & Processing
-- **Automatic Insight Extraction**: New messages automatically get insights extracted via OpenAI
+- **Automatic Insight Extraction**: New messages automatically get insights extracted via backend OpenAI API
 - **Bulk Import**: Import conversations.json files with automatic insight extraction
 - **Update Existing**: Update embeddings for existing insights via settings
 - **Model Caching**: Transformer model is cached for faster subsequent loads
@@ -185,9 +186,9 @@ We welcome contributions! Here's how you can help:
 - Test your changes before submitting
 
 ### Testing Checklist
+- [ ] Backend server starts without errors
 - [ ] Extension loads without errors
-- [ ] OpenAI API key can be set and saved
-- [ ] Messages can be processed for insights
+- [ ] Messages can be processed for insights via backend
 - [ ] Insights are displayed correctly
 - [ ] Search functionality works with insights
 - [ ] Folder operations work
@@ -197,18 +198,19 @@ We welcome contributions! Here's how you can help:
 ### Reporting Issues
 When reporting issues, please include:
 - Browser version and OS
+- Backend server status and logs
 - Steps to reproduce
 - Expected vs actual behavior
 - Console errors (if any)
 - Screenshots (if relevant)
-- OpenAI API key status (if insight extraction related)
+- Backend API key configuration (if insight extraction related)
 
 ## 📖 Usage Guide
 
 ### Setup
-1. **Get OpenAI API Key**: Sign up at https://platform.openai.com and get an API key
-2. **Enter API Key**: Click the 📋 button, go to Settings tab, and enter your API key
-3. **Test Connection**: The extension will test your API key and save it securely
+1. **Start Backend**: Follow the setup instructions in `backend/README.md`
+2. **Configure OpenAI API Key**: Set your OpenAI API key in the backend environment
+3. **Load Extension**: Load the extension in Chrome using Developer mode
 
 ### Basic Operations
 - **Add Message**: Click the green "Add to Log" button next to any ChatGPT message

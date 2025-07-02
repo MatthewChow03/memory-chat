@@ -1,39 +1,5 @@
 // Main content script - orchestrates all components
 
-// Initialize insight extraction service
-async function initializeInsightExtraction() {
-  // Wait for insight extraction service to be available
-  let attempts = 0;
-  while (!window.insightExtractionService && attempts < 50) {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    attempts++;
-  }
-  
-  if (window.insightExtractionService) {
-    console.log('Insight extraction service initialized');
-    
-    // Try to initialize with saved API key
-    try {
-      const result = await new Promise((resolve) => {
-        chrome.storage.local.get({ openaiApiKey: '' }, resolve);
-      });
-      
-      if (result.openaiApiKey && result.openaiApiKey.trim()) {
-        console.log('Found saved API key, initializing insight extraction service...');
-        await window.insightExtractionService.initialize(result.openaiApiKey);
-        console.log('Insight extraction service initialized with saved API key');
-      } else {
-        console.log('No saved API key found. User will need to enter one in settings.');
-      }
-    } catch (error) {
-      console.warn('Failed to initialize insight extraction service with saved API key:', error);
-      // Don't throw the error, just log it - the user can still set the key manually
-    }
-  } else {
-    console.warn('Insight extraction service not available');
-  }
-}
-
 // Initialize advanced semantic search and update existing embeddings
 async function initializeAdvancedSemanticSearch() {
   // Wait for advanced semantic search to be available
@@ -84,8 +50,7 @@ function addLogButtonsAndInitialize() {
   }
 }
 
-// Initialize insight extraction service first
-setTimeout(initializeInsightExtraction, 500);
+
 
 // Initialize advanced semantic search after a short delay
 setTimeout(initializeAdvancedSemanticSearch, 1000);

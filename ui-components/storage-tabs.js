@@ -541,26 +541,19 @@ async function renderFoldersTab(tabContent) {
 // Render settings tab content
 function renderSettingsTab(tabContent) {
   // Add theme toggle button
-  chrome.storage.local.get({ storageTheme: 'light', openaiApiKey: '' }, (result) => {
+  chrome.storage.local.get({ storageTheme: 'light' }, (result) => {
     const isDark = result.storageTheme === 'dark';
-    const currentApiKey = result.openaiApiKey || '';
-    
-    // Mask the API key for display (show only first 4 and last 4 characters)
-    const maskedApiKey = currentApiKey ? 
-      currentApiKey.substring(0, 4) + '••••••••' + currentApiKey.substring(currentApiKey.length - 4) : 
-      '';
     
     tabContent.innerHTML = `
       <div style="margin-bottom: 24px;">
-        <div style="margin-bottom:8px;font-weight:bold;">OpenAI API Key</div>
-        <input type="password" id="openai-api-key" placeholder="Enter your OpenAI API key" value="" style="width:100%;padding:12px;border:1px solid ${isDark ? '#444' : '#ddd'};border-radius:8px;background:${isDark ? '#23272f' : '#fff'};color:${isDark ? '#fff' : '#222'};font-size:14px;box-sizing:border-box;">
-        <div id="api-key-status-display" style="margin-top:4px;font-size:12px;color:${isDark ? '#aaa' : '#666'};">
-          ${currentApiKey ? `API Key saved: ${maskedApiKey}` : 'No API key saved'}
+        <div style="margin-bottom:8px;font-weight:bold;color:${isDark ? '#fff' : '#222'};">Backend Status</div>
+        <div style="padding:12px;background:${isDark ? '#2a2e36' : '#f8f9fa'};border-radius:8px;border:1px solid ${isDark ? '#444' : '#ddd'};">
+          <div style="font-size:14px;color:${isDark ? '#b2b8c2' : '#666'};">
+            <strong>Insight Generation:</strong> Handled by backend server<br>
+            <strong>API Key:</strong> Configured on backend (no frontend key needed)<br>
+            <strong>Server:</strong> http://localhost:3000
+          </div>
         </div>
-        <button id="save-api-key-btn" style="margin-top:8px;padding:8px 16px;background:${isDark ? '#2e4a3a' : '#b2f7ef'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;font-size:14px;">Save API Key</button>
-        <button id="debug-api-key-btn" style="margin-top:8px;margin-left:8px;padding:8px 16px;background:${isDark ? '#4a2e3a' : '#f7b2d6'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;font-size:14px;">Debug</button>
-        <button id="clear-api-key-btn" style="margin-top:8px;margin-left:8px;padding:8px 16px;background:${isDark ? '#4a2e2e' : '#f7b2b2'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;font-size:14px;">Clear Key</button>
-        <span id="api-key-status" style="margin-left:12px;font-size:13px;color:${isDark ? '#fff' : '#007bff'}"></span>
       </div>
       <button id="clear-logs-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Clear All Logs</button>
       <button id="add-full-chat-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#2e4a3a' : '#b2f7ef'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Add Full Chat to Log</button>
@@ -588,191 +581,7 @@ function renderSettingsTab(tabContent) {
       </div>
     `;
     
-    // API Key management
-    const apiKeyInput = tabContent.querySelector('#openai-api-key');
-    const saveApiKeyBtn = tabContent.querySelector('#save-api-key-btn');
-    const debugApiKeyBtn = tabContent.querySelector('#debug-api-key-btn');
-    const clearApiKeyBtn = tabContent.querySelector('#clear-api-key-btn');
-    const apiKeyStatus = tabContent.querySelector('#api-key-status');
-    
-    saveApiKeyBtn.onclick = async () => {
-      const apiKey = apiKeyInput.value.trim();
-      console.log('API Key length:', apiKey.length);
-      console.log('API Key starts with:', apiKey.substring(0, 10) + '...');
-      
-      if (!apiKey) {
-        apiKeyStatus.textContent = 'Please enter an API key';
-        return;
-      }
-      
-      // Check for problematic characters
-      if (!/^[a-zA-Z0-9\-_]+$/.test(apiKey)) {
-        apiKeyStatus.textContent = 'API key contains invalid characters. Please check your API key.';
-        return;
-      }
-      
-      saveApiKeyBtn.disabled = true;
-      saveApiKeyBtn.textContent = 'Testing...';
-      apiKeyStatus.textContent = 'Testing API key...';
-      
-      try {
-        // Initialize insight extraction service with the API key
-        if (window.insightExtractionService) {
-          await window.insightExtractionService.initialize(apiKey);
-          
-          // Save API key to storage
-          chrome.storage.local.set({ openaiApiKey: apiKey }, () => {
-            apiKeyStatus.textContent = 'API key saved and tested successfully!';
-            saveApiKeyBtn.textContent = 'Save API Key';
-            saveApiKeyBtn.disabled = false;
-          });
-        } else {
-          throw new Error('Insight extraction service not available');
-        }
-      } catch (error) {
-        console.error('Failed to test API key:', error);
-        apiKeyStatus.textContent = `Error: ${error.message}`;
-        saveApiKeyBtn.textContent = 'Save API Key';
-        saveApiKeyBtn.disabled = false;
-      }
-    };
-    
-    // Debug button functionality
-    debugApiKeyBtn.onclick = async () => {
-      console.log('=== API Key Debug Info ===');
-      
-      // Check storage
-      const result = await new Promise((resolve) => {
-        chrome.storage.local.get({ openaiApiKey: '' }, resolve);
-      });
-      console.log('Stored API key:', result.openaiApiKey ? 'Present' : 'Not found');
-      console.log('Stored API key length:', result.openaiApiKey ? result.openaiApiKey.length : 0);
-      if (result.openaiApiKey) {
-        const masked = result.openaiApiKey.substring(0, 4) + '••••••••' + result.openaiApiKey.substring(result.openaiApiKey.length - 4);
-        console.log('Stored API key (masked):', masked);
-        console.log('Stored API key starts with:', result.openaiApiKey.substring(0, 10) + '...');
-        console.log('Stored API key format valid:', result.openaiApiKey.startsWith('sk-') && result.openaiApiKey.length === 51);
-        console.log('Stored API key contains only valid chars:', /^[a-zA-Z0-9\-_]+$/.test(result.openaiApiKey));
-        
-        // Check for non-ASCII characters
-        const nonAsciiChars = result.openaiApiKey.match(/[^\x00-\x7F]/g);
-        if (nonAsciiChars) {
-          console.warn('Stored API key contains non-ASCII characters:', nonAsciiChars);
-        }
-      }
-      
-      // Check service status
-      console.log('Insight extraction service available:', !!window.insightExtractionService);
-      if (window.insightExtractionService) {
-        console.log('Service initialized:', window.insightExtractionService.isInitialized);
-        console.log('Service ready:', window.insightExtractionService.isReady());
-        console.log('Service status:', window.insightExtractionService.getStatus());
-        
-        // Check the service's stored API key
-        if (window.insightExtractionService.apiKey) {
-          console.log('Service API key length:', window.insightExtractionService.apiKey.length);
-          console.log('Service API key starts with:', window.insightExtractionService.apiKey.substring(0, 10) + '...');
-          console.log('Service API key format valid:', window.insightExtractionService.apiKey.startsWith('sk-') && window.insightExtractionService.apiKey.length === 51);
-        }
-      }
-      
-      // Test current input value
-      const currentInputValue = apiKeyInput.value.trim();
-      console.log('Current input value:', currentInputValue ? 'Present' : 'Empty');
-      console.log('Input value length:', currentInputValue.length);
-      if (currentInputValue) {
-        const masked = currentInputValue.substring(0, 4) + '••••••••' + currentInputValue.substring(currentInputValue.length - 4);
-        console.log('Input value (masked):', masked);
-        console.log('Input value starts with:', currentInputValue.substring(0, 10) + '...');
-        console.log('Input value format valid:', currentInputValue.startsWith('sk-'));
-        console.log('Input value contains only valid chars:', /^[a-zA-Z0-9\-_]+$/.test(currentInputValue));
-      }
-      
-      // Compare stored vs input
-      if (result.openaiApiKey && currentInputValue) {
-        console.log('Stored and input match:', result.openaiApiKey === currentInputValue);
-        if (result.openaiApiKey !== currentInputValue) {
-          console.log('Mismatch detected! This might indicate corruption.');
-          console.log('Stored length:', result.openaiApiKey.length, 'Input length:', currentInputValue.length);
-        }
-      } else if (result.openaiApiKey && !currentInputValue) {
-        console.log('API key is stored but input field is empty (this is normal)');
-      } else if (!result.openaiApiKey && currentInputValue) {
-        console.log('Input field has value but nothing is stored yet');
-      } else {
-        console.log('No API key stored and input field is empty');
-      }
-      
-      apiKeyStatus.textContent = 'Debug info logged to console';
-      setTimeout(() => {
-        apiKeyStatus.textContent = '';
-      }, 3000);
-    };
-    
-    // Clear API key button functionality
-    clearApiKeyBtn.onclick = async () => {
-      if (confirm('Are you sure you want to clear the stored API key? This will disable insight extraction until you enter a new key.')) {
-        try {
-          // Clear from storage
-          chrome.storage.local.remove('openaiApiKey', () => {
-            console.log('API key cleared from storage');
-          });
-          
-          // Reset the service
-          if (window.insightExtractionService) {
-            window.insightExtractionService.reset();
-            console.log('Insight extraction service reset');
-          }
-          
-          // Clear input field
-          apiKeyInput.value = '';
-          
-          // Update status display
-          const statusDisplay = tabContent.querySelector('#api-key-status-display');
-          if (statusDisplay) {
-            statusDisplay.textContent = 'No API key saved';
-          }
-          
-          apiKeyStatus.textContent = 'API key cleared successfully';
-          setTimeout(() => {
-            apiKeyStatus.textContent = '';
-          }, 3000);
-          
-        } catch (error) {
-          console.error('Error clearing API key:', error);
-          apiKeyStatus.textContent = 'Error clearing API key';
-          setTimeout(() => {
-            apiKeyStatus.textContent = '';
-          }, 3000);
-        }
-      }
-    };
-    
-    // Initialize insight extraction service if API key exists
-    if (currentApiKey && currentApiKey.trim() && window.insightExtractionService) {
-      // Validate the stored API key before using it
-      if (!currentApiKey.startsWith('sk-') || !/^[a-zA-Z0-9\-_]+$/.test(currentApiKey)) {
-        console.error('Stored API key appears to be corrupted:', currentApiKey.substring(0, 10) + '...');
-        apiKeyStatus.textContent = 'Stored API key appears corrupted. Please re-enter your API key.';
-        // Clear the corrupted key
-        chrome.storage.local.remove('openaiApiKey');
-        return;
-      }
-      
-      // Only initialize if the service is not already initialized
-      if (!window.insightExtractionService.isReady()) {
-        window.insightExtractionService.initialize(currentApiKey).then(() => {
-          console.log('Settings tab: Insight extraction service initialized with saved API key');
-        }).catch(error => {
-          console.error('Settings tab: Failed to initialize insight extraction service:', error);
-          apiKeyStatus.textContent = 'Failed to initialize with saved API key. Please re-enter your API key.';
-          // Clear the problematic key
-          chrome.storage.local.remove('openaiApiKey');
-        });
-      } else {
-        console.log('Settings tab: Insight extraction service already initialized');
-      }
-    }
+
     
     const clearBtn = tabContent.querySelector('#clear-logs-btn');
     clearBtn.onclick = clearAllLogs;
@@ -901,10 +710,7 @@ function renderSettingsTab(tabContent) {
         return;
       }
       
-      if (!window.insightExtractionService || !window.insightExtractionService.isReady()) {
-        statusSpan.textContent = 'Insight extraction service not available. Please check your OpenAI API key.';
-        return;
-      }
+
       
       let json;
       try {
@@ -953,46 +759,78 @@ function renderSettingsTab(tabContent) {
       }
       // Deduplicate imported messages
       messages = Array.from(new Set(messages));
-      // Prepare messages for IndexedDB
-      const now = Date.now();
-      const messageObjs = messages.map(text => ({ text, timestamp: now }));
       progressContainer.style.display = 'block';
       progressBar.style.width = '0%';
-      statusSpan.textContent = `Processing ${messageObjs.length} messages for insight extraction... (This may take several minutes for large imports)`;
-      // Batch in chunks for progress bar
-      const batchSize = 50; // Smaller batch size for insight extraction
+      statusSpan.textContent = `Processing ${messages.length} messages... (This may take several minutes for large imports)`;
+      
+      // Process messages in batches
+      const batchSize = 10; // Smaller batch size for API calls
       let imported = 0, skipped = 0, processed = 0;
+      
       async function processBatch(startIdx) {
-        if (startIdx >= messageObjs.length) {
+        if (startIdx >= messages.length) {
           progressBar.style.width = '100%';
-          statusSpan.textContent = `Imported ${imported} new insights, skipped ${skipped} duplicates.`;
+          statusSpan.textContent = `Imported ${imported} new messages, skipped ${skipped} duplicates.`;
           progressContainer.style.display = 'none';
-          if (window.showFeedback) window.showFeedback(`Imported ${imported} new insights, skipped ${skipped} duplicates.`, 'success');
+          if (window.showFeedback) window.showFeedback(`Imported ${imported} new messages, skipped ${skipped} duplicates.`, 'success');
           if (window.renderStorageTab) window.renderStorageTab();
           return;
         }
-        const batch = messageObjs.slice(startIdx, startIdx + batchSize);
-        let addMessagesFn;
+        
+        const batch = messages.slice(startIdx, startIdx + batchSize);
+        
         try {
-          addMessagesFn = await waitForIDBMethod('addMessages');
-        } catch (err) {
-          statusSpan.textContent = 'IndexedDB is not available.';
-          progressContainer.style.display = 'none';
-          if (window.showFeedback) window.showFeedback('IndexedDB is not available.', 'error');
-          return;
-        }
-        addMessagesFn(batch).then(({ added, skipped: batchSkipped }) => {
-          imported += added;
-          skipped += batchSkipped;
+          // Process batch in parallel
+          const promises = batch.map(async (text) => {
+            try {
+              const res = await fetch('http://localhost:3000/api/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  text: text,
+                  timestamp: Date.now()
+                })
+              });
+              
+              if (res.ok) {
+                return { success: true, duplicate: false };
+              } else if (res.status === 409) {
+                return { success: true, duplicate: true };
+              } else {
+                return { success: false, error: res.statusText };
+              }
+            } catch (error) {
+              return { success: false, error: error.message };
+            }
+          });
+          
+          const results = await Promise.all(promises);
+          
+          results.forEach(result => {
+            if (result.success) {
+              if (result.duplicate) {
+                skipped++;
+              } else {
+                imported++;
+              }
+            } else {
+              console.error('Import error:', result.error);
+            }
+          });
+          
           processed += batch.length;
-          progressBar.style.width = Math.round((processed / messageObjs.length) * 100) + '%';
-          setTimeout(() => processBatch(startIdx + batchSize), 0);
-        }).catch(err => {
+          progressBar.style.width = Math.round((processed / messages.length) * 100) + '%';
+          
+          // Add small delay between batches to avoid overwhelming the server
+          setTimeout(() => processBatch(startIdx + batchSize), 100);
+          
+        } catch (err) {
           statusSpan.textContent = 'Error during import: ' + (err && err.message ? err.message : err);
           progressContainer.style.display = 'none';
           if (window.showFeedback) window.showFeedback('Error during import: ' + (err && err.message ? err.message : err), 'error');
-        });
+        }
       }
+      
       processBatch(0);
     };
   });

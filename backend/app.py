@@ -6,7 +6,7 @@ import os
 from dotenv import load_dotenv
 import json
 from datetime import datetime
-import openai
+from openai import OpenAI
 from sentence_transformers import SentenceTransformer
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
@@ -25,7 +25,7 @@ messages_collection = db['messages']
 folders_collection = db['folders']
 
 # OpenAI setup
-openai.api_key = os.getenv('OPENAI_API_KEY')
+client = OpenAI()
 
 # Sentence transformer for semantic search
 try:
@@ -46,14 +46,22 @@ def get_messages():
 
 @app.route('/api/messages', methods=['POST'])
 def create_message():
-    """Create a new message"""
+    """Create a new message with automatic insight generation"""
     try:
         data = request.json
+        message_text = data.get('text', '').strip()
+        
+        if not message_text:
+            return jsonify({'error': 'Message text is required'}), 400
+        
+        # Generate insights using OpenAI
+        insights = generate_insights_with_openai(message_text)
+        
         message = {
-            'text': data.get('text', ''),
-            'insights': data.get('insights', []),
+            'text': message_text,
+            'insights': insights,
             'timestamp': data.get('timestamp', datetime.now().isoformat()),
-            'insightsKey': generate_insights_key(data.get('insights', []))
+            'insightsKey': generate_insights_key(insights)
         }
         
         # Check if message already exists
@@ -160,16 +168,23 @@ def get_folder_contents(folder_name):
 
 @app.route('/api/folders/<folder_name>', methods=['POST'])
 def add_message_to_folder(folder_name):
-    """Add a message to a folder"""
+    """Add a message to a folder with automatic insight generation"""
     try:
         data = request.json
+        message_text = data.get('text', '').strip()
+        
+        if not message_text:
+            return jsonify({'error': 'Message text is required'}), 400
+        
+        # Generate insights using OpenAI
+        insights = generate_insights_with_openai(message_text)
         
         # First, create the message if it doesn't exist
         message = {
-            'text': data.get('text', ''),
-            'insights': data.get('insights', []),
+            'text': message_text,
+            'insights': insights,
             'timestamp': data.get('timestamp', datetime.now().isoformat()),
-            'insightsKey': generate_insights_key(data.get('insights', []))
+            'insightsKey': generate_insights_key(insights)
         }
         
         # Check if message already exists
@@ -282,6 +297,131 @@ def generate_insights_key(insights):
         hash_val = hash_val & hash_val  # Convert to 32-bit integer
     
     return f"{insights_text}_{abs(hash_val)}"
+
+def generate_insights_with_openai(message_text):
+    """Generate insights from message text using OpenAI"""
+    try:
+        if not os.getenv('OPENAI_API_KEY'):
+            raise Exception("OpenAI API key not configured")
+        
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": """You are a *Memory Synthesizer*.
+
+INPUT  
+One assistant message that the user explicitly chose to save.
+
+GOAL  
+Return a JSON object containing *1 – 5* concise insights that are worth storing as long-term memory.  
+Never return an empty list—the user has signalled this message matters, so capture at least one takeaway.
+
+WHAT COUNTS AS A "MEMORY"  
+1. *Durable:* Still relevant weeks from now (principle, fact, plan, differentiator).  
+2. *Self-contained:* Understandable without the full conversation.  
+3. *High-signal:* Concrete idea, strategy, or decision-critical fact—not filler.  
+4. *Non-redundant:* Each line adds new information.  
+5. *Concise:* ≤ 18 words (≈120 chars) and written as a standalone sentence.  
+6. *Language-preserving:* Output in the same language as the input.
+
+EDGE CASES  
+* If the message is light on substance, distill the single most useful idea—do *not* leave the list empty.  
+* For very dense texts, include only the 1–5 most distinct insights.
+
+OUTPUT FORMAT (strict)  
+json
+{
+  "memories": [
+    "First distilled insight.",
+    "Second distinct insight if any."
+  ]
+}"""
+                },
+                {
+                    "role": "user",
+                    "content": message_text
+                }
+            ],
+            max_tokens=500,
+            temperature=0.3
+        )
+        
+        content = response.choices[0].message.content
+        if not content:
+            raise Exception("No response content received")
+        
+        # Parse the JSON response
+        try:
+            parsed_response = json.loads(content)
+            
+            # Handle the response format with "memories" key
+            if parsed_response and parsed_response.get('memories') and isinstance(parsed_response['memories'], list):
+                insights = parsed_response['memories']
+            elif isinstance(parsed_response, list):
+                # Fallback for old format where response was directly an array
+                insights = parsed_response
+            else:
+                raise Exception("Invalid response format - expected memories array")
+        except json.JSONDecodeError:
+            # If JSON parsing fails, try to extract insights from plain text
+            insights = parse_insights_from_text(content)
+        
+        # Validate insights
+        if not isinstance(insights, list):
+            raise Exception("Invalid insights format")
+        
+        # Ensure we have 3 or fewer insights
+        insights = insights[:3]
+        
+        # Filter out empty or invalid insights
+        insights = [insight for insight in insights if insight and isinstance(insight, str) and insight.strip()]
+        
+        if not insights:
+            raise Exception("No valid insights extracted")
+        
+        return insights
+        
+    except Exception as e:
+        print(f"Error generating insights: {e}")
+        # Return a default insight if OpenAI fails
+        return [f"Important message: {message_text[:100]}..."]
+
+def parse_insights_from_text(text):
+    """Parse insights from plain text if JSON parsing fails"""
+    lines = text.split('\n')
+    insights = []
+    
+    for line in lines:
+        line = line.strip()
+        # Look for bullet points, numbered items, or lines that start with common insight indicators
+        if (line.startswith('-') or line.startswith('•') or line.startswith('*') or
+            line[0].isdigit() and '. ' in line or
+            line.lower().startswith('insight') or line.lower().startswith('key') or line.lower().startswith('point')):
+            
+            # Clean up the line
+            insight = line
+            if insight.startswith(('-', '•', '*')):
+                insight = insight[1:].strip()
+            elif insight[0].isdigit() and '. ' in insight:
+                insight = insight.split('. ', 1)[1]
+            elif insight.lower().startswith('insight'):
+                insight = insight[8:].strip()
+            elif insight.lower().startswith('key'):
+                insight = insight[3:].strip()
+            elif insight.lower().startswith('point'):
+                insight = insight[5:].strip()
+            
+            if insight and len(insight) > 0:
+                insights.append(insight)
+    
+    # If no structured insights found, take the first few meaningful lines
+    if not insights:
+        meaningful_lines = [line.strip() for line in lines if len(line.strip()) > 10 and len(line.strip()) < 200]
+        insights = meaningful_lines[:3]
+    
+    return insights
 
 @app.route('/health', methods=['GET'])
 def health_check():
