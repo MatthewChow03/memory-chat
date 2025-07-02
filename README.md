@@ -6,6 +6,7 @@ A Chrome extension that allows you to selectively log and manage ChatGPT convers
 
 - **AI-Powered Insight Extraction**: Extract 3 or fewer key insights from messages using OpenAI's 4o-mini model
 - **Selective Logging**: Add individual messages to your log with one click
+- **Context Menu Integration**: Right-click any text on any website to add it to your memory
 - **AI-Powered Semantic Search**: Advanced transformer-based search using @xenova/transformers
 - **Smart Organization**: Create folders to organize related insights
 - **Message Reuse**: Add logged insights back to your prompt with formatting
@@ -214,6 +215,7 @@ When reporting issues, please include:
 
 ### Basic Operations
 - **Add Message**: Click the green "Add to Log" button next to any ChatGPT message
+- **Add Text from Any Website**: Select any text on any website, right-click, and choose "Add to Memory Chat"
 - **View Insights**: Click the 📋 clipboard button in the ChatGPT input area
 
 ### AI-Powered Features
@@ -222,6 +224,13 @@ When reporting issues, please include:
 - **Relevance Tab**: Shows insights similar to your current prompt using AI-powered search
 - **High-Quality Results**: 85%+ similarity threshold ensures only highly relevant results
 - **Search Status**: Real-time indication of AI model status
+
+### Context Menu Feature
+- **Universal Access**: Works on any website, not just ChatGPT
+- **Easy Selection**: Simply select any text and right-click to add it to your memory
+- **Automatic Processing**: Selected text is automatically processed for insights via the backend API
+- **Visual Feedback**: Success/error notifications appear on the page after adding text
+- **Source Tracking**: Automatically tracks the source URL and page title for context
 
 ## 🔧 Technical Details
 

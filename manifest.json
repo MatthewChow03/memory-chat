@@ -5,10 +5,12 @@
   "description": "Log and view ChatGPT conversations with advanced semantic search using transformers.",
   "permissions": [
     "storage",
-    "scripting"
+    "scripting",
+    "contextMenus"
   ],
   "host_permissions": [
-    "https://chatgpt.com/*"
+    "https://chatgpt.com/*",
+    "http://localhost:3000/*"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
@@ -40,6 +42,11 @@
         "ui-components/folder-button.js",
         "content.js"
       ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["context-menu-handler.js"],
       "run_at": "document_idle"
     }
   ],

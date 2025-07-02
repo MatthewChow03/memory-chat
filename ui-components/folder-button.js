@@ -22,7 +22,7 @@ function addFolderButtons() {
             // Check if message is in all folders
             let inAllFolders = true;
             for (const folder of folders) {
-              const isInFolder = await isMessageInFolder(messageText, folder.name);
+              const isInFolder = await isMessageInFolder(messageText, folder._id);
               if (!isInFolder) {
                 inAllFolders = false;
                 break;
@@ -113,7 +113,7 @@ async function showFolderSelector(messageElement) {
   const unavailableFolders = [];
   for (const folder of folders) {
     try {
-      const folderRes = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folder.name)}`);
+      const folderRes = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folder._id)}/contents`);
       if (folderRes.ok) {
         const folderMessages = await folderRes.json();
         // Check if messageText matches any text in the folder
@@ -176,7 +176,7 @@ async function showFolderSelector(messageElement) {
     availableFolders.forEach(folder => {
       const messageCount = folder.messageCount || 0;
       popupHTML += `
-        <div class="folder-option" data-folder="${folder.name}" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8f9fa; border: 1px solid #e1e5e9; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s;">
+        <div class="folder-option" data-folder="${folder.name}" data-folder-id="${folder._id}" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8f9fa; border: 1px solid #e1e5e9; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s;">
           <div>
             <div style="font-weight: bold; color: #1a1a1a;">${folder.name}</div>
             <div style="font-size: 12px; color: #888;">${messageCount} message${messageCount !== 1 ? 's' : ''}</div>
@@ -232,10 +232,10 @@ async function showFolderSelector(messageElement) {
   // Folder option clicks (only for enabled options)
   popup.querySelectorAll('.folder-option').forEach(option => {
     option.onclick = async () => {
-      const folderName = option.dataset.folder;
+      const folderId = option.dataset.folderId;
       try {
         // Send message to backend with folder assignment
-        const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderName)}`, {
+        const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderId)}/add-message`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -295,10 +295,10 @@ async function showFolderSelector(messageElement) {
 }
 
 // Add message to folder (for other usages)
-async function addMessageToFolder(folderName, messageText, messageElement) {
+async function addMessageToFolder(folderId, messageText, messageElement) {
   try {
     // Send message to backend with folder assignment
-    const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderName)}`, {
+    const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderId)}/add-message`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -357,9 +357,9 @@ function showFolderFeedback(message, type) {
 }
 
 // Check if a message is already in a folder using text matching
-async function isMessageInFolder(messageText, folderName) {
+async function isMessageInFolder(messageText, folderId) {
   try {
-    const folderRes = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderName)}`);
+    const folderRes = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderId)}/contents`);
     if (!folderRes.ok) {
       return false;
     }

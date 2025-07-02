@@ -520,13 +520,14 @@ async function renderFoldersTab(tabContent) {
     tabContent.querySelectorAll('.folder-delete-btn').forEach(btn => {
       btn.onclick = async (e) => {
         e.stopPropagation();
+        const folderId = btn.dataset.folderId;
         const folderName = btn.dataset.folder;
         if (confirm(`Delete folder '${folderName}'? This cannot be undone.`)) {
           try {
             const res = await fetch('http://localhost:3000/api/folders/delete', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ id: btn.dataset.folderId })
+              body: JSON.stringify({ id: folderId })
             });
             if (!res.ok) throw new Error('Failed to delete folder');
             renderFoldersTab(tabContent);
@@ -923,19 +924,19 @@ function setupFolderEventHandlers(tabContent, folders) {
   tabContent.querySelectorAll('.folder-delete-btn').forEach(btn => {
     btn.onclick = async (e) => {
       e.stopPropagation();
+      const folderId = btn.dataset.folderId;
       const folderName = btn.dataset.folder;
-      if (confirm(`Are you sure you want to delete the folder "${folderName}"?`)) {
+      if (confirm(`Delete folder '${folderName}'? This cannot be undone.`)) {
         try {
           const res = await fetch('http://localhost:3000/api/folders/delete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: btn.dataset.folderId })
+            body: JSON.stringify({ id: folderId })
           });
           if (!res.ok) throw new Error('Failed to delete folder');
-          if (window.renderTab) window.renderTab();
+          renderFoldersTab(tabContent);
         } catch (error) {
-          console.error('Error deleting folder:', error);
-          alert('Failed to delete folder. Please try again.');
+          tabContent.innerHTML = `<div style=\"text-align:center;color:#ff6b6b;padding:20px;\">Error deleting folder: ${error.message}</div>`;
         }
       }
     };

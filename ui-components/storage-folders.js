@@ -279,37 +279,40 @@ function setupFolderPopupEventHandlers(popup, messageElement, folders) {
   // Folder option clicks
   popup.querySelectorAll('.folder-option').forEach(option => {
     option.onclick = async () => {
+      const folderId = option.dataset.folderId;
       const folderName = option.dataset.folder;
-      const messageText = window.MemoryChatUtils.getMessageText(messageElement);
+      const messageText = window.MemoryChatUtils ? window.MemoryChatUtils.getMessageText(messageElement) : null;
+      if (messageText !== undefined) {
+        // Add message by text
+        try {
+          const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderId)}/add-message`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text: messageText,
+              timestamp: Date.now()
+            })
+          });
+          if (!res.ok) throw new Error('Failed to add message to folder');
 
-      if (!messageText || messageText.trim().length === 0) {
-        alert('No message text found');
-        return;
-      }
-
-      try {
-        // Add message to folder
-        const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(option.dataset.folderId)}/add-message`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text: messageText,
-            timestamp: Date.now()
-          })
-        });
-
-        if (!res.ok) throw new Error('Failed to add message to folder');
-
-        // Close popup and show success feedback
-        popup.remove();
-        if (window.showFeedback) {
-          window.showFeedback(`Message added to folder '${folderName}'!`, 'success');
+          // Close popup and show success feedback
+          popup.remove();
+          if (window.showFeedback) {
+            window.showFeedback(`Message added to folder '${folderName}'!`, 'success');
+          }
+        } catch (error) {
+          console.error('Error adding message to folder:', error);
+          alert('Failed to add message to folder. Please try again.');
         }
-      } catch (error) {
-        console.error('Error adding message to folder:', error);
-        alert('Failed to add message to folder. Please try again.');
+      } else {
+        console.error('No message text found to add to folder');
+        alert('No message text found to add to folder');
       }
+      popup.remove();
     };
+
+    option.onmouseenter = () => option.style.background = '#e9ecef';
+    option.onmouseleave = () => option.style.background = '#f8f9fa';
   });
 }
 
@@ -417,12 +420,14 @@ function setupFolderPopupEventHandlersForStorage(popup, messageId, folders) {
   // Folder option clicks
   popup.querySelectorAll('.folder-option').forEach(option => {
     option.onclick = async () => {
+      console.log('Folder option clicked:', option.dataset.folder, option.dataset.folderId);
+      console.log('Message ID:', messageId);
+      const folderId = option.dataset.folderId;
       const folderName = option.dataset.folder;
-
-      // Use the messageId directly since we already have it
-      if (messageId) {
+      if (typeof messageId !== 'undefined') {
+        // Add message by id
         try {
-          const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(option.dataset.folderId)}/add-message`, {
+          const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderId)}/add-message`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ messageId: messageId })
@@ -438,9 +443,8 @@ function setupFolderPopupEventHandlersForStorage(popup, messageId, folders) {
           alert('Failed to add message to folder. Please try again.');
         }
       } else {
-        if (window.showFeedback) {
-          window.showFeedback('Could not add memory to folder', 'error');
-        }
+        console.error('No message ID found to add to folder');
+        alert('No message ID found to add to folder');
       }
       popup.remove();
     };
