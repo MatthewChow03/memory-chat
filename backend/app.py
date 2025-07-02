@@ -10,6 +10,7 @@ from openai import OpenAI
 from sentence_transformers import SentenceTransformer
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
+from constants import PROMPT
 
 # Load environment variables
 load_dotenv()
@@ -39,7 +40,10 @@ except Exception as e:
 def get_messages():
     """Get all messages"""
     try:
-        messages = list(messages_collection.find({}, {'_id': 0}))
+        messages = list(messages_collection.find({}))
+        # Convert ObjectId to string for JSON serialization
+        for message in messages:
+            message['_id'] = str(message['_id'])
         return jsonify(messages)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -60,26 +64,34 @@ def create_message():
         message = {
             'text': message_text,
             'insights': insights,
-            'timestamp': data.get('timestamp', datetime.now().isoformat()),
-            'insightsKey': generate_insights_key(insights)
+            'timestamp': data.get('timestamp', datetime.now().isoformat())
         }
         
-        # Check if message already exists
-        existing = messages_collection.find_one({'insightsKey': message['insightsKey']})
-        if existing:
-            return jsonify({'error': 'Message already exists'}), 409
+        # Insert message and get the MongoDB _id
+        result = messages_collection.insert_one(message)
+        message_id = str(result.inserted_id)
         
-        messages_collection.insert_one(message)
-        return jsonify({'message': 'Message created successfully', 'id': str(message.get('_id'))}), 201
+        # Add the _id to the message object for response
+        message['_id'] = message_id
+        
+        return jsonify({'message': 'Message created successfully', 'id': message_id}), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/messages/<message_id>', methods=['DELETE'])
-def delete_message(message_id):
-    """Delete a message by insightsKey"""
+@app.route('/api/messages/delete', methods=['POST'])
+def delete_message():
+    """Delete a message by MongoDB _id"""
     try:
+        data = request.json
+        message_id = data.get('id')
+        
+        if not message_id:
+            return jsonify({'error': 'id is required'}), 400
+        
+        print(f"Deleting message with id: {message_id}")
+        
         # Remove from messages collection
-        result = messages_collection.delete_one({'insightsKey': message_id})
+        result = messages_collection.delete_one({'_id': ObjectId(message_id)})
         
         # Remove from all folders
         folders_collection.update_many(
@@ -155,12 +167,19 @@ def get_folder_contents(folder_name):
         if not folder:
             return jsonify({'error': 'Folder not found'}), 404
         
-        # Get messages by insightsKey
-        message_keys = folder.get('messages', [])
-        messages = list(messages_collection.find(
-            {'insightsKey': {'$in': message_keys}},
-            {'_id': 0}
-        ))
+        # Get messages by MongoDB _id
+        message_ids = folder.get('messages', [])
+        messages = []
+        
+        for message_id in message_ids:
+            try:
+                message = messages_collection.find_one({'_id': ObjectId(message_id)})
+                if message:
+                    message['_id'] = str(message['_id'])  # Convert ObjectId to string
+                    messages.append(message)
+            except Exception as e:
+                print(f"Error finding message with id {message_id}: {e}")
+                continue
         
         return jsonify(messages)
     except Exception as e:
@@ -168,40 +187,39 @@ def get_folder_contents(folder_name):
 
 @app.route('/api/folders/<folder_name>', methods=['POST'])
 def add_message_to_folder(folder_name):
-    """Add a message to a folder with automatic insight generation"""
+    """Add a message to a folder - either create new message or add existing message"""
     try:
         data = request.json
         message_text = data.get('text', '').strip()
+        message_id = data.get('messageId')
         
-        if not message_text:
-            return jsonify({'error': 'Message text is required'}), 400
+        if not message_text and not message_id:
+            return jsonify({'error': 'Either message text or messageId is required'}), 400
         
-        # Generate insights using OpenAI
-        insights = generate_insights_with_openai(message_text)
-        
-        # First, create the message if it doesn't exist
-        message = {
-            'text': message_text,
-            'insights': insights,
-            'timestamp': data.get('timestamp', datetime.now().isoformat()),
-            'insightsKey': generate_insights_key(insights)
-        }
-        
-        # Check if message already exists
-        existing_message = messages_collection.find_one({'insightsKey': message['insightsKey']})
-        if not existing_message:
-            messages_collection.insert_one(message)
+        if message_text:
+            # Create new message with automatic insight generation
+            insights = generate_insights_with_openai(message_text)
+            
+            message = {
+                'text': message_text,
+                'insights': insights,
+                'timestamp': data.get('timestamp', datetime.now().isoformat())
+            }
+            
+            # Insert message and get the MongoDB _id
+            result = messages_collection.insert_one(message)
+            message_id = str(result.inserted_id)
         
         # Add to folder
-        result = folders_collection.update_one(
+        folder_result = folders_collection.update_one(
             {'name': folder_name},
-            {'$addToSet': {'messages': message['insightsKey']}}
+            {'$addToSet': {'messages': message_id}}
         )
         
-        if result.matched_count == 0:
+        if folder_result.matched_count == 0:
             return jsonify({'error': 'Folder not found'}), 404
         
-        return jsonify({'message': 'Message added to folder successfully'}), 200
+        return jsonify({'message': 'Message added to folder successfully', 'id': message_id}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -232,7 +250,10 @@ def search_messages():
             return jsonify([])
         
         # Get all messages
-        messages = list(messages_collection.find({}, {'_id': 0}))
+        messages = list(messages_collection.find({}))
+        # Convert ObjectId to string for JSON serialization
+        for message in messages:
+            message['_id'] = str(message['_id'])
         
         if not messages:
             return jsonify([])
@@ -283,20 +304,7 @@ def search_messages():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-def generate_insights_key(insights):
-    """Generate a unique key for insights"""
-    if isinstance(insights, list):
-        insights_text = '|'.join(insights)
-    else:
-        insights_text = str(insights)
-    
-    # Simple hash function
-    hash_val = 0
-    for char in insights_text:
-        hash_val = ((hash_val << 5) - hash_val) + ord(char)
-        hash_val = hash_val & hash_val  # Convert to 32-bit integer
-    
-    return f"{insights_text}_{abs(hash_val)}"
+
 
 def generate_insights_with_openai(message_text):
     """Generate insights from message text using OpenAI"""
@@ -308,41 +316,9 @@ def generate_insights_with_openai(message_text):
             model="gpt-4o-mini",
             messages=[
                 {
-                    "role": "system",
-                    "content": """You are a *Memory Synthesizer*.
-
-INPUT  
-One assistant message that the user explicitly chose to save.
-
-GOAL  
-Return a JSON object containing *1 – 5* concise insights that are worth storing as long-term memory.  
-Never return an empty list—the user has signalled this message matters, so capture at least one takeaway.
-
-WHAT COUNTS AS A "MEMORY"  
-1. *Durable:* Still relevant weeks from now (principle, fact, plan, differentiator).  
-2. *Self-contained:* Understandable without the full conversation.  
-3. *High-signal:* Concrete idea, strategy, or decision-critical fact—not filler.  
-4. *Non-redundant:* Each line adds new information.  
-5. *Concise:* ≤ 18 words (≈120 chars) and written as a standalone sentence.  
-6. *Language-preserving:* Output in the same language as the input.
-
-EDGE CASES  
-* If the message is light on substance, distill the single most useful idea—do *not* leave the list empty.  
-* For very dense texts, include only the 1–5 most distinct insights.
-
-OUTPUT FORMAT (strict)  
-json
-{
-  "memories": [
-    "First distilled insight.",
-    "Second distinct insight if any."
-  ]
-}"""
-                },
-                {
                     "role": "user",
-                    "content": message_text
-                }
+                    "content": PROMPT.format(message_text=message_text)
+                },
             ],
             max_tokens=500,
             temperature=0.3

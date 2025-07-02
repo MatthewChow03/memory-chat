@@ -69,10 +69,10 @@ Get all stored messages.
 ```json
 [
   {
+    "_id": "507f1f77bcf86cd799439011",
     "text": "Original message text",
     "insights": ["Insight 1", "Insight 2"],
-    "timestamp": "2023-12-01T10:30:00",
-    "insightsKey": "unique_key"
+    "timestamp": "2023-12-01T10:30:00"
   }
 ]
 ```
@@ -89,8 +89,15 @@ Create a new message.
 }
 ```
 
-#### DELETE /api/messages/{insightsKey}
-Delete a message by its insights key.
+#### POST /api/messages/delete
+Delete a message by its MongoDB _id.
+
+**Request Body:**
+```json
+{
+  "id": "507f1f77bcf86cd799439011"
+}
+```
 
 ### Folders
 
@@ -102,7 +109,7 @@ Get all folders with message counts.
 [
   {
     "name": "Folder Name",
-    "messages": ["key1", "key2"],
+    "messages": ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439012"],
     "messageCount": 2,
     "created_at": "2023-12-01T10:30:00"
   }
@@ -126,14 +133,20 @@ Delete a folder.
 Get messages in a specific folder.
 
 #### POST /api/folders/{folderName}
-Add a message to a folder.
+Add a message to a folder. Can either create a new message or add an existing message.
 
-**Request Body:**
+**Request Body (create new message):**
 ```json
 {
   "text": "Message text",
-  "insights": ["Insight 1"],
   "timestamp": "2023-12-01T10:30:00"
+}
+```
+
+**Request Body (add existing message):**
+```json
+{
+  "messageId": "507f1f77bcf86cd799439011"
 }
 ```
 
@@ -156,10 +169,10 @@ Search messages using semantic search.
 ```json
 [
   {
+    "_id": "507f1f77bcf86cd799439011",
     "text": "Message text",
     "insights": ["Insight 1"],
     "timestamp": "2023-12-01T10:30:00",
-    "insightsKey": "unique_key",
     "similarity": 0.85
   }
 ]
@@ -183,10 +196,10 @@ Check if the backend is running.
 ### Message
 ```json
 {
+  "_id": "string (MongoDB ObjectId)",
   "text": "string",
   "insights": ["string"],
-  "timestamp": "ISO datetime string",
-  "insightsKey": "string"
+  "timestamp": "ISO datetime string"
 }
 ```
 
@@ -194,7 +207,7 @@ Check if the backend is running.
 ```json
 {
   "name": "string",
-  "messages": ["insightsKey"],
+  "messages": ["messageId"],
   "created_at": "ISO datetime string"
 }
 ```

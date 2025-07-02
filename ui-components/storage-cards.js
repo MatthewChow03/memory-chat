@@ -1,16 +1,7 @@
 // Storage Cards Module
 // Handles individual message card rendering and interactions
 
-// Simple hash function to make keys more unique (same as in idb-utils.js)
-function simpleHash(str) {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-  return Math.abs(hash).toString(36);
-}
+
 
 // Render a log card with plus button (safe DOM, with show more/less, footer always visible)
 function renderLogCard(log, idx) {
@@ -40,16 +31,14 @@ function renderLogCard(log, idx) {
     ? insights.map(insight => `• ${insight}`).join('\n')
     : insights;
 
-  // Create unique key for this card (same format as IndexedDB key)
-  const insightsKey = Array.isArray(insights) 
-    ? insights.join('|') + '_' + simpleHash(insights.join('|'))
-    : insights;
-  card.setAttribute('data-insights-key', insightsKey);
+  // Use MongoDB _id for the card
+  const messageId = log._id;
+  card.setAttribute('data-message-id', messageId);
   card.className = 'storage-card'; // Add a unique class for easy identification
   
   // Debug: Log the card structure
   console.log('Created card with class:', card.className);
-  console.log('Card data-insights-key:', card.getAttribute('data-insights-key'));
+  console.log('Card data-message-id:', card.getAttribute('data-message-id'));
 
   // Message text (clamped, single block)
   const textDiv = document.createElement('div');
@@ -174,7 +163,7 @@ function renderLogCard(log, idx) {
   // Folder button
   const folderBtn = document.createElement('button');
   folderBtn.className = 'storage-folder-btn';
-  folderBtn.setAttribute('data-insights-key', insightsKey);
+  folderBtn.setAttribute('data-message-id', messageId);
   folderBtn.title = 'Add to folder';
   folderBtn.style.background = isDark ? '#2e3a4a' : '#e6f3ff';
   folderBtn.style.border = 'none';
@@ -193,7 +182,7 @@ function renderLogCard(log, idx) {
   // Delete button
   const deleteBtn = document.createElement('button');
   deleteBtn.className = 'storage-delete-btn';
-  deleteBtn.setAttribute('data-insights-key', insightsKey);
+  deleteBtn.setAttribute('data-message-id', messageId);
   deleteBtn.title = 'Delete memory';
   deleteBtn.style.background = isDark ? '#3a2323' : '#f7e6e6';
   deleteBtn.style.border = 'none';
@@ -215,8 +204,10 @@ function renderLogCard(log, idx) {
     
     if (confirm('Delete this memory? This action cannot be undone.')) {
       try {
-        const res = await fetch(`http://localhost:3000/api/messages/${encodeURIComponent(insightsKey)}`, {
-          method: 'DELETE'
+        const res = await fetch('http://localhost:3000/api/messages/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: messageId })
         });
         
         if (res.ok) {
@@ -317,11 +308,11 @@ function handleStorageCardClick(event) {
   
   // Handle folder button clicks
   if (target.classList.contains('storage-folder-btn')) {
-    const insightsKey = target.getAttribute('data-insights-key');
+    const messageId = target.getAttribute('data-message-id');
     
     // Show folder selector popup for storage insights
     if (window.showFolderSelectorForStorage) {
-      window.showFolderSelectorForStorage(insightsKey);
+      window.showFolderSelectorForStorage(messageId);
     } else {
       console.error('showFolderSelectorForStorage function not available');
     }
@@ -329,13 +320,13 @@ function handleStorageCardClick(event) {
   
   // Handle delete button clicks
   if (target.classList.contains('storage-delete-btn')) {
-    const insightsKey = target.getAttribute('data-insights-key');
-    console.log('Delete button clicked, insightsKey:', insightsKey);
+    const messageId = target.getAttribute('data-message-id');
+    console.log('Delete button clicked, messageId:', messageId);
     console.log('Button element:', target);
     
     // Confirm deletion
     if (confirm('Are you sure you want to delete this memory?')) {
-      handleDeleteCard(target, insightsKey);
+      handleDeleteCard(target, messageId);
     }
   }
 }

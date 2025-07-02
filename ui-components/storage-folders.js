@@ -46,7 +46,7 @@ async function viewFolderContents(folderName) {
       const showMoreBtn = messageLines > 4 ? 'block' : 'none';
       
       contentHTML += `
-        <div class="folder-message-card" data-insights-key="${message.insightsKey}" style="background:#f8f9fa;border:1px solid #e1e5e9;border-radius:8px;margin-bottom:8px;padding:12px;font-size:14px;line-height:1.4;">
+        <div class="folder-message-card" data-message-id="${message._id}" style="background:#f8f9fa;border:1px solid #e1e5e9;border-radius:8px;margin-bottom:8px;padding:12px;font-size:14px;line-height:1.4;">
           <div class="folder-message-content clamped" style="white-space:pre-line;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;max-height:5.6em;">${insightsText}</div>
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <div style="display:flex;align-items:center;gap:8px;">
@@ -54,8 +54,8 @@ async function viewFolderContents(folderName) {
               <button class="folder-show-btn" data-index="${idx}" style="background:none;border:none;color:#007bff;cursor:pointer;font-size:13px;padding:0;display:${showMoreBtn};">Show more</button>
             </div>
             <div style="display:flex;gap:4px;">
-              <button class="remove-from-folder" data-folder="${folderName}" data-insights-key="${message.insightsKey}" style="background:#ffebee;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;color:#c62828;transition:background 0.2s;" title="Remove from this folder only" onmouseenter="this.style.background='#ffcdd2'" onmouseleave="this.style.background='#ffebee'">Remove From Folder</button>
-              <button class="delete-memory" data-insights-key="${message.insightsKey}" style="background:#666;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;color:#fff;transition:background 0.2s;" title="Delete memory from everywhere" onmouseenter="this.style.background='#555'" onmouseleave="this.style.background='#666'">Delete Everywhere</button>
+              <button class="remove-from-folder" data-folder="${folderName}" data-message-id="${message._id}" style="background:#ffebee;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;color:#c62828;transition:background 0.2s;" title="Remove from this folder only" onmouseenter="this.style.background='#ffcdd2'" onmouseleave="this.style.background='#ffebee'">Remove From Folder</button>
+              <button class="delete-memory" data-message-id="${message._id}" style="background:#666;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;color:#fff;transition:background 0.2s;" title="Delete memory from everywhere" onmouseenter="this.style.background='#555'" onmouseleave="this.style.background='#666'">Delete Everywhere</button>
             </div>
           </div>
         </div>
@@ -108,11 +108,11 @@ function setupFolderContentEventHandlers(tabContent, folderName) {
   tabContent.querySelectorAll('.remove-from-folder').forEach(btn => {
     btn.onclick = async () => {
       const folderName = btn.dataset.folder;
-      const insightsKey = btn.dataset.insightsKey;
+      const messageId = btn.dataset.messageId;
       
       if (confirm('Remove this memory from this folder only? (It will remain in storage)')) {
         try {
-          const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderName)}/${encodeURIComponent(insightsKey)}`, {
+          const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderName)}/${encodeURIComponent(messageId)}`, {
             method: 'DELETE'
           });
           if (!res.ok) throw new Error('Failed to remove message from folder');
@@ -128,12 +128,14 @@ function setupFolderContentEventHandlers(tabContent, folderName) {
   // Delete memory buttons (delete from everywhere)
   tabContent.querySelectorAll('.delete-memory').forEach(btn => {
     btn.onclick = async () => {
-      const insightsKey = btn.dataset.insightsKey;
+      const messageId = btn.dataset.messageId;
       
       if (confirm('Delete this memory from everywhere? This action cannot be undone.')) {
         try {
-          const res = await fetch(`http://localhost:3000/api/messages/${encodeURIComponent(insightsKey)}`, {
-            method: 'DELETE'
+          const res = await fetch('http://localhost:3000/api/messages/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: messageId })
           });
           if (!res.ok) throw new Error('Failed to delete message');
           
@@ -309,7 +311,7 @@ function setupFolderPopupEventHandlers(popup, messageElement, folders) {
 }
 
 // Show folder selector popup for storage insights (no message element needed)
-async function showFolderSelectorForStorage(insightsKey) {
+async function showFolderSelectorForStorage(messageId) {
   // Remove existing popup if any
   const existingPopup = document.getElementById('memory-chat-folder-popup');
   if (existingPopup) {
@@ -317,8 +319,17 @@ async function showFolderSelectorForStorage(insightsKey) {
   }
 
   let folders = {};
-  if (window.memoryChatIDB && window.memoryChatIDB.getAllFoldersWithCounts) {
-    folders = await window.memoryChatIDB.getAllFoldersWithCounts();
+  try {
+    const res = await fetch('http://localhost:3000/api/folders');
+    if (res.ok) {
+      folders = await res.json();
+    } else {
+      console.error('Failed to load folders from backend');
+      return;
+    }
+  } catch (error) {
+    console.error('Error loading folders:', error);
+    return;
   }
   const folderNames = Object.keys(folders);
   
@@ -385,11 +396,11 @@ async function showFolderSelectorForStorage(insightsKey) {
   document.body.appendChild(popup);
   
   // Setup popup event handlers
-  setupFolderPopupEventHandlersForStorage(popup, insightsKey, folders);
+  setupFolderPopupEventHandlersForStorage(popup, messageId, folders);
 }
 
 // Setup folder popup event handlers for storage insights
-function setupFolderPopupEventHandlersForStorage(popup, insightsKey, folders) {
+function setupFolderPopupEventHandlersForStorage(popup, messageId, folders) {
   // Close button
   popup.querySelector('#memory-chat-folder-close').onclick = () => {
     popup.remove();
@@ -407,12 +418,28 @@ function setupFolderPopupEventHandlersForStorage(popup, insightsKey, folders) {
     option.onclick = async () => {
       const folderName = option.dataset.folder;
       
-      // Use the insightsKey directly since we already have it
-      if (insightsKey && window.memoryChatIDB && window.memoryChatIDB.addMessageToFolder) {
-        await window.memoryChatIDB.addMessageToFolder(folderName, insightsKey);
-        showFeedback('Memory added to folder!', 'success');
+      // Use the messageId directly since we already have it
+      if (messageId) {
+        try {
+          const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(folderName)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messageId: messageId })
+          });
+          if (!res.ok) throw new Error('Failed to add message to folder');
+          
+          // Show success feedback
+          if (window.showFeedback) {
+            window.showFeedback('Message added to folder successfully!', 'success');
+          }
+        } catch (error) {
+          console.error('Error adding message to folder:', error);
+          alert('Failed to add message to folder. Please try again.');
+        }
       } else {
-        showFeedback('Could not add memory to folder', 'error');
+        if (window.showFeedback) {
+          window.showFeedback('Could not add memory to folder', 'error');
+        }
       }
       popup.remove();
     };
@@ -425,10 +452,22 @@ function setupFolderPopupEventHandlersForStorage(popup, insightsKey, folders) {
   popup.querySelector('#create-folder-from-popup').onclick = async () => {
     const folderName = prompt('Enter folder name:');
     if (folderName && folderName.trim()) {
-      if (window.memoryChatIDB && window.memoryChatIDB.addOrUpdateFolder) {
-        await window.memoryChatIDB.addOrUpdateFolder(folderName.trim(), []);
+      try {
+        const res = await fetch('http://localhost:3000/api/folders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: folderName.trim() })
+        });
+        if (!res.ok) throw new Error('Failed to create folder');
+        
+        // Close popup and show success feedback
         popup.remove();
-        showFolderSelectorForStorage(insightsKey);
+        if (window.showFeedback) {
+          window.showFeedback('Folder created successfully!', 'success');
+        }
+      } catch (error) {
+        console.error('Error creating folder:', error);
+        alert('Failed to create folder. Please try again.');
       }
     }
   };
