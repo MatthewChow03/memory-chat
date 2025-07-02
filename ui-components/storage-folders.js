@@ -12,7 +12,7 @@ async function viewFolderContents(folderName, folderId) {
   // Get folder contents from backend
   let folderMessages = [];
   try {
-    const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}/${encodeURIComponent(folderId)}/contents`);
+    const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}/${encodeURIComponent(folderId)}/contents?userUUID=${await getOrCreateUserUUID()}`);
     if (res.ok) {
       folderMessages = await res.json();
     } else {
@@ -117,7 +117,8 @@ function setupFolderContentEventHandlers(tabContent, folderName, folderId) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               folderId: btn.dataset.folderId,
-              messageId: messageId
+              messageId: messageId,
+              userUUID: await getOrCreateUserUUID()
             })
           });
           if (!res.ok) throw new Error('Failed to remove message from folder');
@@ -140,7 +141,7 @@ function setupFolderContentEventHandlers(tabContent, folderName, folderId) {
           const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.MESSAGES}/delete`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: messageId })
+            body: JSON.stringify({ id: messageId, userUUID: await getOrCreateUserUUID() })
           });
           if (!res.ok) throw new Error('Failed to delete message');
 
@@ -173,7 +174,7 @@ async function showFolderSelector(messageElement) {
 
   let folders = {};
   try {
-    const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}`);
+    const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}?userUUID=${await getOrCreateUserUUID()}`);
     if (res.ok) {
       folders = await res.json();
     } else {
@@ -222,7 +223,7 @@ async function showFolderSelector(messageElement) {
     folders.forEach(folder => {
       const messageCount = folder.messageCount || 0;
       popupHTML += `
-        <div class="folder-option" data-folder="${folder.name}" data-folder-id="${folder._id}" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8f9fa; border: 1px solid #e1e5e9; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s;">
+        <div class="folder-option" data-folder="${folder.name}" data-folder-id="${folder.folderID}" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8f9fa; border: 1px solid #e1e5e9; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s;">
           <div>
             <div style="font-weight: bold; color: #1a1a1a;">${folder.name}</div>
             <div style="font-size: 12px; color: #888;">${messageCount} message${messageCount !== 1 ? 's' : ''}</div>
@@ -259,7 +260,7 @@ function setupFolderPopupEventHandlers(popup, messageElement, folders) {
           const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: folderName.trim() })
+            body: JSON.stringify({ name: folderName.trim(), userUUID: await getOrCreateUserUUID() })
           });
           if (!res.ok) throw new Error('Failed to create folder');
 
@@ -290,7 +291,8 @@ function setupFolderPopupEventHandlers(popup, messageElement, folders) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               text: messageText,
-              timestamp: Date.now()
+              timestamp: Date.now(),
+              userUUID: await getOrCreateUserUUID()
             })
           });
           if (!res.ok) throw new Error('Failed to add message to folder');
@@ -326,7 +328,7 @@ async function showFolderSelectorForStorage(messageId) {
 
   let folders = {};
   try {
-    const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}`);
+    const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}?userUUID=${await getOrCreateUserUUID()}`);
     if (res.ok) {
       folders = await res.json();
     } else {
@@ -375,7 +377,7 @@ async function showFolderSelectorForStorage(messageId) {
     folders.forEach(folder => {
       const messageCount = folder.messageCount || 0;
       popupHTML += `
-        <div class="folder-option" data-folder="${folder.name}" data-folder-id="${folder._id}" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8f9fa; border: 1px solid #e1e5e9; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s;">
+        <div class="folder-option" data-folder="${folder.name}" data-folder-id="${folder.folderID}" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8f9fa; border: 1px solid #e1e5e9; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s;">
           <div>
             <div style="font-weight: bold; color: #1a1a1a;">${folder.name}</div>
             <div style="font-size: 12px; color: #888;">${messageCount} message${messageCount !== 1 ? 's' : ''}</div>
@@ -420,8 +422,6 @@ function setupFolderPopupEventHandlersForStorage(popup, messageId, folders) {
   // Folder option clicks
   popup.querySelectorAll('.folder-option').forEach(option => {
     option.onclick = async () => {
-      console.log('Folder option clicked:', option.dataset.folder, option.dataset.folderId);
-      console.log('Message ID:', messageId);
       const folderId = option.dataset.folderId;
       const folderName = option.dataset.folder;
       if (typeof messageId !== 'undefined') {
@@ -430,7 +430,7 @@ function setupFolderPopupEventHandlersForStorage(popup, messageId, folders) {
           const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}/${encodeURIComponent(folderId)}/add-message`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messageId: messageId })
+            body: JSON.stringify({ messageId: messageId, userUUID: await getOrCreateUserUUID() })
           });
           if (!res.ok) throw new Error('Failed to add message to folder');
 
@@ -461,7 +461,7 @@ function setupFolderPopupEventHandlersForStorage(popup, messageId, folders) {
         const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: folderName.trim() })
+          body: JSON.stringify({ name: folderName.trim(), userUUID: await getOrCreateUserUUID() })
         });
         if (!res.ok) throw new Error('Failed to create folder');
 

@@ -59,7 +59,8 @@ function addLogButtons() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               text: text,
-              timestamp: Date.now()
+              timestamp: Date.now(),
+              userUUID: await getOrCreateUserUUID()
             })
           });
 

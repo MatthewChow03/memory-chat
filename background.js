@@ -1,5 +1,6 @@
 // Import server configuration
 importScripts('constants.js');
+importScripts('utils.js');
 
 // Create context menu on extension installation
 chrome.runtime.onInstalled.addListener(() => {
@@ -15,6 +16,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "addToMemory" && info.selectionText) {
     
     try {
+      const userUUID = await getOrCreateUserUUID();
       // Send the selected text to the backend API
       const response = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.MESSAGES}`, {
         method: 'POST',
@@ -25,7 +27,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
           text: info.selectionText,
           timestamp: Date.now(),
           source: tab.url,
-          title: tab.title
+          title: tab.title,
+          userUUID
         })
       });
 

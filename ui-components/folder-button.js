@@ -15,14 +15,14 @@ function addFolderButtons() {
       if (messageText && messageText.trim().length > 0) {
         try {
           // Get folders from backend
-          const foldersRes = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}`);
+          const foldersRes = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}?userUUID=${await getOrCreateUserUUID()}`);
           if (foldersRes.ok) {
             const folders = await foldersRes.json();
 
             // Check if message is in all folders
             let inAllFolders = true;
             for (const folder of folders) {
-              const isInFolder = await isMessageInFolder(messageText, folder._id);
+              const isInFolder = await isMessageInFolder(messageText, folder.folderID);
               if (!isInFolder) {
                 inAllFolders = false;
                 break;
@@ -100,7 +100,7 @@ async function showFolderSelector(messageElement) {
   // Get folders from backend
   let folders = [];
   try {
-    const foldersRes = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}`);
+    const foldersRes = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}?userUUID=${await getOrCreateUserUUID()}`);
     if (foldersRes.ok) {
       folders = await foldersRes.json();
     }
@@ -113,7 +113,7 @@ async function showFolderSelector(messageElement) {
   const unavailableFolders = [];
   for (const folder of folders) {
     try {
-      const folderRes = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}/${encodeURIComponent(folder._id)}/contents`);
+      const folderRes = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}/${encodeURIComponent(folder.folderID)}/contents?userUUID=${await getOrCreateUserUUID()}`);
       if (folderRes.ok) {
         const folderMessages = await folderRes.json();
         // Check if messageText matches any text in the folder
@@ -176,7 +176,7 @@ async function showFolderSelector(messageElement) {
     availableFolders.forEach(folder => {
       const messageCount = folder.messageCount || 0;
       popupHTML += `
-        <div class="folder-option" data-folder="${folder.name}" data-folder-id="${folder._id}" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8f9fa; border: 1px solid #e1e5e9; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s;">
+        <div class="folder-option" data-folder="${folder.name}" data-folder-id="${folder.folderID}" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #f8f9fa; border: 1px solid #e1e5e9; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: background 0.2s;">
           <div>
             <div style="font-weight: bold; color: #1a1a1a;">${folder.name}</div>
             <div style="font-size: 12px; color: #888;">${messageCount} message${messageCount !== 1 ? 's' : ''}</div>
@@ -240,7 +240,8 @@ async function showFolderSelector(messageElement) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text: messageText,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            userUUID: await getOrCreateUserUUID()
           })
         });
 
@@ -276,7 +277,7 @@ async function showFolderSelector(messageElement) {
         const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: folderName.trim() })
+          body: JSON.stringify({ name: folderName.trim(), userUUID: await getOrCreateUserUUID() })
         });
 
         if (res.ok) {
@@ -303,7 +304,8 @@ async function addMessageToFolder(folderId, messageText, messageElement) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         text: messageText,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        userUUID: await getOrCreateUserUUID()
       })
     });
 
@@ -359,7 +361,7 @@ function showFolderFeedback(message, type) {
 // Check if a message is already in a folder using text matching
 async function isMessageInFolder(messageText, folderId) {
   try {
-    const folderRes = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}/${encodeURIComponent(folderId)}/contents`);
+    const folderRes = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}/${encodeURIComponent(folderId)}/contents?userUUID=${await getOrCreateUserUUID()}`);
     if (!folderRes.ok) {
       return false;
     }

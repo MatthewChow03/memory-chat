@@ -205,7 +205,7 @@ function renderLogCard(log, idx) {
         const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.MESSAGES}/delete`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: messageId })
+          body: JSON.stringify({ id: messageId, userUUID: await getOrCreateUserUUID() })
         });
 
         if (res.ok) {

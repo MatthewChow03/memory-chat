@@ -11,6 +11,7 @@ from sentence_transformers import SentenceTransformer
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from constants import PROMPT
+from uuid import uuid4
 
 # Load environment variables
 load_dotenv()
@@ -24,6 +25,7 @@ client = MongoClient(MONGO_URI)
 db = client["memory_chat"]
 messages_collection = db["messages"]
 folders_collection = db["folders"]
+users_collection = db["users"]
 
 # OpenAI setup
 client = OpenAI()
@@ -39,10 +41,12 @@ except Exception as e:
 
 @app.route("/api/messages", methods=["GET"])
 def get_messages():
-    """Get all messages"""
+    """Get all messages for a user"""
     try:
-        messages = list(messages_collection.find({}))
-        # Convert ObjectId to string for JSON serialization
+        userID = request.args.get("userUUID")
+        if not userID:
+            return jsonify({"error": "userUUID is required"}), 400
+        messages = list(messages_collection.find({"userID": userID}))
         for message in messages:
             message["_id"] = str(message["_id"])
         return jsonify(messages)
@@ -52,30 +56,26 @@ def get_messages():
 
 @app.route("/api/messages", methods=["POST"])
 def create_message():
-    """Create a new message with automatic insight generation"""
+    """Create a new message for a user with automatic insight generation"""
     try:
         data = request.json
+        userID = data.get("userUUID")
+        if not userID:
+            return jsonify({"error": "userUUID is required"}), 400
+        get_or_create_user(userID)
         message_text = data.get("text", "").strip()
-
         if not message_text:
             return jsonify({"error": "Message text is required"}), 400
-
-        # Generate insights using OpenAI
         insights = generate_insights_with_openai(message_text)
-
         message = {
+            "userID": userID,
             "text": message_text,
             "insights": insights,
             "timestamp": data.get("timestamp", datetime.now().isoformat()),
         }
-
-        # Insert message and get the MongoDB _id
         result = messages_collection.insert_one(message)
         message_id = str(result.inserted_id)
-
-        # Add the _id to the message object for response
         message["_id"] = message_id
-
         return (
             jsonify({"message": "Message created successfully", "id": message_id}),
             201,
@@ -86,20 +86,24 @@ def create_message():
 
 @app.route("/api/messages/delete", methods=["POST"])
 def delete_message():
-    """Delete a message by MongoDB _id"""
+    """Delete a message by MongoDB _id for a user"""
     try:
         data = request.json
+        userID = data.get("userUUID")
         message_id = data.get("id")
-
+        if not userID:
+            return jsonify({"error": "userUUID is required"}), 400
         if not message_id:
             return jsonify({"error": "id is required"}), 400
-
-        # Remove from messages collection
-        result = messages_collection.delete_one({"_id": ObjectId(message_id)})
-
-        # Remove from all folders
-        folders_collection.update_many({}, {"$pull": {"messages": message_id}})
-
+        # Remove from messages collection (only if it belongs to the user)
+        result = messages_collection.delete_one({"_id": ObjectId(message_id), "userID": userID})
+        # Remove from all folders for this user
+        user = get_or_create_user(userID)
+        folders = user.get("folders", [])
+        for folder in folders:
+            if message_id in folder.get("messages", []):
+                folder["messages"].remove(message_id)
+        update_user_folders(userID, folders)
         if result.deleted_count > 0:
             return jsonify({"message": "Message deleted successfully"}), 200
         else:
@@ -110,15 +114,15 @@ def delete_message():
 
 @app.route("/api/folders", methods=["GET"])
 def get_folders():
-    """Get all folders with message counts"""
+    """Get all folders for a user with message counts"""
     try:
-        folders = list(folders_collection.find({}))
-
-        # Add message counts and convert ObjectId to string
+        userID = request.args.get("userUUID")
+        if not userID:
+            return jsonify({"error": "userUUID is required"}), 400
+        folders = get_user_folders(userID)
+        # Add message counts
         for folder in folders:
             folder["messageCount"] = len(folder.get("messages", []))
-            folder["_id"] = str(folder["_id"])  # Convert ObjectId to string
-
         return jsonify(folders)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -126,73 +130,78 @@ def get_folders():
 
 @app.route("/api/folders", methods=["POST"])
 def create_folder():
-    """Create a new folder"""
+    """Create a new folder for a user"""
     try:
         data = request.json
+        userID = data.get("userUUID")
         folder_name = data.get("name", "").strip()
-
+        if not userID:
+            return jsonify({"error": "userUUID is required"}), 400
         if not folder_name:
             return jsonify({"error": "Folder name is required"}), 400
-
+        user = get_or_create_user(userID)
+        folders = user.get("folders", [])
         # Check if folder already exists
-        existing = folders_collection.find_one({"name": folder_name})
-        if existing:
+        if any(f["name"] == folder_name for f in folders):
             return jsonify({"error": "Folder already exists"}), 409
-
         folder = {
+            "folderID": str(uuid4()),
             "name": folder_name,
             "messages": [],
             "created_at": datetime.now().isoformat(),
         }
-
-        folders_collection.insert_one(folder)
-        return jsonify({"message": "Folder created successfully"}), 201
+        folders.append(folder)
+        update_user_folders(userID, folders)
+        return jsonify({"message": "Folder created successfully", "folderID": folder["folderID"]}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/folders/delete", methods=["POST"])
 def delete_folder():
-    """Delete a folder by MongoDB _id"""
+    """Delete a folder by folderID for a user"""
     try:
         data = request.json
+        userID = data.get("userUUID")
         folder_id = data.get("id")
-
+        if not userID:
+            return jsonify({"error": "userUUID is required"}), 400
         if not folder_id:
             return jsonify({"error": "Folder ID is required"}), 400
-
-        result = folders_collection.delete_one({"_id": ObjectId(folder_id)})
-
-        if result.deleted_count > 0:
-            return jsonify({"message": "Folder deleted successfully"}), 200
-        else:
+        user = get_or_create_user(userID)
+        folders = user.get("folders", [])
+        new_folders = [f for f in folders if f["folderID"] != folder_id]
+        if len(new_folders) == len(folders):
             return jsonify({"error": "Folder not found"}), 500
+        update_user_folders(userID, new_folders)
+        return jsonify({"message": "Folder deleted successfully"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/folders/<folder_id>/contents", methods=["GET"])
 def get_folder_contents(folder_id):
-    """Get messages in a folder by MongoDB _id"""
+    """Get messages in a folder by folderID for a user"""
     try:
-        folder = folders_collection.find_one({"_id": ObjectId(folder_id)})
+        userID = request.args.get("userUUID")
+        if not userID:
+            return jsonify({"error": "userUUID is required"}), 400
+        user = get_or_create_user(userID)
+        folders = user.get("folders", [])
+        folder = next((f for f in folders if f["folderID"] == folder_id), None)
         if not folder:
             return jsonify({"error": "Folder not found"}), 500
-
-        # Get messages by MongoDB _id
         message_ids = folder.get("messages", [])
         messages = []
-
         for message_id in message_ids:
             try:
-                message = messages_collection.find_one({"_id": ObjectId(message_id)})
+                message = messages_collection.find_one({"_id": ObjectId(message_id), "userID": userID})
                 if message:
-                    message["_id"] = str(message["_id"])  # Convert ObjectId to string
+                    message["_id"] = str(message["_id"])
                     messages.append(message)
             except Exception as e:
                 print(f"Error finding message with id {message_id}: {e}")
                 continue
-
         return jsonify(messages)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -200,44 +209,45 @@ def get_folder_contents(folder_id):
 
 @app.route("/api/folders/<folder_id>/add-message", methods=["POST"])
 def add_message_to_folder(folder_id):
-    """Add a message to a folder by MongoDB _id - either create new message or add existing message"""
+    """Add a message to a folder by folderID for a user - either create new message or add existing message"""
     try:
         data = request.json
+        userID = data.get("userUUID")
         message_text = data.get("text", "").strip()
         message_id = data.get("messageId")
-
+        if not userID:
+            return jsonify({"error": "userUUID is required"}), 400
         if not message_text and not message_id:
             return (
                 jsonify({"error": "Either message text or messageId is required"}),
                 400,
             )
-
+        user = get_or_create_user(userID)
+        print(user)
+        folders = user.get("folders", [])
+        print(folders)
+        print(folder_id)
+        folder = next((f for f in folders if f["folderID"] == folder_id), None)
+        print(folder)
+        if not folder:
+            return jsonify({"error": "Folder not found"}), 500
         if message_text:
             # Create new message with automatic insight generation
             insights = generate_insights_with_openai(message_text)
-
             message = {
+                "userID": userID,
                 "text": message_text,
                 "insights": insights,
                 "timestamp": data.get("timestamp", datetime.now().isoformat()),
             }
-
-            # Insert message and get the MongoDB _id
             result = messages_collection.insert_one(message)
             message_id = str(result.inserted_id)
-
         # Add to folder
-        folder_result = folders_collection.update_one(
-            {"_id": ObjectId(folder_id)}, {"$addToSet": {"messages": message_id}}
-        )
-
-        if folder_result.matched_count == 0:
-            return jsonify({"error": "Folder not found"}), 500
-
+        if message_id not in folder["messages"]:
+            folder["messages"].append(message_id)
+        update_user_folders(userID, folders)
         return (
-            jsonify(
-                {"message": "Message added to folder successfully", "id": message_id}
-            ),
+            jsonify({"message": "Message added to folder successfully", "id": message_id}),
             200,
         )
     except Exception as e:
@@ -246,25 +256,26 @@ def add_message_to_folder(folder_id):
 
 @app.route("/api/folders/remove-message", methods=["POST"])
 def remove_message_from_folder():
-    """Remove a message from a folder by MongoDB _id"""
+    """Remove a message from a folder by folderID for a user"""
     try:
         data = request.json
+        userID = data.get("userUUID")
         folder_id = data.get("folderId")
         message_id = data.get("messageId")
-
+        if not userID:
+            return jsonify({"error": "userUUID is required"}), 400
         if not folder_id:
             return jsonify({"error": "Folder ID is required"}), 400
-
         if not message_id:
             return jsonify({"error": "Message ID is required"}), 400
-
-        result = folders_collection.update_one(
-            {"_id": ObjectId(folder_id)}, {"$pull": {"messages": message_id}}
-        )
-
-        if result.matched_count == 0:
+        user = get_or_create_user(userID)
+        folders = user.get("folders", [])
+        folder = next((f for f in folders if f["folderID"] == folder_id), None)
+        if not folder:
             return jsonify({"error": "Folder not found"}), 500
-
+        if message_id in folder["messages"]:
+            folder["messages"].remove(message_id)
+        update_user_folders(userID, folders)
         return jsonify({"message": "Message removed from folder successfully"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -272,28 +283,25 @@ def remove_message_from_folder():
 
 @app.route("/api/search", methods=["POST"])
 def search_messages():
-    """Search messages using semantic search"""
+    """Search messages using semantic search for a user"""
     try:
         data = request.json
+        userID = data.get("userUUID")
         query = data.get("query", "").strip()
-
+        if not userID:
+            return jsonify([])
         if not query:
             return jsonify([])
-
-        # Get all messages
-        messages = list(messages_collection.find({}))
-        # Convert ObjectId to string for JSON serialization
+        # Get all messages for this user
+        messages = list(messages_collection.find({"userID": userID}))
         for message in messages:
             message["_id"] = str(message["_id"])
-
         if not messages:
             return jsonify([])
-
         if model:
             # Semantic search
             query_embedding = model.encode([query])
             message_texts = []
-
             for msg in messages:
                 text = msg.get("text", "")
                 insights = msg.get("insights", [])
@@ -304,27 +312,20 @@ def search_messages():
                         else " " + insights
                     )
                 message_texts.append(text)
-
             message_embeddings = model.encode(message_texts)
             similarities = cosine_similarity(query_embedding, message_embeddings)[0]
-
-            # Add similarity scores to messages
             for i, msg in enumerate(messages):
                 msg["similarity"] = float(similarities[i])
-
-            # Sort by similarity and filter by threshold
             messages.sort(key=lambda x: x["similarity"], reverse=True)
             threshold = 0.05  # 5% similarity threshold
             filtered_messages = [
                 msg for msg in messages if msg["similarity"] >= threshold
             ]
-
             return jsonify(filtered_messages)
         else:
             # Fallback to text search
             query_lower = query.lower()
             results = []
-
             for msg in messages:
                 text = msg.get("text", "").lower()
                 insights = msg.get("insights", [])
@@ -333,10 +334,8 @@ def search_messages():
                         text += " " + " ".join(insights).lower()
                     else:
                         text += " " + insights.lower()
-
                 if query_lower in text:
                     results.append(msg)
-
             return jsonify(results)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -457,6 +456,23 @@ def parse_insights_from_text(text):
 def health_check():
     """Health check endpoint"""
     return jsonify({"status": "healthy", "message": "Backend is running"})
+
+
+# --- User Management Utilities ---
+def get_or_create_user(userID):
+    user = users_collection.find_one({"userID": userID})
+    if not user:
+        user = {"userID": userID, "folders": []}
+        users_collection.insert_one(user)
+        user = users_collection.find_one({"userID": userID})
+    return user
+
+def get_user_folders(userID):
+    user = get_or_create_user(userID)
+    return user.get("folders", [])
+
+def update_user_folders(userID, folders):
+    users_collection.update_one({"userID": userID}, {"$set": {"folders": folders}})
 
 
 if __name__ == "__main__":

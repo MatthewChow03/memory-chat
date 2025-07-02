@@ -41,7 +41,7 @@ async function renderTab() {
   // Fetch logs/messages from backend
   let logs = [];
   try {
-    const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/messages`);
+    const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/messages?userUUID=${await getOrCreateUserUUID()}`);
     if (res.ok) {
       logs = await res.json();
     } else {
@@ -149,7 +149,7 @@ async function renderRelevantTab(tabContent, logs, renderCards) {
     const response = await fetch('http://localhost:3000/api/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: prompt })
+      body: JSON.stringify({ query: prompt, userUUID: await getOrCreateUserUUID() })
     });
     if (!response.ok) {
       throw new Error('Backend search failed');
@@ -399,7 +399,7 @@ function renderSearchTab(tabContent, logs, renderCards) {
       const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query })
+        body: JSON.stringify({ query, userUUID: await getOrCreateUserUUID() })
       });
       if (!res.ok) {
         throw new Error('Search failed');
@@ -441,7 +441,7 @@ function renderSearchTab(tabContent, logs, renderCards) {
 async function renderFoldersTab(tabContent) {
   let folders = {};
   try {
-    const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/folders`);
+    const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/folders?userUUID=${await getOrCreateUserUUID()}`);
     if (res.ok) {
       folders = await res.json();
     } else {
@@ -468,7 +468,7 @@ async function renderFoldersTab(tabContent) {
           const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/folders`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: folderName.trim() })
+            body: JSON.stringify({ name: folderName.trim(), userUUID: await getOrCreateUserUUID() })
           });
           if (!res.ok) throw new Error('Failed to create folder');
           renderFoldersTab(tabContent);
@@ -487,14 +487,14 @@ async function renderFoldersTab(tabContent) {
     folders.forEach(folder => {
       const messageCount = folder.messageCount || 0;
       foldersHTML += `
-        <div class="folder-item" data-folder="${folder.name}" data-folder-id="${folder._id}" style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:${isDark ? '#23272f' : '#f8f9fa'};border:1px solid ${isDark ? '#2c2f36' : '#e1e5e9'};border-radius:8px;margin-bottom:8px;cursor:pointer;">
+        <div class="folder-item" data-folder="${folder.name}" data-folder-id="${folder.folderID}" style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:${isDark ? '#23272f' : '#f8f9fa'};border:1px solid ${isDark ? '#2c2f36' : '#e1e5e9'};border-radius:8px;margin-bottom:8px;cursor:pointer;">
           <div style="flex:1;">
             <div style="font-weight:bold;${isDark ? 'color:#f3f6fa;' : 'color:#1a1a1a;'}">${folder.name}</div>
             <div style="font-size:12px;${isDark ? 'color:#b2b8c2;' : 'color:#888;'}">${messageCount} message${messageCount !== 1 ? 's' : ''}</div>
           </div>
           <div style="display:flex;gap:8px;">
-            <button class="folder-plus-btn" data-folder="${folder.name}" data-folder-id="${folder._id}" style="background:${isDark ? '#2e3a4a' : '#e6f7e6'};border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:${isDark ? '#b2f7ef' : '#222'};" title="Add all messages to prompt">+</button>
-            <button class="folder-delete-btn" data-folder="${folder.name}" data-folder-id="${folder._id}" style="background:${isDark ? '#3a2323' : '#f7e6e6'};border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:${isDark ? '#ffb2b2' : '#d32f2f'};" title="Delete folder">×</button>
+            <button class="folder-plus-btn" data-folder="${folder.name}" data-folder-id="${folder.folderID}" style="background:${isDark ? '#2e3a4a' : '#e6f7e6'};border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:${isDark ? '#b2f7ef' : '#222'};" title="Add all messages to prompt">+</button>
+            <button class="folder-delete-btn" data-folder="${folder.name}" data-folder-id="${folder.folderID}" style="background:${isDark ? '#3a2323' : '#f7e6e6'};border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:${isDark ? '#ffb2b2' : '#d32f2f'};" title="Delete folder">×</button>
           </div>
         </div>
       `;
@@ -511,7 +511,7 @@ async function renderFoldersTab(tabContent) {
           const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/folders`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: folderName.trim() })
+            body: JSON.stringify({ name: folderName.trim(), userUUID: await getOrCreateUserUUID() })
           });
           if (!res.ok) throw new Error('Failed to create folder');
           renderFoldersTab(tabContent);
@@ -531,7 +531,7 @@ async function renderFoldersTab(tabContent) {
             const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/folders/delete`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ id: folderId })
+              body: JSON.stringify({ id: folderId, userUUID: await getOrCreateUserUUID() })
             });
             if (!res.ok) throw new Error('Failed to delete folder');
             renderFoldersTab(tabContent);
@@ -767,7 +767,8 @@ function renderSettingsTab(tabContent) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   text: text,
-                  timestamp: Date.now()
+                  timestamp: Date.now(),
+                  userUUID: await getOrCreateUserUUID()
                 })
               });
 
@@ -908,7 +909,7 @@ function setupFolderEventHandlers(tabContent, folders) {
           const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}/delete`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: folderId })
+            body: JSON.stringify({ id: folderId, userUUID: await getOrCreateUserUUID() })
           });
           if (!res.ok) throw new Error('Failed to delete folder');
           renderFoldersTab(tabContent);
