@@ -4,7 +4,7 @@
 // Create and inject the storage UI
 function createStorageUI() {
   if (document.getElementById('memory-chat-storage')) return;
-  
+
   const storageUI = document.createElement('div');
   storageUI.id = 'memory-chat-storage';
   storageUI.style.cssText = `
@@ -25,7 +25,7 @@ function createStorageUI() {
     min-width: 650px;
     min-height: 500px;
   `;
-  
+
   storageUI.innerHTML = `
     <div style="padding: 20px; border-bottom: 1px solid #e1e5e9; display: flex; justify-content: space-between; align-items: center;">
       <h3 style="margin: 0; font-size: 18px;">Memory Storage</h3>
@@ -42,18 +42,18 @@ function createStorageUI() {
     <div id="memory-chat-tab-content" style="padding: 20px; height: calc(100% - 120px); overflow-y: auto;"></div>
     <div id="memory-chat-resize-handle" style="position: absolute; bottom: -8px; right: -8px; width: 24px; height: 24px; cursor: se-resize; background: linear-gradient(135deg, transparent 50%, #007bff 50%); border-radius: 0 0 16px 0; box-shadow: 0 2px 8px rgba(0,123,255,0.3), 0 0 0 2px rgba(0,123,255,0.1); transition: all 0.2s ease; z-index: 10001;"></div>
   `;
-  
+
   document.body.appendChild(storageUI);
-  
+
   // Apply theme on creation
   applyStorageTheme();
-  
+
   // Add resize functionality
   setupResizeHandling(storageUI);
-  
+
   // Setup basic event handlers
   setupBasicEventHandlers(storageUI);
-  
+
   return storageUI;
 }
 
@@ -80,52 +80,52 @@ function setupResizeHandling(storageUI) {
   const resizeHandle = storageUI.querySelector('#memory-chat-resize-handle');
   let isResizing = false;
   let startX, startY, startWidth, startHeight;
-  
+
   resizeHandle.addEventListener('mousedown', (e) => {
     isResizing = true;
     startX = e.clientX;
     startY = e.clientY;
     startWidth = storageUI.offsetWidth;
     startHeight = storageUI.offsetHeight;
-    
+
     // Add event listeners for mouse movement and release
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-    
+
     // Prevent text selection during resize
     e.preventDefault();
   });
-  
+
   function handleMouseMove(e) {
     if (!isResizing) return;
-    
+
     const deltaX = e.clientX - startX;
     const deltaY = e.clientY - startY;
-    
+
     const newWidth = Math.max(650, startWidth + deltaX);
     const newHeight = Math.max(500, startHeight + deltaY);
-    
+
     storageUI.style.width = newWidth + 'px';
     storageUI.style.height = newHeight + 'px';
-    
+
     // Update tab content height
     const tabContent = storageUI.querySelector('#memory-chat-tab-content');
     if (tabContent) {
       tabContent.style.height = (newHeight - 120) + 'px'; // Account for header and tabs
     }
   }
-  
+
   function handleMouseUp() {
     isResizing = false;
     document.removeEventListener('mousemove', handleMouseMove);
     document.removeEventListener('mouseup', handleMouseUp);
   }
-  
+
   // Add hover effect to resize handle
   resizeHandle.addEventListener('mouseenter', () => {
     resizeHandle.style.background = 'linear-gradient(135deg, transparent 50%, #007bff 50%)';
   });
-  
+
   resizeHandle.addEventListener('mouseleave', () => {
     if (!isResizing) {
       resizeHandle.style.background = 'linear-gradient(135deg, transparent 50%, #e1e5e9 50%)';
@@ -144,7 +144,7 @@ function setupBasicEventHandlers(storageUI) {
       if (backdrop) backdrop.style.display = 'none';
     };
   }
-  
+
   // Create backdrop overlay for better click detection
   const backdrop = document.createElement('div');
   backdrop.id = 'memory-chat-backdrop';
@@ -158,14 +158,14 @@ function setupBasicEventHandlers(storageUI) {
     z-index: 9999;
     display: none;
   `;
-  
+
   backdrop.addEventListener('click', () => {
     storageUI.style.display = 'none';
     backdrop.style.display = 'none';
   });
-  
+
   document.body.appendChild(backdrop);
-  
+
   // Close on outside click - improved to handle backdrop clicks
   storageUI.addEventListener('click', (e) => {
     // Check if the click is on the storage UI container itself (not its children)
@@ -207,7 +207,7 @@ function addStorageButton() {
     transition: background 0.2s;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   `;
-  
+
   storageBtn.onmouseenter = () => storageBtn.style.background = '#a0eec0';
   storageBtn.onmouseleave = () => storageBtn.style.background = 'linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%)';
 
@@ -233,11 +233,11 @@ function addStorageButton() {
       }
     }
   };
-  
+
   // Append the storage button to the footer actions
   footerActions.appendChild(storageBtn);
 }
 
 // Export functions for use in other modules
 window.createStorageUI = createStorageUI;
-window.addStorageButton = addStorageButton; 
+window.addStorageButton = addStorageButton;

@@ -5,7 +5,7 @@ function addLogButtons() {
     if (msg.hasAttribute('data-memory-chat-processed')) {
       return;
     }
-    
+
     if (!msg.querySelector('.memory-chat-log-btn')) {
       // Create a modern pastel green button
       const btn = document.createElement('button');
@@ -21,14 +21,14 @@ function addLogButtons() {
       btn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)';
       btn.style.cursor = 'pointer';
       btn.style.transition = 'background 0.2s, color 0.2s';
-      
+
       // Dynamic hover handlers that respect current state
       btn.onmouseenter = () => {
         if (btn.textContent === 'Add to Memories') {
           btn.style.background = '#a0eec0';
         }
       };
-      
+
       btn.onmouseleave = () => {
         if (btn.textContent === 'Add to Memories') {
           btn.style.background = 'linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%)';
@@ -37,10 +37,10 @@ function addLogButtons() {
 
       btn.onclick = async (e) => {
         e.stopPropagation();
-        
+
         // Hide button immediately for better UX
         btn.style.display = 'none';
-        
+
         const text = window.MemoryChatUtils.getMessageText(msg);
         if (!text || text.trim().length === 0) {
           window.MemoryChatUtils.showFeedback('No message text found', 'error');
@@ -48,11 +48,11 @@ function addLogButtons() {
           btn.style.display = 'inline-block';
           return;
         }
-        
+
         try {
           // Show processing indicator
           const progressToast = window.MemoryChatUtils.createProgressToast('Processing message...');
-          
+
           // Send message to backend (insights will be generated automatically)
           const res = await fetch('http://localhost:3000/api/messages', {
             method: 'POST',
@@ -62,15 +62,15 @@ function addLogButtons() {
               timestamp: Date.now()
             })
           });
-          
+
           // Remove progress toast
           window.MemoryChatUtils.removeProgressToast(progressToast);
-          
+
           if (res.ok) {
             // Mark message as processed and remove button permanently
             msg.setAttribute('data-memory-chat-processed', 'true');
             btn.remove();
-            
+
             // Re-render storage tab to show new memory immediately
             if (window.renderStorageTab) {
               // Only re-render if storage tab is currently visible to avoid unnecessary work
@@ -79,7 +79,7 @@ function addLogButtons() {
                 window.renderStorageTab();
               }
             }
-            
+
             window.MemoryChatUtils.showFeedback('Memory added to storage!', 'success');
           } else {
             throw new Error('Failed to save message to backend');
@@ -94,4 +94,4 @@ function addLogButtons() {
       msg.appendChild(btn);
     }
   });
-} 
+}

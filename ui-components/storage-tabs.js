@@ -7,14 +7,14 @@ window.activeTab = activeTab;
 // Set active tab and re-render
 function setActiveTab(tab) {
   activeTab = tab;
-  
+
   // Reset pagination when switching tabs
   window.currentPage = 1;
-  
+
   // Update tab button styles
   const storageUI = document.getElementById('memory-chat-storage');
   if (!storageUI) return;
-  
+
   const isDark = storageUI.classList.contains('memory-chat-dark');
   const tabs = Array.from(storageUI.querySelectorAll('.storage-tab'));
   tabs.forEach(t => {
@@ -26,7 +26,7 @@ function setActiveTab(tab) {
       t.style.color = isDark ? '#f3f6fa' : '#222';
     }
   });
-  
+
   renderTab();
 }
 
@@ -34,10 +34,10 @@ function setActiveTab(tab) {
 async function renderTab() {
   const storageUI = document.getElementById('memory-chat-storage');
   if (!storageUI) return;
-  
+
   const tabContent = storageUI.querySelector('#memory-chat-tab-content');
   if (!tabContent) return;
-  
+
   // Fetch logs/messages from backend
   let logs = [];
   try {
@@ -52,7 +52,7 @@ async function renderTab() {
     tabContent.innerHTML = `<div style="text-align:center;color:#ff6b6b;padding:20px;">Error loading messages: ${error.message}</div>`;
     return;
   }
-  
+
   // Helper to clear and append cards with pagination
   function renderCardsWithPagination(cards, itemsPerPage = 10) {
     const totalPages = Math.ceil(cards.length / itemsPerPage);
@@ -60,11 +60,11 @@ async function renderTab() {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const currentCards = cards.slice(startIndex, endIndex);
-    
+
     // Clear only the content area, preserving any UI elements
     tabContent.innerHTML = '';
     currentCards.forEach((log, idx) => tabContent.appendChild(renderLogCard(log, idx)));
-    
+
     // Add pagination controls if needed
     if (totalPages > 1) {
       const paginationDiv = document.createElement('div');
@@ -77,21 +77,21 @@ async function renderTab() {
         padding: 10px;
         border-top: 1px solid #e1e5e9;
       `;
-      
+
       const isDark = storageUI.classList.contains('memory-chat-dark');
-      
+
       paginationDiv.innerHTML = `
         <button id="prev-page-btn" style="padding:8px 12px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;${currentPage === 1 ? 'opacity:0.5;cursor:not-allowed;' : ''}">← Previous</button>
         <span style="color:${isDark ? '#f3f6fa' : '#1a1a1a'};font-size:14px;">Page ${currentPage} of ${totalPages} (${cards.length} total)</span>
         <button id="next-page-btn" style="padding:8px 12px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;${currentPage === totalPages ? 'opacity:0.5;cursor:not-allowed;' : ''}">Next →</button>
       `;
-      
+
       tabContent.appendChild(paginationDiv);
-      
+
       // Setup pagination event handlers
       const prevBtn = paginationDiv.querySelector('#prev-page-btn');
       const nextBtn = paginationDiv.querySelector('#next-page-btn');
-      
+
       if (prevBtn && currentPage > 1) {
         prevBtn.onclick = () => {
           window.currentPage = currentPage - 1;
@@ -99,7 +99,7 @@ async function renderTab() {
           renderCardsWithPagination(cards, itemsPerPage);
         };
       }
-      
+
       if (nextBtn && currentPage < totalPages) {
         nextBtn.onclick = () => {
           window.currentPage = currentPage + 1;
@@ -108,11 +108,11 @@ async function renderTab() {
         };
       }
     }
-    
+
     // Attach event listeners after rendering
     setTimeout(attachStorageListeners, 0);
   }
-  
+
   if (activeTab === 'relevant') {
     renderRelevantTab(tabContent, logs, renderCardsWithPagination);
   } else if (activeTab === 'recent') {
@@ -126,7 +126,7 @@ async function renderTab() {
   } else if (activeTab === 'settings') {
     renderSettingsTab(tabContent);
   }
-  
+
   // Note: attachStorageListeners is called within renderCardsWithPagination
   // so we don't need to call it here again
 }
@@ -142,7 +142,7 @@ async function renderRelevantTab(tabContent, logs, renderCards) {
     tabContent.innerHTML = '<div style="text-align:center;color:#888;">No messages stored yet</div>';
     return;
   }
-  
+
   try {
     let scored = [];
     let searchMethod = 'threshold';
@@ -162,7 +162,7 @@ async function renderRelevantTab(tabContent, logs, renderCards) {
       tabContent.innerHTML = '<div style="text-align:center;color:#888;">Advanced semantic search not available</div>';
       return;
     }
-    
+
     if (scored.length === 0) {
       tabContent.innerHTML = `<div style="text-align:center;color:#888;padding:20px;">
         No relevant messages found with AI-powered semantic search<br>
@@ -171,7 +171,7 @@ async function renderRelevantTab(tabContent, logs, renderCards) {
     } else {
       // Filter out memories that are already included in the prompt
       const filteredResults = filterOutPromptIncludedMemories(scored, prompt);
-      
+
       if (filteredResults.length === 0) {
         tabContent.innerHTML = `<div style="text-align:center;color:#888;padding:20px;">
           All relevant messages are already included in your prompt<br>
@@ -229,9 +229,9 @@ function filterOutPromptIncludedMemories(searchResults, promptText) {
   if (!promptText || !searchResults || searchResults.length === 0) {
     return searchResults;
   }
-  
+
   const normalizedPrompt = promptText.toLowerCase().trim();
-  
+
   return searchResults.filter(result => {
     // Get the memory text - could be in text or insights field
     let memoryText = '';
@@ -245,27 +245,27 @@ function filterOutPromptIncludedMemories(searchResults, promptText) {
         memoryText = result.insights;
       }
     }
-    
+
     if (!memoryText) {
       return true; // Keep results without text
     }
-    
+
     const normalizedMemory = memoryText.toLowerCase().trim();
-    
+
     // Check if the memory text is contained within the prompt
     // Use a more sophisticated check to avoid false positives
     const memoryWords = normalizedMemory.split(/\s+/).filter(word => word.length > 3);
     const promptWords = normalizedPrompt.split(/\s+/).filter(word => word.length > 3);
-    
+
     // If memory has very few words, use exact substring matching
     if (memoryWords.length <= 3) {
       return !normalizedPrompt.includes(normalizedMemory);
     }
-    
+
     // For longer memories, check if a significant portion of words match
     const matchingWords = memoryWords.filter(word => promptWords.includes(word));
     const matchRatio = matchingWords.length / memoryWords.length;
-    
+
     // If more than 80% of the memory words are in the prompt, consider it included
     return matchRatio < 0.8;
   });
@@ -295,7 +295,7 @@ function renderAllTab(tabContent, logs, renderCards) {
 function renderSearchTab(tabContent, logs, renderCards) {
   const storageUI = document.getElementById('memory-chat-storage');
   const isDark = storageUI && storageUI.classList.contains('memory-chat-dark');
-  
+
   // Get search status
   let searchStatus = 'Search ready';
   let searchType = 'ready';
@@ -312,13 +312,13 @@ function renderSearchTab(tabContent, logs, renderCards) {
     </div>
     <div id="storage-search-results"></div>
   `;
-  
+
   const input = tabContent.querySelector('#storage-search-input');
   const resultsDiv = tabContent.querySelector('#storage-search-results');
-  
+
   // Store search results globally for pagination
   window.searchResults = [];
-  
+
   // Helper function to render search results with pagination
   function renderSearchResultsWithPagination(results, itemsPerPage = 10) {
     const totalPages = Math.ceil(results.length / itemsPerPage);
@@ -326,18 +326,18 @@ function renderSearchTab(tabContent, logs, renderCards) {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
     const currentResults = results.slice(startIndex, endIndex);
-    
+
     if (currentResults.length === 0) {
       resultsDiv.innerHTML = '<div style="text-align:center;color:#888;">No results found</div>';
       return;
     }
-    
+
     resultsDiv.innerHTML = '';
     currentResults.forEach((result, idx) => {
       const card = renderLogCard(result, idx);
       resultsDiv.appendChild(card);
     });
-    
+
     // Add pagination controls if needed
     if (totalPages > 1) {
       const paginationDiv = document.createElement('div');
@@ -350,26 +350,26 @@ function renderSearchTab(tabContent, logs, renderCards) {
         padding: 10px;
         border-top: 1px solid #e1e5e9;
       `;
-      
+
       paginationDiv.innerHTML = `
         <button id="prev-page-btn" style="padding:8px 12px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;${currentPage === 1 ? 'opacity:0.5;cursor:not-allowed;' : ''}">\u2190 Previous</button>
         <span style="color:${isDark ? '#f3f6fa' : '#1a1a1a'};font-size:14px;">Page ${currentPage} of ${totalPages} (${results.length} results)</span>
         <button id="next-page-btn" style="padding:8px 12px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;${currentPage === totalPages ? 'opacity:0.5;cursor:not-allowed;' : ''}">Next \u2192</button>
       `;
-      
+
       resultsDiv.appendChild(paginationDiv);
-      
+
       // Setup pagination event handlers
       const prevBtn = paginationDiv.querySelector('#prev-page-btn');
       const nextBtn = paginationDiv.querySelector('#next-page-btn');
-      
+
       if (prevBtn && currentPage > 1) {
         prevBtn.onclick = () => {
           window.currentPage = currentPage - 1;
           renderSearchResultsWithPagination(results, itemsPerPage);
         };
       }
-      
+
       if (nextBtn && currentPage < totalPages) {
         nextBtn.onclick = () => {
           window.currentPage = currentPage + 1;
@@ -377,11 +377,11 @@ function renderSearchTab(tabContent, logs, renderCards) {
         };
       }
     }
-    
+
     // Attach event listeners after rendering
     setTimeout(attachStorageListeners, 0);
   }
-  
+
   // Perform search using backend
   async function performSearch(query) {
     if (!query) {
@@ -544,7 +544,7 @@ function renderSettingsTab(tabContent) {
   // Add theme toggle button
   chrome.storage.local.get({ storageTheme: 'light' }, (result) => {
     const isDark = result.storageTheme === 'dark';
-    
+
     tabContent.innerHTML = `
       <div style="margin-bottom: 24px;">
         <div style="margin-bottom:8px;font-weight:bold;color:${isDark ? '#fff' : '#222'};">Backend Status</div>
@@ -581,12 +581,12 @@ function renderSettingsTab(tabContent) {
         </div>
       </div>
     `;
-    
 
-    
+
+
     const clearBtn = tabContent.querySelector('#clear-logs-btn');
     clearBtn.onclick = clearAllLogs;
-    
+
     const addFullBtn = tabContent.querySelector('#add-full-chat-btn');
     addFullBtn.onclick = addFullChatToLog;
 
@@ -597,10 +597,10 @@ function renderSettingsTab(tabContent) {
         if (window.showFeedback) window.showFeedback('Semantic search not available.', 'error');
         return;
       }
-      
+
       updateEmbeddingsBtn.disabled = true;
       updateEmbeddingsBtn.textContent = 'Updating...';
-      
+
       try {
         if (window.memoryChatIDB && window.memoryChatIDB.updateEmbeddingsForExistingMessages) {
           const result = await window.memoryChatIDB.updateEmbeddingsForExistingMessages();
@@ -622,7 +622,7 @@ function renderSettingsTab(tabContent) {
     migrateFoldersBtn.onclick = async () => {
       migrateFoldersBtn.disabled = true;
       migrateFoldersBtn.textContent = 'Migrating...';
-      
+
       try {
         if (window.memoryChatIDB && window.memoryChatIDB.migrateFoldersToPointers) {
           const result = await window.memoryChatIDB.migrateFoldersToPointers();
@@ -646,7 +646,7 @@ function renderSettingsTab(tabContent) {
     debugIndexedDBBtn.onclick = async () => {
       debugIndexedDBBtn.disabled = true;
       debugIndexedDBBtn.textContent = 'Debugging...';
-      
+
       try {
         if (window.memoryChatIDB && window.memoryChatIDB.debugIndexedDB) {
           const result = await window.memoryChatIDB.debugIndexedDB();
@@ -710,9 +710,9 @@ function renderSettingsTab(tabContent) {
         statusSpan.textContent = 'Please select a JSON file first.';
         return;
       }
-      
 
-      
+
+
       let json;
       try {
         json = JSON.parse(fileContent);
@@ -720,7 +720,7 @@ function renderSettingsTab(tabContent) {
         statusSpan.textContent = 'Invalid JSON file.';
         return;
       }
-      
+
       // OpenAI export: conversations.json is an array of conversations
       // Each conversation has a mapping of messages
       let messages = [];
@@ -763,11 +763,11 @@ function renderSettingsTab(tabContent) {
       progressContainer.style.display = 'block';
       progressBar.style.width = '0%';
       statusSpan.textContent = `Processing ${messages.length} messages... (This may take several minutes for large imports)`;
-      
+
       // Process messages in batches
       const batchSize = 10; // Smaller batch size for API calls
       let imported = 0, skipped = 0, processed = 0;
-      
+
       async function processBatch(startIdx) {
         if (startIdx >= messages.length) {
           progressBar.style.width = '100%';
@@ -777,9 +777,9 @@ function renderSettingsTab(tabContent) {
           if (window.renderStorageTab) window.renderStorageTab();
           return;
         }
-        
+
         const batch = messages.slice(startIdx, startIdx + batchSize);
-        
+
         try {
           // Process batch in parallel
           const promises = batch.map(async (text) => {
@@ -792,7 +792,7 @@ function renderSettingsTab(tabContent) {
                   timestamp: Date.now()
                 })
               });
-              
+
               if (res.ok) {
                 return { success: true, duplicate: false };
               } else if (res.status === 409) {
@@ -804,9 +804,9 @@ function renderSettingsTab(tabContent) {
               return { success: false, error: error.message };
             }
           });
-          
+
           const results = await Promise.all(promises);
-          
+
           results.forEach(result => {
             if (result.success) {
               if (result.duplicate) {
@@ -818,20 +818,20 @@ function renderSettingsTab(tabContent) {
               console.error('Import error:', result.error);
             }
           });
-          
+
           processed += batch.length;
           progressBar.style.width = Math.round((processed / messages.length) * 100) + '%';
-          
+
           // Add small delay between batches to avoid overwhelming the server
           setTimeout(() => processBatch(startIdx + batchSize), 100);
-          
+
         } catch (err) {
           statusSpan.textContent = 'Error during import: ' + (err && err.message ? err.message : err);
           progressContainer.style.display = 'none';
           if (window.showFeedback) window.showFeedback('Error during import: ' + (err && err.message ? err.message : err), 'error');
         }
       }
-      
+
       processBatch(0);
     };
   });
@@ -852,7 +852,7 @@ function setupFolderEventHandlers(tabContent, folders) {
       }
     };
   }
-  
+
   // Folder click to view contents
   tabContent.querySelectorAll('.folder-item').forEach(item => {
     item.onclick = (e) => {
@@ -865,48 +865,48 @@ function setupFolderEventHandlers(tabContent, folders) {
       }
     };
   });
-  
+
   // Folder plus button (add all messages to prompt)
   tabContent.querySelectorAll('.folder-plus-btn').forEach(btn => {
     btn.onclick = async (e) => {
       e.stopPropagation();
       const folderName = btn.dataset.folder;
-      
+
       // Get folder contents with resolved message data
       let folderMessages = [];
       if (window.memoryChatIDB && window.memoryChatIDB.getFolderContents) {
         folderMessages = await window.memoryChatIDB.getFolderContents(folderName);
       }
-      
+
       if (folderMessages.length > 0) {
         const prompt = document.querySelector('.ProseMirror');
         if (prompt) {
           let current = prompt.innerText.trim();
           const preface = `Here are messages from folder "${folderName}":`;
           let newText = '';
-          
+
           // Convert messages to text format
           const messageTexts = folderMessages.map(msg => {
             const insights = msg.insights || msg.text;
             return Array.isArray(insights) ? insights.join('\n') : insights;
           });
-          
+
           if (current.includes(preface)) {
             newText = current + '\n' + messageTexts.map(text => `- ${text}`).join('\n');
           } else {
             newText = (current ? current + '\n' : '') + preface + '\n' + messageTexts.map(text => `- ${text}`).join('\n');
           }
-          
+
           // Set the prompt text using a more reliable method that preserves newlines
           prompt.focus();
-          
+
           // Clear existing content
           prompt.innerHTML = '';
-          
+
           // Convert newlines to <br> tags and insert as HTML to preserve formatting
           const formattedText = newText.replace(/\n/g, '<br>');
           prompt.innerHTML = formattedText;
-          
+
           // Move cursor to end
           const range = document.createRange();
           const selection = window.getSelection();
@@ -918,7 +918,7 @@ function setupFolderEventHandlers(tabContent, folders) {
       }
     };
   });
-  
+
   // Folder delete button
   tabContent.querySelectorAll('.folder-delete-btn').forEach(btn => {
     btn.onclick = async (e) => {
@@ -946,7 +946,7 @@ function setupFolderEventHandlers(tabContent, folders) {
 function setupTabSwitching() {
   const storageUI = document.getElementById('memory-chat-storage');
   if (!storageUI) return;
-  
+
   const tabs = Array.from(storageUI.querySelectorAll('.storage-tab'));
   tabs.forEach(t => t.onclick = () => setActiveTab(t.dataset.tab));
 }
@@ -986,4 +986,4 @@ function initializeTabs() {
 window.setActiveTab = setActiveTab;
 window.renderTab = renderTab;
 window.initializeTabs = initializeTabs;
-window.renderStorageTab = renderTab; // Alias for backward compatibility 
+window.renderStorageTab = renderTab; // Alias for backward compatibility

@@ -27,7 +27,7 @@ function renderLogCard(log, idx) {
 
   // Get insights text (either from insights array or fallback to text)
   const insights = log.insights || log.text;
-  const insightsText = Array.isArray(insights) 
+  const insightsText = Array.isArray(insights)
     ? insights.map(insight => `• ${insight}`).join('\n')
     : insights;
 
@@ -35,7 +35,7 @@ function renderLogCard(log, idx) {
   const messageId = log._id;
   card.setAttribute('data-message-id', messageId);
   card.className = 'storage-card'; // Add a unique class for easy identification
-  
+
   // Debug: Log the card structure
   console.log('Created card with class:', card.className);
   console.log('Card data-message-id:', card.getAttribute('data-message-id'));
@@ -48,7 +48,7 @@ function renderLogCard(log, idx) {
   textDiv.style.whiteSpace = 'pre-line';
   textDiv.textContent = insightsText;
   textDiv.style.color = isDark ? '#f3f6fa' : '#1a1a1a';
-  
+
   // Apply initial clamping
   const messageLines = insightsText.split('\n').length;
   const shouldClamp = messageLines > 4 || insightsText.length > 200;
@@ -67,20 +67,20 @@ function renderLogCard(log, idx) {
   footerDiv.style.alignItems = 'center';
   footerDiv.style.justifyContent = 'space-between';
   footerDiv.style.marginTop = '8px';
-  
+
   // Left side: timestamp and similarity score
   const leftFooter = document.createElement('div');
   leftFooter.style.display = 'flex';
   leftFooter.style.alignItems = 'center';
   leftFooter.style.gap = '8px';
-  
+
   // Timestamp
   const ts = document.createElement('div');
   ts.style.color = isDark ? '#aaa' : '#888';
   ts.style.fontSize = '11px';
   ts.textContent = new Date(log.timestamp).toLocaleString();
   leftFooter.appendChild(ts);
-  
+
   // Similarity score (if available)
   if (log.similarity !== undefined || log.score !== undefined) {
     const score = log.similarity !== undefined ? log.similarity : log.score;
@@ -94,7 +94,7 @@ function renderLogCard(log, idx) {
     scoreDiv.textContent = `Score: ${(score * 100).toFixed(1)}%`;
     leftFooter.appendChild(scoreDiv);
   }
-  
+
   // Show more/less button
   const showBtn = document.createElement('button');
   showBtn.textContent = 'Show more';
@@ -106,15 +106,15 @@ function renderLogCard(log, idx) {
   showBtn.style.padding = '4px 8px';
   showBtn.style.borderRadius = '4px';
   showBtn.style.fontWeight = 'bold';
-  
+
   // Better logic for determining if show button should be visible
   const shouldShowButton = messageLines > 4 || insightsText.length > 200; // Show if more than 4 lines OR more than 200 characters
   showBtn.style.display = shouldShowButton ? 'inline-block' : 'none';
   showBtn.className = 'storage-show-btn';
-  
+
   // Debug logging
   console.log('Message lines:', messageLines, 'Text length:', insightsText.length, 'Should show button:', shouldShowButton);
-  
+
   let expanded = false;
   showBtn.onclick = () => {
     expanded = !expanded;
@@ -138,7 +138,7 @@ function renderLogCard(log, idx) {
       showBtn.textContent = 'Show more';
     }
   };
-  
+
   footerDiv.appendChild(leftFooter);
   footerDiv.appendChild(showBtn);
 
@@ -201,7 +201,7 @@ function renderLogCard(log, idx) {
   // Add delete functionality
   deleteBtn.onclick = async (e) => {
     e.stopPropagation();
-    
+
     if (confirm('Delete this memory? This action cannot be undone.')) {
       try {
         const res = await fetch('http://localhost:3000/api/messages/delete', {
@@ -209,11 +209,11 @@ function renderLogCard(log, idx) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: messageId })
         });
-        
+
         if (res.ok) {
           // Remove the card from the UI
           card.remove();
-          
+
           // Show success feedback
           if (window.showFeedback) {
             window.showFeedback('Memory deleted successfully!', 'success');
@@ -245,7 +245,7 @@ function renderLogCard(log, idx) {
   leftCol.appendChild(footerDiv);
   card.appendChild(leftCol);
   card.appendChild(buttonContainer);
-  
+
   return card;
 }
 
@@ -253,7 +253,7 @@ function renderLogCard(log, idx) {
 function attachStorageListeners() {
   const storageUI = document.getElementById('memory-chat-storage');
   if (!storageUI) return;
-  
+
   // Use event delegation for better reliability
   // Remove any existing event listeners to prevent duplicates
   storageUI.removeEventListener('click', handleStorageCardClick);
@@ -263,16 +263,16 @@ function attachStorageListeners() {
 // Event delegation handler for all storage card interactions
 function handleStorageCardClick(event) {
   const target = event.target;
-  
+
   // Handle plus button clicks
   if (target.classList.contains('storage-plus-btn')) {
     const text = decodeURIComponent(target.getAttribute('data-log'));
     const prompt = document.querySelector('.ProseMirror');
     if (!prompt) return;
-    
+
     let current = prompt.innerText.trim();
     const preface = 'Here is a useful memory for this conversation:';
-    
+
     let newText = '';
     if (current.includes(preface)) {
       // If preface already exists, add as new memory with separator
@@ -281,17 +281,17 @@ function handleStorageCardClick(event) {
       // Add preface and first memory
       newText = (current ? current + '\n\n' : '') + preface + '\n\n---\n' + text;
     }
-    
+
     // Set the prompt text using a more reliable method that preserves newlines
     prompt.focus();
-    
+
     // Clear existing content
     prompt.innerHTML = '';
-    
+
     // Convert newlines to <br> tags and insert as HTML to preserve formatting
     const formattedText = newText.replace(/\n/g, '<br>');
     prompt.innerHTML = formattedText;
-    
+
     // Move cursor to end
     const range = document.createRange();
     const selection = window.getSelection();
@@ -299,17 +299,17 @@ function handleStorageCardClick(event) {
     range.collapse(false);
     selection.removeAllRanges();
     selection.addRange(range);
-    
+
     // Immediately hide the card if it should be filtered out
     setTimeout(() => {
       hideCardIfIncludedInPrompt(target, text);
     }, 0);
   }
-  
+
   // Handle folder button clicks
   if (target.classList.contains('storage-folder-btn')) {
     const messageId = target.getAttribute('data-message-id');
-    
+
     // Show folder selector popup for storage insights
     if (window.showFolderSelectorForStorage) {
       window.showFolderSelectorForStorage(messageId);
@@ -317,13 +317,13 @@ function handleStorageCardClick(event) {
       console.error('showFolderSelectorForStorage function not available');
     }
   }
-  
+
   // Handle delete button clicks
   if (target.classList.contains('storage-delete-btn')) {
     const messageId = target.getAttribute('data-message-id');
     console.log('Delete button clicked, messageId:', messageId);
     console.log('Button element:', target);
-    
+
     // Confirm deletion
     if (confirm('Are you sure you want to delete this memory?')) {
       handleDeleteCard(target, messageId);
@@ -335,19 +335,19 @@ function handleStorageCardClick(event) {
 function hideCardIfIncludedInPrompt(button, memoryText) {
   const prompt = document.querySelector('.ProseMirror');
   if (!prompt) return;
-  
+
   const promptText = prompt.innerText.trim();
   if (!promptText || !memoryText) return;
-  
+
   const normalizedPrompt = promptText.toLowerCase().trim();
   const normalizedMemory = memoryText.toLowerCase().trim();
-  
+
   // Use the same logic as filterOutPromptIncludedMemories
   const memoryWords = normalizedMemory.split(/\s+/).filter(word => word.length > 3);
   const promptWords = normalizedPrompt.split(/\s+/).filter(word => word.length > 3);
-  
+
   let shouldHide = false;
-  
+
   // If memory has very few words, use exact substring matching
   if (memoryWords.length <= 3) {
     shouldHide = normalizedPrompt.includes(normalizedMemory);
@@ -355,11 +355,11 @@ function hideCardIfIncludedInPrompt(button, memoryText) {
     // For longer memories, check if a significant portion of words match
     const matchingWords = memoryWords.filter(word => promptWords.includes(word));
     const matchRatio = matchingWords.length / memoryWords.length;
-    
+
     // If more than 80% of the memory words are in the prompt, consider it included
     shouldHide = matchRatio >= 0.8;
   }
-  
+
   if (shouldHide) {
     const card = button.closest('.storage-card');
     if (card) {
@@ -367,7 +367,7 @@ function hideCardIfIncludedInPrompt(button, memoryText) {
       card.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
       card.style.opacity = '0';
       card.style.transform = 'translateX(-20px)';
-      
+
       // Remove the card after animation
       setTimeout(() => {
         card.remove();
@@ -384,7 +384,7 @@ function renderFolderMessageCard(message, idx, folderName) {
   const messageTimestamp = typeof message === 'string' ? Date.now() : message.timestamp;
   const messageLines = messageText.split('\n').length;
   const showMoreBtn = messageLines > 4 ? 'block' : 'none';
-  
+
   const card = document.createElement('div');
   card.style.background = isDark ? '#2c2f36' : '#f8f9fa';
   card.style.border = isDark ? '1px solid #444a58' : '1px solid #e1e5e9';
@@ -405,11 +405,11 @@ function renderFolderMessageCard(message, idx, folderName) {
       <button class="remove-from-folder" data-folder="${folderName}" data-index="${idx}" style="background:${isDark ? '#3a2323' : '#f7e6e6'};border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px;color:${isDark ? '#ffb2b2' : '#d32f2f'};">Remove</button>
     </div>
   `;
-  
+
   return card;
 }
 
 // Export functions for use in other modules
 window.renderLogCard = renderLogCard;
 window.attachStorageListeners = attachStorageListeners;
-window.renderFolderMessageCard = renderFolderMessageCard; 
+window.renderFolderMessageCard = renderFolderMessageCard;

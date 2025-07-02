@@ -4,7 +4,7 @@
 // Inject storage UI styles
 function injectStorageStyles() {
   if (document.getElementById('memory-chat-storage-style')) return;
-  
+
   const style = document.createElement('style');
   style.id = 'memory-chat-storage-style';
   style.textContent = `
@@ -124,4 +124,4 @@ function injectStorageStyles() {
 }
 
 // Export function for use in other modules
-window.injectStorageStyles = injectStorageStyles; 
+window.injectStorageStyles = injectStorageStyles;

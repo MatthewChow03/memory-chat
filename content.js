@@ -8,15 +8,15 @@ async function initializeAdvancedSemanticSearch() {
     await new Promise(resolve => setTimeout(resolve, 100));
     attempts++;
   }
-  
+
   if (window.advancedSemanticSearch) {
     console.log('Advanced semantic search initialized');
-    
+
     // Wait for the model to load
     try {
       await window.advancedSemanticSearch.loadEmbedder();
       console.log('Advanced semantic search model loaded successfully');
-      
+
       // Update embeddings for existing messages in the background
       if (window.memoryChatIDB && window.memoryChatIDB.updateEmbeddingsForExistingMessages) {
         try {
@@ -38,12 +38,12 @@ async function initializeAdvancedSemanticSearch() {
 function addLogButtonsAndInitialize() {
   addLogButtons();
   addFolderButtons();
-  
+
   // Always try to add storage button to ensure it persists
   if (window.addStorageButton) {
     window.addStorageButton();
   }
-  
+
   // Initialize storage system if not already done
   if (window.initializeStorageSystem && !document.getElementById('memory-chat-storage')) {
     window.initializeStorageSystem();
@@ -72,4 +72,4 @@ setInterval(() => {
   if (footerActions && !footerActions.querySelector('.memory-chat-view-btn') && window.addStorageButton) {
     window.addStorageButton();
   }
-}, 2000); 
+}, 2000);

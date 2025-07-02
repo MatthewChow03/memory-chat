@@ -5,10 +5,10 @@
 async function viewFolderContents(folderName, folderId) {
   const storageUI = document.getElementById('memory-chat-storage');
   if (!storageUI) return;
-  
+
   const tabContent = storageUI.querySelector('#memory-chat-tab-content');
   if (!tabContent) return;
-  
+
   // Get folder contents from backend
   let folderMessages = [];
   try {
@@ -23,7 +23,7 @@ async function viewFolderContents(folderName, folderId) {
     tabContent.innerHTML = `<div style="text-align:center;color:#ff6b6b;padding:20px;">Error loading folder contents: ${error.message}</div>`;
     return;
   }
-  
+
   let contentHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
       <button id="back-to-folders" style="background:none;border:none;color:#007bff;cursor:pointer;font-size:14px;padding:0;">\u2190 Back to Folders</button>
@@ -31,20 +31,20 @@ async function viewFolderContents(folderName, folderId) {
       <div style="width:80px;"></div>
     </div>
   `;
-  
+
   if (folderMessages.length === 0) {
     contentHTML += '<div style="text-align:center;color:#888;">This folder is empty</div>';
   } else {
     folderMessages.forEach((message, idx) => {
       // Get insights text for display
       const insights = message.insights || message.text;
-      const insightsText = Array.isArray(insights) 
+      const insightsText = Array.isArray(insights)
         ? insights.map(insight => `\u2022 ${insight}`).join('\n')
         : insights;
-      
+
       const messageLines = insightsText.split('\n').length;
       const showMoreBtn = messageLines > 4 ? 'block' : 'none';
-      
+
       contentHTML += `
         <div class="folder-message-card" data-message-id="${message._id}" style="background:#f8f9fa;border:1px solid #e1e5e9;border-radius:8px;margin-bottom:8px;padding:12px;font-size:14px;line-height:1.4;">
           <div class="folder-message-content clamped" style="white-space:pre-line;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;max-height:5.6em;">${insightsText}</div>
@@ -62,9 +62,9 @@ async function viewFolderContents(folderName, folderId) {
       `;
     });
   }
-  
+
   tabContent.innerHTML = contentHTML;
-  
+
   // Setup folder content event handlers
   setupFolderContentEventHandlers(tabContent, folderName, folderId);
 }
@@ -77,14 +77,14 @@ function setupFolderContentEventHandlers(tabContent, folderName, folderId) {
       window.renderTab();
     }
   };
-  
+
   // Show more/less buttons for folder messages
   tabContent.querySelectorAll('.folder-show-btn').forEach(btn => {
     let expanded = false;
     btn.onclick = () => {
       const index = parseInt(btn.dataset.index);
       const messageDiv = tabContent.querySelectorAll('.folder-message-content')[index];
-      
+
       expanded = !expanded;
       if (expanded) {
         messageDiv.classList.remove('clamped');
@@ -103,21 +103,21 @@ function setupFolderContentEventHandlers(tabContent, folderName, folderId) {
       }
     };
   });
-  
+
   // Remove from folder buttons
   tabContent.querySelectorAll('.remove-from-folder').forEach(btn => {
     btn.onclick = async () => {
       const folderName = btn.dataset.folder;
       const messageId = btn.dataset.messageId;
-      
+
       if (confirm('Remove this memory from this folder only? (It will remain in storage)')) {
         try {
           const res = await fetch('http://localhost:3000/api/folders/remove-message', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
+            body: JSON.stringify({
               folderId: btn.dataset.folderId,
-              messageId: messageId 
+              messageId: messageId
             })
           });
           if (!res.ok) throw new Error('Failed to remove message from folder');
@@ -134,7 +134,7 @@ function setupFolderContentEventHandlers(tabContent, folderName, folderId) {
   tabContent.querySelectorAll('.delete-memory').forEach(btn => {
     btn.onclick = async () => {
       const messageId = btn.dataset.messageId;
-      
+
       if (confirm('Delete this memory from everywhere? This action cannot be undone.')) {
         try {
           const res = await fetch('http://localhost:3000/api/messages/delete', {
@@ -143,13 +143,13 @@ function setupFolderContentEventHandlers(tabContent, folderName, folderId) {
             body: JSON.stringify({ id: messageId })
           });
           if (!res.ok) throw new Error('Failed to delete message');
-          
+
           // Remove the card from the UI
           const card = btn.closest('.folder-message-card');
           if (card) {
             card.remove();
           }
-          
+
           // Show success feedback
           if (window.showFeedback) {
             window.showFeedback('Memory deleted successfully!', 'success');
@@ -200,7 +200,7 @@ async function showFolderSelector(messageElement) {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     border: 1px solid #e1e5e9;
   `;
-  
+
   let popupHTML = `
     <div style="padding: 20px; border-bottom: 1px solid #e1e5e9; display: flex; justify-content: space-between; align-items: center;">
       <h3 style="margin: 0; color: #1a1a1a; font-size: 18px;">Add to Folder</h3>
@@ -208,7 +208,7 @@ async function showFolderSelector(messageElement) {
     </div>
     <div style="padding: 20px;">
   `;
-  
+
   if (folders.length === 0) {
     popupHTML += `
       <div style="text-align: center; color: #888; margin-bottom: 20px;">No folders created yet</div>
@@ -218,7 +218,7 @@ async function showFolderSelector(messageElement) {
     popupHTML += `
       <div style="margin-bottom: 16px; font-weight: bold; color: #1a1a1a;">Select a folder:</div>
     `;
-    
+
     folders.forEach(folder => {
       const messageCount = folder.messageCount || 0;
       popupHTML += `
@@ -232,12 +232,12 @@ async function showFolderSelector(messageElement) {
       `;
     });
   }
-  
+
   popupHTML += '</div>';
   popup.innerHTML = popupHTML;
-  
+
   document.body.appendChild(popup);
-  
+
   // Setup folder popup event handlers
   setupFolderPopupEventHandlers(popup, messageElement, folders);
 }
@@ -248,7 +248,7 @@ function setupFolderPopupEventHandlers(popup, messageElement, folders) {
   popup.querySelector('#memory-chat-folder-close').onclick = () => {
     popup.remove();
   };
-  
+
   // Create folder from popup
   const createBtn = popup.querySelector('#create-folder-from-popup');
   if (createBtn) {
@@ -262,7 +262,7 @@ function setupFolderPopupEventHandlers(popup, messageElement, folders) {
             body: JSON.stringify({ name: folderName.trim() })
           });
           if (!res.ok) throw new Error('Failed to create folder');
-          
+
           // Close popup and show success feedback
           popup.remove();
           if (window.showFeedback) {
@@ -275,31 +275,31 @@ function setupFolderPopupEventHandlers(popup, messageElement, folders) {
       }
     };
   }
-  
+
   // Folder option clicks
   popup.querySelectorAll('.folder-option').forEach(option => {
     option.onclick = async () => {
       const folderName = option.dataset.folder;
       const messageText = window.MemoryChatUtils.getMessageText(messageElement);
-      
+
       if (!messageText || messageText.trim().length === 0) {
         alert('No message text found');
         return;
       }
-      
+
       try {
         // Add message to folder
         const res = await fetch(`http://localhost:3000/api/folders/${encodeURIComponent(option.dataset.folderId)}/add-message`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             text: messageText,
             timestamp: Date.now()
           })
         });
-        
+
         if (!res.ok) throw new Error('Failed to add message to folder');
-        
+
         // Close popup and show success feedback
         popup.remove();
         if (window.showFeedback) {
@@ -350,7 +350,7 @@ async function showFolderSelectorForStorage(messageId) {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     border: 1px solid #e1e5e9;
   `;
-  
+
   let popupHTML = `
     <div style="padding: 20px; border-bottom: 1px solid #e1e5e9; display: flex; justify-content: space-between; align-items: center;">
       <h3 style="margin: 0; color: #1a1a1a; font-size: 18px;">Add Memory to Folder</h3>
@@ -358,7 +358,7 @@ async function showFolderSelectorForStorage(messageId) {
     </div>
     <div style="padding: 20px;">
   `;
-  
+
   if (folders.length === 0) {
     popupHTML += `
       <div style="text-align: center; color: #888; margin-bottom: 20px;">No folders created yet</div>
@@ -368,7 +368,7 @@ async function showFolderSelectorForStorage(messageId) {
     popupHTML += `
       <div style="margin-bottom: 16px; font-weight: bold; color: #1a1a1a;">Select a folder:</div>
     `;
-    
+
     folders.forEach(folder => {
       const messageCount = folder.messageCount || 0;
       popupHTML += `
@@ -381,21 +381,21 @@ async function showFolderSelectorForStorage(messageId) {
         </div>
       `;
     });
-    
+
     popupHTML += `
       <div style="margin-top: 20px; text-align: center;">
         <button id="create-folder-from-popup" style="padding: 8px 16px; background: linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%); border: none; border-radius: 6px; color: #222; font-weight: bold; cursor: pointer; font-size: 12px;">+ Create New Folder</button>
       </div>
     `;
   }
-  
+
   popupHTML += `
     </div>
   `;
-  
+
   popup.innerHTML = popupHTML;
   document.body.appendChild(popup);
-  
+
   // Setup popup event handlers
   setupFolderPopupEventHandlersForStorage(popup, messageId, folders);
 }
@@ -406,19 +406,19 @@ function setupFolderPopupEventHandlersForStorage(popup, messageId, folders) {
   popup.querySelector('#memory-chat-folder-close').onclick = () => {
     popup.remove();
   };
-  
+
   // Close on outside click
   popup.onclick = (e) => {
     if (e.target === popup) {
       popup.remove();
     }
   };
-  
+
   // Folder option clicks
   popup.querySelectorAll('.folder-option').forEach(option => {
     option.onclick = async () => {
       const folderName = option.dataset.folder;
-      
+
       // Use the messageId directly since we already have it
       if (messageId) {
         try {
@@ -428,7 +428,7 @@ function setupFolderPopupEventHandlersForStorage(popup, messageId, folders) {
             body: JSON.stringify({ messageId: messageId })
           });
           if (!res.ok) throw new Error('Failed to add message to folder');
-          
+
           // Show success feedback
           if (window.showFeedback) {
             window.showFeedback('Message added to folder successfully!', 'success');
@@ -444,11 +444,11 @@ function setupFolderPopupEventHandlersForStorage(popup, messageId, folders) {
       }
       popup.remove();
     };
-    
+
     option.onmouseenter = () => option.style.background = '#e9ecef';
     option.onmouseleave = () => option.style.background = '#f8f9fa';
   });
-  
+
   // Create folder button
   popup.querySelector('#create-folder-from-popup').onclick = async () => {
     const folderName = prompt('Enter folder name:');
@@ -460,7 +460,7 @@ function setupFolderPopupEventHandlersForStorage(popup, messageId, folders) {
           body: JSON.stringify({ name: folderName.trim() })
         });
         if (!res.ok) throw new Error('Failed to create folder');
-        
+
         // Close popup and show success feedback
         popup.remove();
         if (window.showFeedback) {
@@ -477,4 +477,4 @@ function setupFolderPopupEventHandlersForStorage(popup, messageId, folders) {
 // Export functions for use in other modules
 window.viewFolderContents = viewFolderContents;
 window.showFolderSelector = showFolderSelector;
-window.showFolderSelectorForStorage = showFolderSelectorForStorage; 
+window.showFolderSelectorForStorage = showFolderSelectorForStorage;

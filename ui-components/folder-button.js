@@ -1,7 +1,7 @@
 // Add folder button to ChatGPT messages
 function addFolderButtons() {
   const messages = document.querySelectorAll('[data-message-author-role]');
-  
+
   // Use for...of loop to handle async operations properly
   (async () => {
     for (const msg of messages) {
@@ -9,7 +9,7 @@ function addFolderButtons() {
       if (msg.hasAttribute('data-memory-chat-processed')) {
         continue;
       }
-      
+
       // Check if message is already in all folders
       const messageText = window.MemoryChatUtils.getMessageText(msg);
       if (messageText && messageText.trim().length > 0) {
@@ -18,7 +18,7 @@ function addFolderButtons() {
           const foldersRes = await fetch('http://localhost:3000/api/folders');
           if (foldersRes.ok) {
             const folders = await foldersRes.json();
-            
+
             // Check if message is in all folders
             let inAllFolders = true;
             for (const folder of folders) {
@@ -28,7 +28,7 @@ function addFolderButtons() {
                 break;
               }
             }
-            
+
             // If message is in all folders, mark it as processed and skip
             if (inAllFolders && folders.length > 0) {
               msg.setAttribute('data-memory-chat-processed', 'true');
@@ -39,7 +39,7 @@ function addFolderButtons() {
           console.error('Error checking folders:', error);
         }
       }
-      
+
       // Find or create the flex container
       let btnContainer = msg.querySelector('.memory-chat-btn-row');
       if (!btnContainer) {
@@ -107,7 +107,7 @@ async function showFolderSelector(messageElement) {
   } catch (error) {
     console.error('Error fetching folders:', error);
   }
-  
+
   // Filter out folders where the message is already present
   const availableFolders = [];
   const unavailableFolders = [];
@@ -130,7 +130,7 @@ async function showFolderSelector(messageElement) {
       availableFolders.push(folder);
     }
   }
-  
+
   const folderNames = Object.keys(availableFolders);
   const unavailableFolderNames = Object.keys(unavailableFolders);
 
@@ -162,10 +162,10 @@ async function showFolderSelector(messageElement) {
   if (availableFolders.length === 0) {
     popupHTML += `
       <div style="text-align: center; color: #888; margin-bottom: 20px;">
-        ${folders.length > 0 ? 
-          'Message already exists in all folders' : 
-          'No folders created yet'
-        }
+        ${folders.length > 0 ?
+        'Message already exists in all folders' :
+        'No folders created yet'
+      }
       </div>
       <button id="create-folder-from-popup" style="display: block; margin: 0 auto; padding: 10px 20px; background: linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%); border: none; border-radius: 8px; color: #222; font-weight: bold; cursor: pointer;">Create New Folder</button>
     `;
@@ -243,7 +243,7 @@ async function showFolderSelector(messageElement) {
             timestamp: Date.now()
           })
         });
-        
+
         if (res.ok) {
           // Remove the log button since message has been added
           const logBtn = messageElement.querySelector('.memory-chat-log-btn');
@@ -278,7 +278,7 @@ async function showFolderSelector(messageElement) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: folderName.trim() })
         });
-        
+
         if (res.ok) {
           popup.remove();
           showFolderSelector(messageElement);
@@ -306,7 +306,7 @@ async function addMessageToFolder(folderName, messageText, messageElement) {
         timestamp: Date.now()
       })
     });
-    
+
     if (res.ok) {
       // Remove the log button since message has been added
       if (messageElement) {
@@ -345,9 +345,9 @@ function showFolderFeedback(message, type) {
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   `;
   feedback.textContent = message;
-  
+
   document.body.appendChild(feedback);
-  
+
   setTimeout(() => {
     feedback.style.opacity = '0';
     feedback.style.transform = 'translateX(100%)';
@@ -363,14 +363,14 @@ async function isMessageInFolder(messageText, folderName) {
     if (!folderRes.ok) {
       return false;
     }
-    
+
     const folderMessages = await folderRes.json();
     if (!folderMessages || folderMessages.length === 0) {
       return false;
     }
-    
+
     const normalizedMessageText = messageText.toLowerCase().trim();
-    
+
     return folderMessages.some(folderMsg => {
       // Get the memory text - could be in text or insights field
       let memoryText = '';
@@ -384,27 +384,27 @@ async function isMessageInFolder(messageText, folderName) {
           memoryText = folderMsg.insights;
         }
       }
-      
+
       if (!memoryText) {
         return false;
       }
-      
+
       const normalizedMemory = memoryText.toLowerCase().trim();
-      
+
       // Check if the message text is contained within the folder memory
       // Use a more sophisticated check to avoid false positives
       const messageWords = normalizedMessageText.split(/\s+/).filter(word => word.length > 3);
       const memoryWords = normalizedMemory.split(/\s+/).filter(word => word.length > 3);
-      
+
       // If message has very few words, use exact substring matching
       if (messageWords.length <= 3) {
         return normalizedMemory.includes(normalizedMessageText);
       }
-      
+
       // For longer messages, check if a significant portion of words match
       const matchingWords = messageWords.filter(word => memoryWords.includes(word));
       const matchRatio = matchingWords.length / messageWords.length;
-      
+
       // If more than 80% of the message words are in the folder memory, consider it a match
       return matchRatio >= 0.8;
     });

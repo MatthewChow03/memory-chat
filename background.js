@@ -4,4 +4,4 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       window.memoryChatIDB.addMessages([{ text: message.text, timestamp: Date.now() }]);
     }
   }
-}); 
+});

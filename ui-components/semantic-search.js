@@ -55,7 +55,7 @@ class SemanticSearch {
     if (this.wordVectors.has(word)) {
       return this.wordVectors.get(word);
     }
-    
+
     // Generate new vector for unknown word
     const hash = (str) => {
       let hash = 0;
@@ -73,7 +73,7 @@ class SemanticSearch {
       const x = Math.sin(seed + i) * 10000;
       vector[i] = x - Math.floor(x);
     }
-    
+
     this.wordVectors.set(word, vector);
     return vector;
   }
@@ -90,7 +90,7 @@ class SemanticSearch {
   createEmbedding(text) {
     const tokens = this.tokenize(text);
     const embedding = new Float32Array(this.embeddingDimension);
-    
+
     // Sum word vectors
     tokens.forEach(token => {
       const wordVector = this.getWordVector(token);
@@ -98,7 +98,7 @@ class SemanticSearch {
         embedding[i] += wordVector[i];
       }
     });
-    
+
     // Normalize the embedding
     const magnitude = Math.sqrt(embedding.reduce((sum, val) => sum + val * val, 0));
     if (magnitude > 0) {
@@ -106,7 +106,7 @@ class SemanticSearch {
         embedding[i] /= magnitude;
       }
     }
-    
+
     return embedding;
   }
 
@@ -132,7 +132,7 @@ class SemanticSearch {
   // Search for similar texts
   search(query, documents, topK = 10) {
     const queryEmbedding = this.createEmbedding(query);
-    
+
     const results = documents.map(doc => {
       const docEmbedding = doc.embedding ? this.stringToEmbedding(doc.embedding) : this.createEmbedding(doc.text);
       const similarity = this.cosineSimilarity(queryEmbedding, docEmbedding);
@@ -141,7 +141,7 @@ class SemanticSearch {
         similarity
       };
     });
-    
+
     // Sort by similarity and return top K
     results.sort((a, b) => b.similarity - a.similarity);
     return results.slice(0, topK);
@@ -162,4 +162,4 @@ class SemanticSearch {
 }
 
 // Create global instance
-window.semanticSearch = new SemanticSearch(); 
+window.semanticSearch = new SemanticSearch();

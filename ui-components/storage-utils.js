@@ -39,9 +39,9 @@ function showFeedback(message, type) {
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   `;
   feedback.textContent = message;
-  
+
   document.body.appendChild(feedback);
-  
+
   setTimeout(() => {
     feedback.style.opacity = '0';
     feedback.style.transform = 'translateX(100%)';
@@ -67,11 +67,11 @@ function createProgressToast(message) {
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     min-width: 300px;
   `;
-  
+
   const messageDiv = document.createElement('div');
   messageDiv.textContent = message;
   messageDiv.style.marginBottom = '8px';
-  
+
   const progressContainer = document.createElement('div');
   progressContainer.style.cssText = `
     width: 100%;
@@ -80,7 +80,7 @@ function createProgressToast(message) {
     border-radius: 3px;
     overflow: hidden;
   `;
-  
+
   const progressBar = document.createElement('div');
   progressBar.style.cssText = `
     height: 100%;
@@ -88,15 +88,15 @@ function createProgressToast(message) {
     width: 0%;
     transition: width 0.3s ease;
   `;
-  
+
   progressContainer.appendChild(progressBar);
   toast.appendChild(messageDiv);
   toast.appendChild(progressContainer);
-  
+
   // Store progress bar reference
   toast.progressBar = progressBar;
   toast.messageDiv = messageDiv;
-  
+
   document.body.appendChild(toast);
   return toast;
 }
@@ -138,4 +138,4 @@ window.getMessageText = getMessageText;
 window.showFeedback = showFeedback;
 window.createProgressToast = createProgressToast;
 window.updateProgressToast = updateProgressToast;
-window.removeProgressToast = removeProgressToast; 
+window.removeProgressToast = removeProgressToast;

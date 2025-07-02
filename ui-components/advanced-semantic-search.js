@@ -23,7 +23,7 @@ class AdvancedSemanticSearch {
 
     this.isLoading = true;
     this.loadingPromise = this._loadModel();
-    
+
     try {
       await this.loadingPromise;
       this.modelLoaded = true;
@@ -48,12 +48,12 @@ class AdvancedSemanticSearch {
       console.log('Transformer model loaded successfully');
     } catch (error) {
       console.error('Error loading transformer model:', error);
-      
+
       // Fallback to basic semantic search if transformers fail
       if (window.SemanticSearch) {
         console.log('Falling back to basic semantic search');
         const basicSearch = new window.SemanticSearch();
-        
+
         // Create a compatible interface
         window.advancedSemanticSearch = {
           isReady: () => true,
@@ -69,7 +69,7 @@ class AdvancedSemanticSearch {
         this.modelLoaded = true;
         return;
       }
-      
+
       throw error;
     } finally {
       this.isLoading = false;
@@ -98,11 +98,11 @@ class AdvancedSemanticSearch {
   // Generate embedding for text
   async embedText(text) {
     const embedder = await this.loadEmbedder();
-    
+
     try {
-      const output = await embedder(text, { 
-        pooling: 'mean', 
-        normalize: true 
+      const output = await embedder(text, {
+        pooling: 'mean',
+        normalize: true
       });
       return Array.from(output.data);
     } catch (error) {
@@ -162,13 +162,13 @@ class AdvancedSemanticSearch {
   async searchMessages(query, messages, topK = 10, minScore = 0.85) {
     try {
       const queryEmbedding = await this.embedText(query);
-      
+
       const scored = messages
         .filter(msg => msg.embedding)
         .map(msg => {
           const docEmbedding = this.stringToEmbedding(msg.embedding);
           if (!docEmbedding) return null;
-          
+
           const similarity = this.cosineSimilarity(queryEmbedding, docEmbedding);
           return {
             ...msg,
@@ -180,15 +180,15 @@ class AdvancedSemanticSearch {
 
       // Sort by similarity
       scored.sort((a, b) => b.similarity - a.similarity);
-      
+
       // First try threshold-based filtering
       const thresholdResults = scored.filter(result => result.similarity >= minScore);
-      
+
       // If threshold yields results, return top K from threshold results
       if (thresholdResults.length > 0) {
         return thresholdResults.slice(0, topK);
       }
-      
+
       // If no threshold results, fall back to top K regardless of threshold
       console.log(`No results found with ${(minScore * 100).toFixed(0)}%+ similarity, falling back to top ${topK} results`);
       return scored.slice(0, topK);
@@ -225,11 +225,11 @@ class AdvancedSemanticSearch {
   // Optimized batch processing for large datasets
   async processTextsOptimized(texts, batchSize = 10, maxConcurrent = 3) {
     const results = [];
-    
+
     // Process in batches to avoid overwhelming the model
     for (let i = 0; i < texts.length; i += batchSize * maxConcurrent) {
       const batch = texts.slice(i, i + batchSize * maxConcurrent);
-      
+
       // Process each sub-batch in parallel
       const batchPromises = [];
       for (let j = 0; j < batch.length; j += batchSize) {
@@ -237,17 +237,17 @@ class AdvancedSemanticSearch {
         const subBatchPromise = this._processSubBatch(subBatch);
         batchPromises.push(subBatchPromise);
       }
-      
+
       // Wait for all sub-batches in this group to complete
       const batchResults = await Promise.all(batchPromises);
       results.push(...batchResults.flat());
-      
+
       // Small delay to prevent overwhelming the browser
       if (i + batchSize * maxConcurrent < texts.length) {
         await new Promise(resolve => setTimeout(resolve, 10));
       }
     }
-    
+
     return results;
   }
 
@@ -255,15 +255,15 @@ class AdvancedSemanticSearch {
   async _processSubBatch(texts) {
     const embedder = await this.loadEmbedder();
     const results = [];
-    
+
     try {
       // Process all texts in the sub-batch at once
       const outputs = await Promise.all(
-        texts.map(text => 
+        texts.map(text =>
           embedder(text, { pooling: 'mean', normalize: true })
         )
       );
-      
+
       // Convert outputs to results
       for (let i = 0; i < texts.length; i++) {
         const embedding = Array.from(outputs[i].data);
@@ -286,7 +286,7 @@ class AdvancedSemanticSearch {
         }
       }
     }
-    
+
     return results;
   }
 
@@ -320,12 +320,12 @@ class AdvancedSemanticSearch {
     if (!this.modelLoaded) {
       return 'Model not loaded yet';
     }
-    
+
     const avgTimePerMessage = 75; // ms
     const totalTimeMs = messageCount * avgTimePerMessage;
     const minutes = Math.floor(totalTimeMs / 60000);
     const seconds = Math.floor((totalTimeMs % 60000) / 1000);
-    
+
     return `${minutes}m ${seconds}s (estimated)`;
   }
 }
@@ -339,4 +339,4 @@ window.advancedSemanticSearch.loadEmbedder().catch(error => {
 });
 
 // Export for use in other modules - this is now the ONLY search method
-window.semanticSearch = window.advancedSemanticSearch; 
+window.semanticSearch = window.advancedSemanticSearch;

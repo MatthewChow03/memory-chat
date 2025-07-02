@@ -7,17 +7,17 @@ function initializeStorageSystem() {
   if (window.injectStorageStyles) {
     window.injectStorageStyles();
   }
-  
+
   // Create the storage UI
   if (window.createStorageUI) {
     window.createStorageUI();
   }
-  
+
   // Initialize tabs
   if (window.initializeTabs) {
     window.initializeTabs();
   }
-  
+
   // Add storage button to ChatGPT interface
   if (window.addStorageButton) {
     window.addStorageButton();
@@ -32,4 +32,4 @@ if (document.readyState === 'loading') {
 }
 
 // Export for use in content script
-window.initializeStorageSystem = initializeStorageSystem; 
+window.initializeStorageSystem = initializeStorageSystem;
