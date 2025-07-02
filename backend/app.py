@@ -6,12 +6,12 @@ import os
 from dotenv import load_dotenv
 import json
 from datetime import datetime
-from openai import OpenAI
 from sentence_transformers import SentenceTransformer
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from constants import PROMPT
 from uuid import uuid4
+from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
 
 # Load environment variables
 load_dotenv()
@@ -27,9 +27,6 @@ messages_collection = db["messages"]
 folders_collection = db["folders"]
 users_collection = db["users"]
 
-# OpenAI setup
-client = OpenAI()
-
 # Sentence transformer for semantic search
 try:
     model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -37,6 +34,9 @@ try:
 except Exception as e:
     print(f"Error loading semantic search model: {e}")
     model = None
+
+# Anthropic Claude setup
+anthropic_client = Anthropic()
 
 
 @app.route("/api/messages", methods=["GET"])
@@ -66,7 +66,7 @@ def create_message():
         message_text = data.get("text", "").strip()
         if not message_text:
             return jsonify({"error": "Message text is required"}), 400
-        insights = generate_insights_with_openai(message_text)
+        insights = generate_insights_with_claude(message_text)
         message = {
             "userID": userID,
             "text": message_text,
@@ -233,7 +233,7 @@ def add_message_to_folder(folder_id):
             return jsonify({"error": "Folder not found"}), 500
         if message_text:
             # Create new message with automatic insight generation
-            insights = generate_insights_with_openai(message_text)
+            insights = generate_insights_with_claude(message_text)
             message = {
                 "userID": userID,
                 "text": message_text,
@@ -367,27 +367,31 @@ def clear_all_user_data():
 
 def generate_insights_with_openai(message_text):
     """Generate insights from message text using OpenAI"""
+def generate_insights_with_claude(message_text):
+    """Generate insights from message text using Claude 3.5 Haiku (Anthropic Messages API)"""
     try:
-        if not os.getenv("OPENAI_API_KEY"):
-            raise Exception("OpenAI API key not configured")
+        if not os.getenv("ANTHROPIC_API_KEY"):
+            raise Exception("Anthropic API key not configured")
 
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "user", "content": PROMPT.format(message_text=message_text)},
-            ],
-            max_tokens=500,
+        prompt = PROMPT.format(message_text=message_text)
+        response = anthropic_client.messages.create(
+            model="claude-3-5-haiku-latest",
+            max_tokens=800,
             temperature=0.3,
+            messages=[{"role": "user", "content": prompt}]
         )
-
-        content = response.choices[0].message.content
+        # Extract text from content blocks
+        content = ""
+        for block in response.content:
+            if block.type == "text":
+                content += block.text
+        content = content.strip()
         if not content:
             raise Exception("No response content received")
 
         # Parse the JSON response
         try:
             parsed_response = json.loads(content)
-
             # Handle the response format with "memories" key
             if (
                 parsed_response
@@ -425,7 +429,7 @@ def generate_insights_with_openai(message_text):
 
     except Exception as e:
         print(f"Error generating insights: {e}")
-        # Return a default insight if OpenAI fails
+        # Return a default insight if Claude fails
         return [f"Important message: {message_text[:100]}..."]
 
 

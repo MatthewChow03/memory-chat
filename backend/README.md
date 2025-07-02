@@ -27,6 +27,8 @@ A Flask-based backend API for the Memory Chat Chrome extension, providing messag
 
 2. **Install dependencies:**
    ```bash
+   python3 -m venv venv
+   source ./venv/bin/activate
    pip install -r requirements.txt
    ```
 
