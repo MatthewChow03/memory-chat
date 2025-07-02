@@ -31,8 +31,6 @@
       "matches": ["https://chatgpt.com/*"],
       "js": [
         "utils.js",
-        "ui-components/semantic-search.js",
-        "ui-components/advanced-semantic-search.js",
         "ui-components/storage-utils.js",
         "ui-components/storage-styles.js",
         "ui-components/storage-cards.js",

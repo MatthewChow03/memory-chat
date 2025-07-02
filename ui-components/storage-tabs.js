@@ -144,29 +144,33 @@ async function renderRelevantTab(tabContent, logs, renderCards) {
   }
 
   try {
-    let scored = [];
+    tabContent.innerHTML = '<div style="text-align:center;color:#888;">Searching for relevant messages...</div>';
+    // Call backend for semantic search
+    const response = await fetch('http://localhost:3000/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: prompt })
+    });
+    if (!response.ok) {
+      throw new Error('Backend search failed');
+    }
+    let scored = await response.json();
     let searchMethod = 'threshold';
-    // Use client-side semantic search if available
-    if (window.advancedSemanticSearch) {
-      const results = await window.advancedSemanticSearch.searchMessages(prompt, logs, logs.length, 0.05);
-      scored = results.map(result => ({
-        ...result,
-        score: result.similarity || result.score || 0
-      }));
-      // Check if we got results but they might be from fallback (lower similarity scores)
-      const highSimilarityCount = scored.filter(result => result.similarity >= 0.85).length;
-      if (scored.length > 0 && highSimilarityCount === 0) {
-        searchMethod = 'topk';
-      }
-    } else {
-      tabContent.innerHTML = '<div style="text-align:center;color:#888;">Advanced semantic search not available</div>';
-      return;
+    // The backend already sorts and filters by similarity threshold, but we keep the UI logic
+    // Add a .score property for UI compatibility
+    scored = scored.map(result => ({
+      ...result,
+      score: result.similarity || result.score || 0
+    }));
+    const highSimilarityCount = scored.filter(result => result.similarity >= 0.85).length;
+    if (scored.length > 0 && highSimilarityCount === 0) {
+      searchMethod = 'topk';
     }
 
     if (scored.length === 0) {
       tabContent.innerHTML = `<div style="text-align:center;color:#888;padding:20px;">
         No relevant messages found with AI-powered semantic search<br>
-        <small style="color:#999;">Try rephrasing your prompt or check the "All" tab</small>
+        <small style="color:#999;">Try rephrasing your prompt or check the \"All\" tab</small>
       </div>`;
     } else {
       // Filter out memories that are already included in the prompt
@@ -175,7 +179,7 @@ async function renderRelevantTab(tabContent, logs, renderCards) {
       if (filteredResults.length === 0) {
         tabContent.innerHTML = `<div style="text-align:center;color:#888;padding:20px;">
           All relevant messages are already included in your prompt<br>
-          <small style="color:#999;">Try adding more context to your prompt or check the "All" tab</small>
+          <small style="color:#999;">Try adding more context to your prompt or check the \"All\" tab</small>
         </div>`;
         return;
       }
@@ -590,33 +594,6 @@ function renderSettingsTab(tabContent) {
 
     const addFullBtn = tabContent.querySelector('#add-full-chat-btn');
     addFullBtn.onclick = addFullChatToLog;
-
-    // Update embeddings button
-    const updateEmbeddingsBtn = tabContent.querySelector('#update-embeddings-btn');
-    updateEmbeddingsBtn.onclick = async () => {
-      if (!window.semanticSearch) {
-        if (window.showFeedback) window.showFeedback('Semantic search not available.', 'error');
-        return;
-      }
-
-      updateEmbeddingsBtn.disabled = true;
-      updateEmbeddingsBtn.textContent = 'Updating...';
-
-      try {
-        if (window.memoryChatIDB && window.memoryChatIDB.updateEmbeddingsForExistingMessages) {
-          const result = await window.memoryChatIDB.updateEmbeddingsForExistingMessages();
-          if (window.showFeedback) window.showFeedback('Embeddings updated successfully!', 'success');
-        } else {
-          if (window.showFeedback) window.showFeedback('IndexedDB not available.', 'error');
-        }
-      } catch (error) {
-        console.error('Error updating embeddings:', error);
-        if (window.showFeedback) window.showFeedback('Error updating embeddings: ' + error.message, 'error');
-      } finally {
-        updateEmbeddingsBtn.disabled = false;
-        updateEmbeddingsBtn.textContent = 'Update Embeddings for Existing Messages';
-      }
-    };
 
     // Migrate folders button
     const migrateFoldersBtn = tabContent.querySelector('#migrate-folders-btn');
