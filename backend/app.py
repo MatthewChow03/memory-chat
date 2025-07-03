@@ -121,9 +121,11 @@ def get_folders():
         if not userID:
             return jsonify({"error": "userUUID is required"}), 400
         folders = get_user_folders(userID)
-        # Add message counts
+        # Add message counts and ensure description is present
         for folder in folders:
             folder["messageCount"] = len(folder.get("messages", []))
+            if "description" not in folder:
+                folder["description"] = ""
         return jsonify(folders)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -136,6 +138,7 @@ def create_folder():
         data = request.json
         userID = data.get("userUUID")
         folder_name = data.get("name", "").strip()
+        folder_description = data.get("description", "").strip()
         if not userID:
             return jsonify({"error": "userUUID is required"}), 400
         if not folder_name:
@@ -148,6 +151,7 @@ def create_folder():
         folder = {
             "folderID": str(uuid4()),
             "name": folder_name,
+            "description": folder_description,
             "messages": [],
             "created_at": datetime.now().isoformat(),
         }
@@ -376,7 +380,37 @@ def health_check():
 def get_or_create_user(userID):
     user = users_collection.find_one({"userID": userID})
     if not user:
-        user = {"userID": userID, "folders": []}
+        # Default folders and descriptions
+        default_folders = [
+            {"name": "Personal Details", "description": "This folder is for personal details."},
+            {"name": "Family", "description": "This folder is for family-related information."},
+            {"name": "Professional Details", "description": "This folder is for professional details."},
+            {"name": "Sports", "description": "This folder is for sports interests and activities."},
+            {"name": "Travel", "description": "This folder is for travel experiences and plans."},
+            {"name": "Food", "description": "This folder is for food preferences and experiences."},
+            {"name": "Music", "description": "This folder is for music interests and favorites."},
+            {"name": "Health", "description": "This folder is for health and wellness information."},
+            {"name": "Technology", "description": "This folder is for technology interests and updates."},
+            {"name": "Hobbies", "description": "This folder is for hobbies and leisure activities."},
+            {"name": "Fashion", "description": "This folder is for fashion interests and trends."},
+            {"name": "Entertainment", "description": "This folder is for entertainment and media."},
+            {"name": "Milestones", "description": "This folder is for important milestones and achievements."},
+            {"name": "User_preferences", "description": "This folder is for user preferences and settings."},
+            {"name": "Misc", "description": "This folder is for miscellaneous items."},
+        ]
+        from uuid import uuid4
+        from datetime import datetime
+        folders = [
+            {
+                "folderID": str(uuid4()),
+                "name": f["name"],
+                "description": f["description"],
+                "messages": [],
+                "created_at": datetime.now().isoformat(),
+            }
+            for f in default_folders
+        ]
+        user = {"userID": userID, "folders": folders}
         users_collection.insert_one(user)
         user = users_collection.find_one({"userID": userID})
     return user

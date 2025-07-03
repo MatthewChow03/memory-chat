@@ -464,11 +464,12 @@ async function renderFoldersTab(tabContent) {
     createBtn.onclick = async () => {
       const folderName = prompt('Enter folder name:');
       if (folderName && folderName.trim()) {
+        const folderDescription = prompt('Enter a description for this folder (optional, 1 line):') || '';
         try {
           const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/folders`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: folderName.trim(), userUUID: await getOrCreateUserUUID() })
+            body: JSON.stringify({ name: folderName.trim(), description: folderDescription.trim(), userUUID: await getOrCreateUserUUID() })
           });
           if (!res.ok) throw new Error('Failed to create folder');
           renderFoldersTab(tabContent);
@@ -486,10 +487,12 @@ async function renderFoldersTab(tabContent) {
     `;
     folders.forEach(folder => {
       const messageCount = folder.messageCount || 0;
+      const description = (folder.description || '').split('\n')[0]; // 1-line snippet
       foldersHTML += `
         <div class="folder-item" data-folder="${folder.name}" data-folder-id="${folder.folderID}" style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:${isDark ? '#23272f' : '#f8f9fa'};border:1px solid ${isDark ? '#2c2f36' : '#e1e5e9'};border-radius:8px;margin-bottom:8px;cursor:pointer;">
           <div style="flex:1;">
             <div style="font-weight:bold;${isDark ? 'color:#f3f6fa;' : 'color:#1a1a1a;'}">${folder.name}</div>
+            <div style="font-size:12px;${isDark ? 'color:#b2b8c2;' : 'color:#888;'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:350px;">${description}</div>
             <div style="font-size:12px;${isDark ? 'color:#b2b8c2;' : 'color:#888;'}">${messageCount} message${messageCount !== 1 ? 's' : ''}</div>
           </div>
           <div style="display:flex;gap:8px;">
@@ -507,11 +510,12 @@ async function renderFoldersTab(tabContent) {
     createBtn.onclick = async () => {
       const folderName = prompt('Enter folder name:');
       if (folderName && folderName.trim()) {
+        const folderDescription = prompt('Enter a description for this folder (optional, 1 line):') || '';
         try {
           const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/folders`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: folderName.trim(), userUUID: await getOrCreateUserUUID() })
+            body: JSON.stringify({ name: folderName.trim(), description: folderDescription.trim(), userUUID: await getOrCreateUserUUID() })
           });
           if (!res.ok) throw new Error('Failed to create folder');
           renderFoldersTab(tabContent);
