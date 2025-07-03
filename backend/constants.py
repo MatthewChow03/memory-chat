@@ -44,3 +44,16 @@ DO NOT try to answer the user's question or provide a summary of the message, on
 Here is the message that they want to save as long-term memory:
 {message_text}
 """
+
+
+AUTO_CATEGORIZE_PROMPT = """You are an assistant that helps categorize user memories into folders.
+
+Here are the available folders and their descriptions:
+{folder_list_str}
+
+Here is a memory:
+{memory_text}
+
+Please suggest one or more folders from the list above that best fit this memory. If none fit, assign it to the \"Misc\" folder.
+Return only a JSON array of strings, with no code block, no markdown, and no explanation. Just the plain JSON array, like: ["Technology", "Misc"]
+"""

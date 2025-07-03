@@ -1,6 +1,6 @@
 import os
 import json
-from constants import PROMPT
+from constants import PROMPT, AUTO_CATEGORIZE_PROMPT
 from datetime import datetime
 
 provider = os.getenv("LLM_PROVIDER", "claude").lower()
@@ -113,3 +113,65 @@ def generate_insights(message_text):
     except Exception as e:
         print(f"Error generating insights: {e}")
         return [f"Important message: {message_text[:100]}..."]
+
+
+def categorize_memory_to_folders(memory_text, folders):
+    """
+    Given a memory text and a list of folders (dicts with 'name' and 'description'),
+    call the LLM to categorize the memory into one or more folders.
+    Returns a list of folder names.
+    """
+    provider = os.getenv("LLM_PROVIDER", "claude").lower()
+    folder_list_str = "\n".join([
+        f"- {f['name']}: {f.get('description', '')}" for f in folders
+    ])
+    prompt = AUTO_CATEGORIZE_PROMPT.format(
+        memory_text=memory_text,
+        folder_list_str=folder_list_str
+    )
+    try:
+        if provider == "openai":
+            if not os.getenv("OPENAI_API_KEY"):
+                raise Exception("OpenAI API key not configured")
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=200,
+            )
+            content = response.choices[0].message.content
+        elif provider == "claude":
+            if not os.getenv("ANTHROPIC_API_KEY"):
+                raise Exception("Anthropic API key not configured")
+            from anthropic import Anthropic
+            anthropic_client = Anthropic()
+            response = anthropic_client.messages.create(
+                model="claude-3-5-haiku-latest",
+                max_tokens=300,
+                temperature=0.3,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            content = ""
+            for block in response.content:
+                if block.type == "text":
+                    content += block.text
+            content = content.strip()
+        if not content:
+            raise Exception("No response content received")
+        print(f"LLM response: {content}")
+        try:
+            folder_names = json.loads(content)
+            if not isinstance(folder_names, list):
+                raise Exception("Expected a list of folder names")
+            folder_names = [str(f).strip() for f in folder_names if f and isinstance(f, str)]
+            # fix the problem where it picks misc with other folders, misc should be alone
+            if len(folder_names) > 1 and "Misc" in folder_names:
+                folder_names = [f for f in folder_names if f != "Misc"]
+        except Exception as e:
+            print(f"Error parsing LLM folder response: {e}")
+            folder_names = []
+        if not folder_names:
+            folder_names = []
+        return folder_names
+    except Exception as e:
+        print(f"Error categorizing memory: {e}")
+        return []

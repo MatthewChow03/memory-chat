@@ -567,9 +567,10 @@ function renderSettingsTab(tabContent) {
       </div>
       <button id="clear-logs-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Clear All Logs</button>
       <button id="add-full-chat-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#2e4a3a' : '#b2f7ef'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Add Full Chat to Log</button>
-      
+      <button id="auto-categorize-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#2e3a4a' : '#b2c7f7'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Auto-Categorize Memories</button>
+      <div id="auto-categorize-status" style="margin-bottom:16px;font-size:14px;color:${isDark ? '#b2f7ef' : '#007bff'}"></div>
       <div style="margin: 32px 0 16px 0; padding: 16px; background:${isDark ? '#2a2e36' : '#f8f9fa'}; border-radius: 12px; border: 1px solid ${isDark ? '#444a58' : '#e1e5e9'};">
-        <div style="margin-bottom: 16px; font-weight: bold; font-size: 18px; color:${isDark ? '#b2b8c2' : '#666'}; text-align: center;">🚧 Coming Soon 🚧</div>
+        <div style="margin-bottom: 16px; font-weight: bold; font-size: 18px; color:${isDark ? '#b2b8c2' : '#666'}
         <div style="padding: 10px 20px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid #e1e5e9;">Buttons all functional for testing</div>
         <button id="theme-toggle-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#555' : '#ccc'};border:none;border-radius:10px;color:${isDark ? '#aaa' : '#666'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;opacity:0.6;">Switch to ${isDark ? 'Light' : 'Dark'} Mode</button>
         <div style="margin: 24px 0 0 0;">
@@ -581,20 +582,42 @@ function renderSettingsTab(tabContent) {
           <div id="import-chatgpt-filename" style="margin-top:8px;font-size:14px;color:${isDark ? '#fff' : '#007bff'}"></div>
           <button id="import-chatgpt-btn" style="margin-top:12px;padding:10px 32px;background:${isDark ? '#555' : '#ccc'};border:none;border-radius:8px;color:${isDark ? '#aaa' : '#666'};font-weight:bold;cursor:pointer;font-size:16px;opacity:0.6;">Import</button>
           <span id="import-chatgpt-status" style="margin-left:12px;font-size:13px;color:${isDark ? '#fff' : '#007bff'}"></span>
-          <div id="import-chatgpt-progress-container" style="margin-top:12px;height:18px;width:100%;background:${isDark ? '#23272f' : '#e1e5e9'};border-radius:8px;display:none;overflow:hidden;">
+          <div id="import-chatgpt-progress-container" style="margin-top:12px;height:18px;width:100%;background:${isDark ? '#23272f' : '#e1e5e9'}">
             <div id="import-chatgpt-progress" style="height:100%;width:0%;background:${isDark ? '#fff' : '#b2c7f7'};transition:width 0.2s;"></div>
           </div>
         </div>
       </div>
     `;
 
-
-
     const clearBtn = tabContent.querySelector('#clear-logs-btn');
     clearBtn.onclick = clearAllLogs;
 
     const addFullBtn = tabContent.querySelector('#add-full-chat-btn');
     addFullBtn.onclick = addFullChatToLog;
+
+    // Auto-categorize button logic
+    const autoCategorizeBtn = tabContent.querySelector('#auto-categorize-btn');
+    const statusDiv = tabContent.querySelector('#auto-categorize-status');
+    autoCategorizeBtn.onclick = async () => {
+      statusDiv.textContent = 'Auto-categorizing...';
+      try {
+        const userUUID = await getOrCreateUserUUID();
+        const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/auto-categorize-memories`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userUUID })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          statusDiv.textContent = data.message || 'Auto-categorization complete!';
+          if (window.renderStorageTab) window.renderStorageTab();
+        } else {
+          statusDiv.textContent = data.error || 'Auto-categorization failed.';
+        }
+      } catch (e) {
+        statusDiv.textContent = 'Error: ' + (e && e.message ? e.message : e);
+      }
+    };
 
     // Theme toggle logic
     const themeBtn = tabContent.querySelector('#theme-toggle-btn');

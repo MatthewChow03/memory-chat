@@ -12,7 +12,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from constants import PROMPT
 from uuid import uuid4
 from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
-from LLM import generate_insights
+from LLM import generate_insights, categorize_memory_to_folders
 
 # Load environment variables
 load_dotenv()
@@ -376,6 +376,53 @@ def health_check():
     return jsonify({"status": "healthy", "message": "Backend is running"})
 
 
+@app.route("/api/auto-categorize-memories", methods=["POST"])
+def auto_categorize_memories():
+    """Auto-categorize uncategorized memories for a user using the LLM"""
+    try:
+        data = request.json
+        userID = data.get("userUUID")
+        if not userID:
+            return jsonify({"error": "userUUID is required"}), 400
+        user = get_or_create_user(userID)
+        folders = user.get("folders", [])
+        # Build a set of all message IDs already in folders
+        categorized_ids = set()
+        for folder in folders:
+            categorized_ids.update(folder.get("messages", []))
+        # Get all messages for the user
+        messages = list(messages_collection.find({"userID": userID}))
+        # Find uncategorized messages
+        uncategorized = [m for m in messages if str(m["_id"]) not in categorized_ids]
+        if not uncategorized:
+            return jsonify({"message": "No uncategorized memories found."}), 200
+        folder_name_to_id = {f["name"]: f["folderID"] for f in folders}
+        folder_name_to_obj = {f["name"]: f for f in folders}
+        misc_folder = next((f for f in folders if f["name"].lower() == "misc"), None)
+        if not misc_folder:
+            return jsonify({"error": "Misc folder not found for user."}), 500
+        updated = set()
+        for mem in uncategorized:
+            mem_id = str(mem["_id"])
+            mem_text = mem.get("text", "")
+            suggested_folders = categorize_memory_to_folders(mem_text, folders)
+            for fname in suggested_folders:
+                folder = folder_name_to_obj.get(fname)
+                if not folder:
+                    # fallback to Misc if folder not found
+                    folder = misc_folder
+                if mem_id not in folder["messages"]:
+                    folder["messages"].append(mem_id)
+                    updated.add(mem_id)
+        update_user_folders(userID, folders)
+        return jsonify({
+            "message": f"Categorized {len(updated)} memories.",
+            "categorized": list(updated)
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # --- User Management Utilities ---
 def get_or_create_user(userID):
     user = users_collection.find_one({"userID": userID})
@@ -396,7 +443,7 @@ def get_or_create_user(userID):
             {"name": "Entertainment", "description": "This folder is for entertainment and media."},
             {"name": "Milestones", "description": "This folder is for important milestones and achievements."},
             {"name": "User_preferences", "description": "This folder is for user preferences and settings."},
-            {"name": "Misc", "description": "This folder is for miscellaneous items."},
+            {"name": "Misc", "description": "This folder is for miscellaneous items. (everything else)"},
         ]
         from uuid import uuid4
         from datetime import datetime
