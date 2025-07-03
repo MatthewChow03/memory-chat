@@ -41,6 +41,7 @@
         "ui-components/message-buttons.js",
         "ui-components/folder-button.js",
         "ui-components/constants.js",
+        "ui-components/multiselect.js",
         "content.js"
       ],
       "run_at": "document_idle"

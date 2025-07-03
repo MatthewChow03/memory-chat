@@ -1,6 +1,6 @@
 // Import server configuration
-importScripts('constants.js');
-importScripts('utils.js');
+import './constants.js';
+import './utils.js';
 
 // Create context menu on extension installation
 chrome.runtime.onInstalled.addListener(() => {

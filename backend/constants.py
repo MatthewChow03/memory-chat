@@ -70,3 +70,36 @@ Return a JSON array of the IDs of the memories that should belong to this folder
 If none fit, return an empty array.
 Return only a JSON array of IDs, with no code block, no markdown, and no explanation.
 Example: [\"id1\", \"id2\"]\n"""
+
+PROMPT_MULTI = """You are a Memory Synthesizer.
+
+TASK  
+You are given a full, potentially long conversation between a user and an AI assistant.  
+Your job is to extract all meaningful insights that would allow another assistant to understand the user’s goals, preferences, projects, and constraints — without reading the full original chat.
+
+This is not summarization. You are distilling the conversation into atomic, self-contained facts, problems, plans, and beliefs that remain useful over time.
+
+OUTPUT FORMAT  
+Return a valid JSON object in this format:
+{
+  "memories": [
+    "First memory-worthy insight.",
+    "Second distinct insight.",
+    "..."
+  ]
+}
+
+RULES  
+* There is no fixed limit. Extract as many insights as are necessary to preserve the user’s full context.  
+* Skip greetings, filler, examples, and vague comments.  
+* Focus on what the user is doing, building, planning, needing, deciding, or believing.  
+* Each memory must be:
+  – Self-contained (no need to read original message)  
+  – Durable (still useful weeks later)  
+  – Clear and concise (≤ 120 characters if possible)  
+* Do not repeat the same idea in multiple forms.  
+* Do not output any reasoning, commentary, or markdown — only the JSON object.
+
+Here is the full conversation that they want to save as long-term memory:
+{message_text}
+"""

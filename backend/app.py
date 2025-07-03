@@ -9,7 +9,7 @@ from datetime import datetime
 from sentence_transformers import SentenceTransformer
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
-from constants import PROMPT
+from constants import PROMPT, PROMPT_MULTI
 from uuid import uuid4
 from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
 from LLM import generate_insights, categorize_memory_to_folders, batch_autopopulate_memories_to_folder
@@ -399,6 +399,118 @@ def clear_all_user_data():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+def generate_insights_with_claude(message_text):
+    """Generate insights from message text using Claude 3.5 Haiku (Anthropic Messages API)"""
+    try:
+        if not os.getenv("ANTHROPIC_API_KEY"):
+            raise Exception("Anthropic API key not configured")
+
+        prompt = PROMPT.format(message_text=message_text)
+        response = anthropic_client.messages.create(
+            model="claude-3-5-haiku-latest",
+            max_tokens=800,
+            temperature=0.3,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        # Extract text from content blocks
+        content = ""
+        for block in response.content:
+            if block.type == "text":
+                content += block.text
+        content = content.strip()
+        if not content:
+            raise Exception("No response content received")
+
+        # Parse the JSON response
+        try:
+            parsed_response = json.loads(content)
+            # Handle the response format with "memories" key
+            if (
+                parsed_response
+                and parsed_response.get("memories")
+                and isinstance(parsed_response["memories"], list)
+            ):
+                insights = parsed_response["memories"]
+            elif isinstance(parsed_response, list):
+                # Fallback for old format where response was directly an array
+                insights = parsed_response
+            else:
+                raise Exception("Invalid response format - expected memories array")
+        except json.JSONDecodeError:
+            # If JSON parsing fails, try to extract insights from plain text
+            insights = parse_insights_from_text(content)
+
+        # Validate insights
+        if not isinstance(insights, list):
+            raise Exception("Invalid insights format")
+
+        # Ensure we have 3 or fewer insights
+        insights = insights[:3]
+
+        # Filter out empty or invalid insights
+        insights = [
+            insight
+            for insight in insights
+            if insight and isinstance(insight, str) and insight.strip()
+        ]
+
+        if not insights:
+            raise Exception("No valid insights extracted")
+
+        return insights
+
+    except Exception as e:
+        print(f"Error generating insights: {e}")
+        # Return a default insight if Claude fails
+        return [f"Important message: {message_text[:100]}..."]
+
+
+def parse_insights_from_text(text):
+    """Parse insights from plain text if JSON parsing fails"""
+    lines = text.split("\n")
+    insights = []
+
+    for line in lines:
+        line = line.strip()
+        # Look for bullet points, numbered items, or lines that start with common insight indicators
+        if (
+            line.startswith("-")
+            or line.startswith("•")
+            or line.startswith("*")
+            or line[0].isdigit()
+            and ". " in line
+            or line.lower().startswith("insight")
+            or line.lower().startswith("key")
+            or line.lower().startswith("point")
+        ):
+
+            # Clean up the line
+            insight = line
+            if insight.startswith(("-", "•", "*")):
+                insight = insight[1:].strip()
+            elif insight[0].isdigit() and ". " in insight:
+                insight = insight.split(". ", 1)[1]
+            elif insight.lower().startswith("insight"):
+                insight = insight[8:].strip()
+            elif insight.lower().startswith("key"):
+                insight = insight[3:].strip()
+            elif insight.lower().startswith("point"):
+                insight = insight[5:].strip()
+
+            if insight and len(insight) > 0:
+                insights.append(insight)
+
+    # If no structured insights found, take the first few meaningful lines
+    if not insights:
+        meaningful_lines = [
+            line.strip()
+            for line in lines
+            if len(line.strip()) > 10 and len(line.strip()) < 200
+        ]
+        insights = meaningful_lines[:3]
+
+    return insights
+
 
 @app.route("/health", methods=["GET"])
 def health_check():
@@ -513,6 +625,70 @@ def auto_categorize_single_memory(userID, message_id):
     if updated:
         update_user_folders(userID, folders)
     return True, "Categorized." if updated else "No folder updated."
+
+@app.route("/api/extract-insight", methods=["POST"])
+def extract_insight():
+    """Extract insight from multiple messages with optional custom prompt"""
+    try:
+        data = request.json
+        userID = data.get("userUUID")
+        messages = data.get("messages", [])
+        prompt = data.get("prompt", "").strip()
+        if not userID:
+            return jsonify({"error": "userUUID is required"}), 400
+        if not messages or not isinstance(messages, list) or not all(isinstance(m, str) and m.strip() for m in messages):
+            return jsonify({"error": "A non-empty list of messages is required"}), 400
+        # Concatenate messages for insight extraction
+        combined_text = "\n".join(messages)
+        if prompt:
+            combined_text += f"\n\n[User instructions: {prompt}]"
+        # Use the new multi-message insight function
+        insight = generate_multi_message_insight_with_claude(combined_text)
+        return jsonify({"insights": [insight]}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+def generate_multi_message_insight_with_claude(messages_text):
+    """Generate a single synthesized insight from multiple messages using Claude and PROMPT_MULTI."""
+    try:
+        if not os.getenv("ANTHROPIC_API_KEY"):
+            raise Exception("Anthropic API key not configured")
+
+        prompt = PROMPT_MULTI.format(message_text=messages_text)
+        print(messages_text)
+        response = anthropic_client.messages.create(
+            model="claude-3-5-haiku-latest",
+            max_tokens=800,
+            temperature=0.3,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        # Extract text from content blocks
+        content = ""
+        for block in response.content:
+            if block.type == "text":
+                content += block.text
+        content = content.strip()
+        if not content:
+            raise Exception("No response content received")
+        # Parse the JSON response
+        try:
+            parsed_response = json.loads(content)
+            if parsed_response and isinstance(parsed_response, dict) and "insight" in parsed_response:
+                insight = parsed_response["insight"]
+            else:
+                raise Exception("Invalid response format - expected 'insight' key")
+        except json.JSONDecodeError:
+            # If JSON parsing fails, just use the raw text
+            insight = content
+        # Validate
+        if not insight or not isinstance(insight, str) or not insight.strip():
+            raise Exception("No valid insight extracted")
+        return insight.strip()
+    except Exception as e:
+        print(f"Error generating multi-message insight: {e}")
+        return f"Important insight: {messages_text[:100]}..."
+
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 3000))

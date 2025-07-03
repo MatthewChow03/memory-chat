@@ -5,6 +5,11 @@ function addLogButtonsAndInitialize() {
   addLogButtons();
   addFolderButtons();
 
+  // Add multi-select circles to chat messages
+  if (window.addMultiSelectCircles) {
+    window.addMultiSelectCircles();
+  }
+
   // Always try to add storage button to ensure it persists
   if (window.addStorageButton) {
     window.addStorageButton();
