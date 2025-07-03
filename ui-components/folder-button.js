@@ -10,36 +10,6 @@ function addFolderButtons() {
         continue;
       }
 
-      // Check if message is already in all folders
-      const messageText = window.MemoryChatUtils.getMessageText(msg);
-      if (messageText && messageText.trim().length > 0) {
-        try {
-          // Get folders from backend
-          const foldersRes = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}?userUUID=${await getOrCreateUserUUID()}`);
-          if (foldersRes.ok) {
-            const folders = await foldersRes.json();
-
-            // Check if message is in all folders
-            let inAllFolders = true;
-            for (const folder of folders) {
-              const isInFolder = await isMessageInFolder(messageText, folder.folderID);
-              if (!isInFolder) {
-                inAllFolders = false;
-                break;
-              }
-            }
-
-            // If message is in all folders, mark it as processed and skip
-            if (inAllFolders && folders.length > 0) {
-              msg.setAttribute('data-memory-chat-processed', 'true');
-              continue;
-            }
-          }
-        } catch (error) {
-          console.error('Error checking folders:', error);
-        }
-      }
-
       // Find or create the flex container
       let btnContainer = msg.querySelector('.memory-chat-btn-row');
       if (!btnContainer) {
@@ -112,22 +82,12 @@ async function showFolderSelector(messageElement) {
   const availableFolders = [];
   const unavailableFolders = [];
   for (const folder of folders) {
-    try {
-      const folderRes = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}/${encodeURIComponent(folder.folderID)}/contents?userUUID=${await getOrCreateUserUUID()}`);
-      if (folderRes.ok) {
-        const folderMessages = await folderRes.json();
-        // Check if messageText matches any text in the folder
-        const hasMessage = folderMessages && folderMessages.some(msg => msg.text === messageText);
-        if (!hasMessage) {
-          availableFolders.push(folder);
-        } else {
-          unavailableFolders.push(folder);
-        }
-      }
-    } catch (error) {
-      console.error('Error checking folder contents:', error);
-      // If we can't check, assume it's available
+    // Check if messageText matches any text in the folder's messages array
+    const hasMessage = folder.messages && folder.messages.some(msg => msg.text === messageText);
+    if (!hasMessage) {
       availableFolders.push(folder);
+    } else {
+      unavailableFolders.push(folder);
     }
   }
 
@@ -295,41 +255,6 @@ async function showFolderSelector(messageElement) {
   };
 }
 
-// Add message to folder (for other usages)
-async function addMessageToFolder(folderId, messageText, messageElement) {
-  try {
-    // Send message to backend with folder assignment
-    const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}/${encodeURIComponent(folderId)}/add-message`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text: messageText,
-        timestamp: Date.now(),
-        userUUID: await getOrCreateUserUUID()
-      })
-    });
-
-    if (res.ok) {
-      // Remove the log button since message has been added
-      if (messageElement) {
-        const logBtn = messageElement.querySelector('.memory-chat-log-btn');
-        if (logBtn) {
-          logBtn.remove();
-        }
-        // Mark message as processed
-        messageElement.setAttribute('data-memory-chat-processed', 'true');
-      }
-      showFolderFeedback('Message added to folder and memory!', 'success');
-    } else {
-      const errorData = await res.json();
-      showFolderFeedback('Error adding message to folder: ' + (errorData.error || 'Unknown error'), 'error');
-    }
-  } catch (error) {
-    console.error('Error adding message to folder:', error);
-    showFolderFeedback('Error adding message to folder: ' + error.message, 'error');
-  }
-}
-
 // Show feedback message
 function showFolderFeedback(message, type) {
   const feedback = document.createElement('div');
@@ -356,62 +281,4 @@ function showFolderFeedback(message, type) {
     feedback.style.transition = 'opacity 0.3s, transform 0.3s';
     setTimeout(() => feedback.remove(), 300);
   }, 2000);
-}
-
-// Check if a message is already in a folder using text matching
-async function isMessageInFolder(messageText, folderId) {
-  try {
-    const folderRes = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}/${encodeURIComponent(folderId)}/contents?userUUID=${await getOrCreateUserUUID()}`);
-    if (!folderRes.ok) {
-      return false;
-    }
-
-    const folderMessages = await folderRes.json();
-    if (!folderMessages || folderMessages.length === 0) {
-      return false;
-    }
-
-    const normalizedMessageText = messageText.toLowerCase().trim();
-
-    return folderMessages.some(folderMsg => {
-      // Get the memory text - could be in text or insights field
-      let memoryText = '';
-      if (folderMsg.text) {
-        memoryText = folderMsg.text;
-      } else if (folderMsg.insights) {
-        // Handle both string and array formats for insights
-        if (Array.isArray(folderMsg.insights)) {
-          memoryText = folderMsg.insights.join(' ');
-        } else {
-          memoryText = folderMsg.insights;
-        }
-      }
-
-      if (!memoryText) {
-        return false;
-      }
-
-      const normalizedMemory = memoryText.toLowerCase().trim();
-
-      // Check if the message text is contained within the folder memory
-      // Use a more sophisticated check to avoid false positives
-      const messageWords = normalizedMessageText.split(/\s+/).filter(word => word.length > 3);
-      const memoryWords = normalizedMemory.split(/\s+/).filter(word => word.length > 3);
-
-      // If message has very few words, use exact substring matching
-      if (messageWords.length <= 3) {
-        return normalizedMemory.includes(normalizedMessageText);
-      }
-
-      // For longer messages, check if a significant portion of words match
-      const matchingWords = messageWords.filter(word => memoryWords.includes(word));
-      const matchRatio = matchingWords.length / messageWords.length;
-
-      // If more than 80% of the message words are in the folder memory, consider it a match
-      return matchRatio >= 0.8;
-    });
-  } catch (error) {
-    console.error('Error checking if message is in folder:', error);
-    return false;
-  }
 }
