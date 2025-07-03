@@ -567,9 +567,6 @@ function renderSettingsTab(tabContent) {
       <div style="margin: 32px 0 16px 0; padding: 16px; background:${isDark ? '#2a2e36' : '#f8f9fa'}; border-radius: 12px; border: 1px solid ${isDark ? '#444a58' : '#e1e5e9'};">
         <div style="margin-bottom: 16px; font-weight: bold; font-size: 18px; color:${isDark ? '#b2b8c2' : '#666'}; text-align: center;">🚧 Coming Soon 🚧</div>
         <div style="padding: 10px 20px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid #e1e5e9;">Buttons all functional for testing</div>
-        <button id="update-embeddings-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#555' : '#ccc'};border:none;border-radius:10px;color:${isDark ? '#aaa' : '#666'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;opacity:0.6;">Update Embeddings for Existing Messages</button>
-        <button id="migrate-folders-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#555' : '#ccc'};border:none;border-radius:10px;color:${isDark ? '#aaa' : '#666'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;opacity:0.6;">Migrate Folders to New Format</button>
-        <button id="debug-indexeddb-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#555' : '#ccc'};border:none;border-radius:10px;color:${isDark ? '#aaa' : '#666'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;opacity:0.6;">Debug IndexedDB</button>
         <button id="theme-toggle-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#555' : '#ccc'};border:none;border-radius:10px;color:${isDark ? '#aaa' : '#666'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;opacity:0.6;">Switch to ${isDark ? 'Light' : 'Dark'} Mode</button>
         <div style="margin: 24px 0 0 0;">
           <div style="margin-bottom:8px;font-weight:bold;">Import ChatGPT conversations.json</div>
@@ -594,53 +591,6 @@ function renderSettingsTab(tabContent) {
 
     const addFullBtn = tabContent.querySelector('#add-full-chat-btn');
     addFullBtn.onclick = addFullChatToLog;
-
-    // Migrate folders button
-    const migrateFoldersBtn = tabContent.querySelector('#migrate-folders-btn');
-    migrateFoldersBtn.onclick = async () => {
-      migrateFoldersBtn.disabled = true;
-      migrateFoldersBtn.textContent = 'Migrating...';
-
-      try {
-        if (window.memoryChatIDB && window.memoryChatIDB.migrateFoldersToPointers) {
-          const result = await window.memoryChatIDB.migrateFoldersToPointers();
-          if (window.showFeedback) window.showFeedback(`Migrated ${result.migratedFolders} folders to new format!`, 'success');
-          // Refresh the storage tab to show updated folder counts
-          if (window.renderStorageTab) window.renderStorageTab();
-        } else {
-          if (window.showFeedback) window.showFeedback('IndexedDB not available.', 'error');
-        }
-      } catch (error) {
-        console.error('Error migrating folders:', error);
-        if (window.showFeedback) window.showFeedback('Error migrating folders: ' + error.message, 'error');
-      } finally {
-        migrateFoldersBtn.disabled = false;
-        migrateFoldersBtn.textContent = 'Migrate Folders to New Format';
-      }
-    };
-
-    // Debug IndexedDB button
-    const debugIndexedDBBtn = tabContent.querySelector('#debug-indexeddb-btn');
-    debugIndexedDBBtn.onclick = async () => {
-      debugIndexedDBBtn.disabled = true;
-      debugIndexedDBBtn.textContent = 'Debugging...';
-
-      try {
-        if (window.memoryChatIDB && window.memoryChatIDB.debugIndexedDB) {
-          const result = await window.memoryChatIDB.debugIndexedDB();
-          console.log('IndexedDB debug result:', result);
-          if (window.showFeedback) window.showFeedback(`IndexedDB debug complete. Check console for details.`, 'success');
-        } else {
-          if (window.showFeedback) window.showFeedback('IndexedDB not available.', 'error');
-        }
-      } catch (error) {
-        console.error('Error debugging IndexedDB:', error);
-        if (window.showFeedback) window.showFeedback('Error debugging IndexedDB: ' + error.message, 'error');
-      } finally {
-        debugIndexedDBBtn.disabled = false;
-        debugIndexedDBBtn.textContent = 'Debug IndexedDB';
-      }
-    };
 
     // Theme toggle logic
     const themeBtn = tabContent.querySelector('#theme-toggle-btn');
@@ -688,8 +638,6 @@ function renderSettingsTab(tabContent) {
         statusSpan.textContent = 'Please select a JSON file first.';
         return;
       }
-
-
 
       let json;
       try {

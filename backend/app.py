@@ -12,6 +12,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from constants import PROMPT
 from uuid import uuid4
 from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
+from LLM import generate_insights
 
 # Load environment variables
 load_dotenv()
@@ -66,7 +67,7 @@ def create_message():
         message_text = data.get("text", "").strip()
         if not message_text:
             return jsonify({"error": "Message text is required"}), 400
-        insights = generate_insights_with_claude(message_text)
+        insights = generate_insights(message_text)
         message = {
             "userID": userID,
             "text": message_text,
@@ -233,7 +234,7 @@ def add_message_to_folder(folder_id):
             return jsonify({"error": "Folder not found"}), 500
         if message_text:
             # Create new message with automatic insight generation
-            insights = generate_insights_with_claude(message_text)
+            insights = generate_insights(message_text)
             message = {
                 "userID": userID,
                 "text": message_text,
@@ -363,121 +364,6 @@ def clear_all_user_data():
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
-def generate_insights_with_openai(message_text):
-    """Generate insights from message text using OpenAI"""
-def generate_insights_with_claude(message_text):
-    """Generate insights from message text using Claude 3.5 Haiku (Anthropic Messages API)"""
-    try:
-        if not os.getenv("ANTHROPIC_API_KEY"):
-            raise Exception("Anthropic API key not configured")
-
-        prompt = PROMPT.format(message_text=message_text)
-        response = anthropic_client.messages.create(
-            model="claude-3-5-haiku-latest",
-            max_tokens=800,
-            temperature=0.3,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        # Extract text from content blocks
-        content = ""
-        for block in response.content:
-            if block.type == "text":
-                content += block.text
-        content = content.strip()
-        if not content:
-            raise Exception("No response content received")
-
-        # Parse the JSON response
-        try:
-            parsed_response = json.loads(content)
-            # Handle the response format with "memories" key
-            if (
-                parsed_response
-                and parsed_response.get("memories")
-                and isinstance(parsed_response["memories"], list)
-            ):
-                insights = parsed_response["memories"]
-            elif isinstance(parsed_response, list):
-                # Fallback for old format where response was directly an array
-                insights = parsed_response
-            else:
-                raise Exception("Invalid response format - expected memories array")
-        except json.JSONDecodeError:
-            # If JSON parsing fails, try to extract insights from plain text
-            insights = parse_insights_from_text(content)
-
-        # Validate insights
-        if not isinstance(insights, list):
-            raise Exception("Invalid insights format")
-
-        # Ensure we have 3 or fewer insights
-        insights = insights[:3]
-
-        # Filter out empty or invalid insights
-        insights = [
-            insight
-            for insight in insights
-            if insight and isinstance(insight, str) and insight.strip()
-        ]
-
-        if not insights:
-            raise Exception("No valid insights extracted")
-
-        return insights
-
-    except Exception as e:
-        print(f"Error generating insights: {e}")
-        # Return a default insight if Claude fails
-        return [f"Important message: {message_text[:100]}..."]
-
-
-def parse_insights_from_text(text):
-    """Parse insights from plain text if JSON parsing fails"""
-    lines = text.split("\n")
-    insights = []
-
-    for line in lines:
-        line = line.strip()
-        # Look for bullet points, numbered items, or lines that start with common insight indicators
-        if (
-            line.startswith("-")
-            or line.startswith("•")
-            or line.startswith("*")
-            or line[0].isdigit()
-            and ". " in line
-            or line.lower().startswith("insight")
-            or line.lower().startswith("key")
-            or line.lower().startswith("point")
-        ):
-
-            # Clean up the line
-            insight = line
-            if insight.startswith(("-", "•", "*")):
-                insight = insight[1:].strip()
-            elif insight[0].isdigit() and ". " in insight:
-                insight = insight.split(". ", 1)[1]
-            elif insight.lower().startswith("insight"):
-                insight = insight[8:].strip()
-            elif insight.lower().startswith("key"):
-                insight = insight[3:].strip()
-            elif insight.lower().startswith("point"):
-                insight = insight[5:].strip()
-
-            if insight and len(insight) > 0:
-                insights.append(insight)
-
-    # If no structured insights found, take the first few meaningful lines
-    if not insights:
-        meaningful_lines = [
-            line.strip()
-            for line in lines
-            if len(line.strip()) > 10 and len(line.strip()) < 200
-        ]
-        insights = meaningful_lines[:3]
-
-    return insights
 
 
 @app.route("/health", methods=["GET"])
