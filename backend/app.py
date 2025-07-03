@@ -656,7 +656,6 @@ def generate_multi_message_insight_with_claude(messages_text):
             raise Exception("Anthropic API key not configured")
 
         prompt = PROMPT_MULTI.format(message_text=messages_text)
-        print(messages_text)
         response = anthropic_client.messages.create(
             model="claude-3-5-haiku-latest",
             max_tokens=800,
@@ -674,10 +673,15 @@ def generate_multi_message_insight_with_claude(messages_text):
         # Parse the JSON response
         try:
             parsed_response = json.loads(content)
-            if parsed_response and isinstance(parsed_response, dict) and "insight" in parsed_response:
-                insight = parsed_response["insight"]
+            if parsed_response and isinstance(parsed_response, dict) and "memories" in parsed_response:
+                memories = parsed_response["memories"]
+                if isinstance(memories, list):
+                    # Join the list into a single string for the return value
+                    insight = "\n".join(memories)
+                else:
+                    raise Exception("Invalid response format - 'memories' is not a list")
             else:
-                raise Exception("Invalid response format - expected 'insight' key")
+                raise Exception("Invalid response format - expected 'memories' key")
         except json.JSONDecodeError:
             # If JSON parsing fails, just use the raw text
             insight = content
@@ -686,6 +690,7 @@ def generate_multi_message_insight_with_claude(messages_text):
             raise Exception("No valid insight extracted")
         return insight.strip()
     except Exception as e:
+        print(e)
         print(f"Error generating multi-message insight: {e}")
         return f"Important insight: {messages_text[:100]}..."
 

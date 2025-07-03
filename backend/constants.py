@@ -81,22 +81,22 @@ This is not summarization. You are distilling the conversation into atomic, self
 
 OUTPUT FORMAT  
 Return a valid JSON object in this format:
-{
+{{
   "memories": [
     "First memory-worthy insight.",
     "Second distinct insight.",
     "..."
   ]
-}
+}}
 
 RULES  
-* There is no fixed limit. Extract as many insights as are necessary to preserve the user’s full context.  
+* There is no fixed limit. Extract as many insights as are necessary to preserve the user's full context.  
 * Skip greetings, filler, examples, and vague comments.  
 * Focus on what the user is doing, building, planning, needing, deciding, or believing.  
 * Each memory must be:
-  – Self-contained (no need to read original message)  
-  – Durable (still useful weeks later)  
-  – Clear and concise (≤ 120 characters if possible)  
+  - Self-contained (no need to read original message)  
+  - Durable (still useful weeks later)  
+  - Clear and concise (≤ 120 characters if possible)  
 * Do not repeat the same idea in multiple forms.  
 * Do not output any reasoning, commentary, or markdown — only the JSON object.
 
