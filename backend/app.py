@@ -12,7 +12,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from constants import PROMPT
 from uuid import uuid4
 from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
-from LLM import generate_insights, categorize_memory_to_folders
+from LLM import generate_insights, categorize_memory_to_folders, batch_autopopulate_memories_to_folder
 
 # Load environment variables
 load_dotenv()
@@ -135,12 +135,13 @@ def get_folders():
 
 @app.route("/api/folders", methods=["POST"])
 def create_folder():
-    """Create a new folder for a user"""
+    """Create a new folder for a user, with optional auto-population using the LLM"""
     try:
         data = request.json
         userID = data.get("userUUID")
         folder_name = data.get("name", "").strip()
         folder_description = data.get("description", "").strip()
+        auto_populate = data.get("autoPopulate", False)
         if not userID:
             return jsonify({"error": "userUUID is required"}), 400
         if not folder_name:
@@ -159,6 +160,37 @@ def create_folder():
         }
         folders.append(folder)
         update_user_folders(userID, folders)
+        # --- Auto-populate logic ---
+        if auto_populate:
+            # Fetch all user memories
+            all_memories = list(messages_collection.find({"userID": userID}))
+            # Prepare batches of 10
+            batch_size = 10
+            folder_id = folder["folderID"]
+            memory_id_to_obj = {str(m["_id"]): m for m in all_memories}
+            memory_ids = list(memory_id_to_obj.keys())
+            selected_ids = set()
+            for i in range(0, len(memory_ids), batch_size):
+                batch_ids = memory_ids[i:i+batch_size]
+                batch_memories = [
+                    {"id": mid, "text": memory_id_to_obj[mid].get("text", "")}
+                    for mid in batch_ids
+                ]
+                if not batch_memories:
+                    continue
+                ids_for_folder = batch_autopopulate_memories_to_folder(
+                    folder_name, folder_description, batch_memories
+                )
+                selected_ids.update(ids_for_folder)
+            # Add selected memory IDs to the folder
+            if selected_ids:
+                for f in folders:
+                    if f["folderID"] == folder_id:
+                        for mid in selected_ids:
+                            if mid in memory_id_to_obj and mid not in f["messages"]:
+                                f["messages"].append(mid)
+                        break
+                update_user_folders(userID, folders)
         return jsonify({"message": "Folder created successfully", "folderID": folder["folderID"]}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500

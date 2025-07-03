@@ -465,16 +465,18 @@ async function renderFoldersTab(tabContent) {
       const folderName = prompt('Enter folder name:');
       if (folderName && folderName.trim()) {
         const folderDescription = prompt('Enter a description for this folder (optional, 1 line):') || '';
+        let autoPopulate = false;
+        autoPopulate = confirm('Do you want to auto-populate this folder?');
         try {
           const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/folders`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: folderName.trim(), description: folderDescription.trim(), userUUID: await getOrCreateUserUUID() })
+            body: JSON.stringify({ name: folderName.trim(), description: folderDescription.trim(), userUUID: await getOrCreateUserUUID(), autoPopulate })
           });
           if (!res.ok) throw new Error('Failed to create folder');
           renderFoldersTab(tabContent);
         } catch (error) {
-          tabContent.innerHTML = `<div style=\"text-align:center;color:#ff6b6b;padding:20px;\">Error creating folder: ${error.message}</div>`;
+          tabContent.innerHTML = `<div style=\\\"text-align:center;color:#ff6b6b;padding:20px;\\\">Error creating folder: ${error.message}</div>`;
         }
       }
     };
@@ -495,8 +497,7 @@ async function renderFoldersTab(tabContent) {
             <div style="font-size:12px;${isDark ? 'color:#b2b8c2;' : 'color:#888;'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:350px;">${description}</div>
             <div style="font-size:12px;${isDark ? 'color:#b2b8c2;' : 'color:#888;'}">${messageCount} message${messageCount !== 1 ? 's' : ''}</div>
           </div>
-          <div style="display:flex;gap:8px;">
-            <button class="folder-plus-btn" data-folder="${folder.name}" data-folder-id="${folder.folderID}" style="background:${isDark ? '#2e3a4a' : '#e6f7e6'};border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:${isDark ? '#b2f7ef' : '#222'};" title="Add all messages to prompt">+</button>
+          <div class="folder-open-button" style="display:flex;gap:8px;">
             <button class="folder-delete-btn" data-folder="${folder.name}" data-folder-id="${folder.folderID}" style="background:${isDark ? '#3a2323' : '#f7e6e6'};border:none;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;color:${isDark ? '#ffb2b2' : '#d32f2f'};" title="Delete folder">×</button>
           </div>
         </div>
@@ -511,16 +512,18 @@ async function renderFoldersTab(tabContent) {
       const folderName = prompt('Enter folder name:');
       if (folderName && folderName.trim()) {
         const folderDescription = prompt('Enter a description for this folder (optional, 1 line):') || '';
+        let autoPopulate = false;
+        autoPopulate = confirm('Do you want to auto-populate this folder?');
         try {
           const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/folders`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: folderName.trim(), description: folderDescription.trim(), userUUID: await getOrCreateUserUUID() })
+            body: JSON.stringify({ name: folderName.trim(), description: folderDescription.trim(), userUUID: await getOrCreateUserUUID(), autoPopulate })
           });
           if (!res.ok) throw new Error('Failed to create folder');
           renderFoldersTab(tabContent);
         } catch (error) {
-          tabContent.innerHTML = `<div style=\"text-align:center;color:#ff6b6b;padding:20px;\">Error creating folder: ${error.message}</div>`;
+          tabContent.innerHTML = `<div style=\\\"text-align:center;color:#ff6b6b;padding:20px;\\\">Error creating folder: ${error.message}</div>`;
         }
       }
     };
@@ -810,64 +813,11 @@ function setupFolderEventHandlers(tabContent, folders) {
   // Folder click to view contents
   tabContent.querySelectorAll('.folder-item').forEach(item => {
     item.onclick = (e) => {
-      if (!e.target.classList.contains('folder-plus-btn') && !e.target.classList.contains('folder-delete-btn')) {
+      if (!e.target.classList.contains('folder-open-button') && !e.target.classList.contains('folder-delete-btn')) {
         const folderName = item.dataset.folder;
         const folderId = item.dataset.folderId;
         if (window.viewFolderContents) {
           window.viewFolderContents(folderName, folderId);
-        }
-      }
-    };
-  });
-
-  // Folder plus button (add all messages to prompt)
-  tabContent.querySelectorAll('.folder-plus-btn').forEach(btn => {
-    btn.onclick = async (e) => {
-      e.stopPropagation();
-      const folderName = btn.dataset.folder;
-
-      // Get folder contents with resolved message data
-      let folderMessages = [];
-      if (window.memoryChatIDB && window.memoryChatIDB.getFolderContents) {
-        folderMessages = await window.memoryChatIDB.getFolderContents(folderName);
-      }
-
-      if (folderMessages.length > 0) {
-        const prompt = document.querySelector('.ProseMirror');
-        if (prompt) {
-          let current = prompt.innerText.trim();
-          const preface = `Here are messages from folder "${folderName}":`;
-          let newText = '';
-
-          // Convert messages to text format
-          const messageTexts = folderMessages.map(msg => {
-            const insights = msg.insights || msg.text;
-            return Array.isArray(insights) ? insights.join('\n') : insights;
-          });
-
-          if (current.includes(preface)) {
-            newText = current + '\n' + messageTexts.map(text => `- ${text}`).join('\n');
-          } else {
-            newText = (current ? current + '\n' : '') + preface + '\n' + messageTexts.map(text => `- ${text}`).join('\n');
-          }
-
-          // Set the prompt text using a more reliable method that preserves newlines
-          prompt.focus();
-
-          // Clear existing content
-          prompt.innerHTML = '';
-
-          // Convert newlines to <br> tags and insert as HTML to preserve formatting
-          const formattedText = newText.replace(/\n/g, '<br>');
-          prompt.innerHTML = formattedText;
-
-          // Move cursor to end
-          const range = document.createRange();
-          const selection = window.getSelection();
-          range.selectNodeContents(prompt);
-          range.collapse(false);
-          selection.removeAllRanges();
-          selection.addRange(range);
         }
       }
     };

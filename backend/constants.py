@@ -57,3 +57,16 @@ Here is a memory:
 Please suggest one or more folders from the list above that best fit this memory. If none fit, assign it to the \"Misc\" folder.
 Return only a JSON array of strings, with no code block, no markdown, and no explanation. Just the plain JSON array, like: ["Technology", "Misc"]
 """
+
+BATCH_AUTOPOPULATE_PROMPT = """You are an assistant that helps organize user memories into a specific folder.
+
+Folder name: {folder_name}
+Folder description: {folder_description}
+
+Here are some memories (each with an ID):
+{memories_list_str}
+
+Return a JSON array of the IDs of the memories that should belong to this folder, based on the folder name and description.
+If none fit, return an empty array.
+Return only a JSON array of IDs, with no code block, no markdown, and no explanation.
+Example: [\"id1\", \"id2\"]\n"""

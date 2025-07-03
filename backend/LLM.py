@@ -1,6 +1,6 @@
 import os
 import json
-from constants import PROMPT, AUTO_CATEGORIZE_PROMPT
+from constants import PROMPT, AUTO_CATEGORIZE_PROMPT, BATCH_AUTOPOPULATE_PROMPT
 from datetime import datetime
 
 provider = os.getenv("LLM_PROVIDER", "claude").lower()
@@ -173,4 +173,61 @@ def categorize_memory_to_folders(memory_text, folders):
         return folder_names
     except Exception as e:
         print(f"Error categorizing memory: {e}")
+        return []
+
+
+def batch_autopopulate_memories_to_folder(folder_name, folder_description, memories):
+    """
+    Given a folder name, description, and a list of memories (dicts with 'id' and 'text'),
+    call the LLM to select which memories should belong to the folder.
+    Returns a list of memory IDs.
+    """
+    provider = os.getenv("LLM_PROVIDER", "claude").lower()
+    memories_list_str = "\n".join([
+        f"- ID: {m['id']} | {m['text']}" for m in memories
+    ])
+    prompt = BATCH_AUTOPOPULATE_PROMPT.format(
+        folder_name=folder_name,
+        folder_description=folder_description,
+        memories_list_str=memories_list_str
+    )
+    try:
+        if provider == "openai":
+            if not os.getenv("OPENAI_API_KEY"):
+                raise Exception("OpenAI API key not configured")
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=200,
+            )
+            content = response.choices[0].message.content
+        elif provider == "claude":
+            if not os.getenv("ANTHROPIC_API_KEY"):
+                raise Exception("Anthropic API key not configured")
+            from anthropic import Anthropic
+            anthropic_client = Anthropic()
+            response = anthropic_client.messages.create(
+                model="claude-3-5-haiku-latest",
+                max_tokens=300,
+                temperature=0.3,
+                messages=[{"role": "user", "content": prompt}]
+            )
+            content = ""
+            for block in response.content:
+                if block.type == "text":
+                    content += block.text
+            content = content.strip()
+        if not content:
+            raise Exception("No response content received")
+        try:
+            id_list = json.loads(content)
+            if not isinstance(id_list, list):
+                raise Exception("Expected a list of IDs")
+            id_list = [str(i).strip() for i in id_list if i and isinstance(i, str)]
+        except Exception as e:
+            print(f"Error parsing LLM batch autopopulate response: {e}")
+            id_list = []
+        return id_list
+    except Exception as e:
+        print(f"Error in batch_autopopulate_memories_to_folder: {e}")
         return []

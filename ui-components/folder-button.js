@@ -117,6 +117,7 @@ async function showFolderSelector(messageElement) {
       <button id="memory-chat-folder-close" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #666;">×</button>
     </div>
     <div style="padding: 20px;">
+      <div style=\"max-height: 260px; overflow-y: auto; margin-bottom: 16px;\">
   `;
 
   if (availableFolders.length === 0) {
@@ -164,6 +165,7 @@ async function showFolderSelector(messageElement) {
       });
     }
     popupHTML += `
+      </div> <!-- end scrollable folder list -->
       <div style="margin-top: 20px; text-align: center;">
         <button id="create-folder-from-popup" style="padding: 8px 16px; background: linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%); border: none; border-radius: 6px; color: #222; font-weight: bold; cursor: pointer; font-size: 12px;">+ Create New Folder</button>
       </div>
