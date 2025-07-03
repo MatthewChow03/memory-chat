@@ -157,7 +157,6 @@ def categorize_memory_to_folders(memory_text, folders):
             content = content.strip()
         if not content:
             raise Exception("No response content received")
-        print(f"LLM response: {content}")
         try:
             folder_names = json.loads(content)
             if not isinstance(folder_names, list):

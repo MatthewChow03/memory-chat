@@ -77,6 +77,8 @@ def create_message():
         result = messages_collection.insert_one(message)
         message_id = str(result.inserted_id)
         message["_id"] = message_id
+        # Auto-categorize the new message
+        auto_categorize_single_memory(userID, message_id)
         return (
             jsonify({"message": "Message created successfully", "id": message_id}),
             201,
@@ -228,12 +230,8 @@ def add_message_to_folder(folder_id):
                 400,
             )
         user = get_or_create_user(userID)
-        print(user)
         folders = user.get("folders", [])
-        print(folders)
-        print(folder_id)
         folder = next((f for f in folders if f["folderID"] == folder_id), None)
-        print(folder)
         if not folder:
             return jsonify({"error": "Folder not found"}), 500
         if message_text:
@@ -396,25 +394,12 @@ def auto_categorize_memories():
         uncategorized = [m for m in messages if str(m["_id"]) not in categorized_ids]
         if not uncategorized:
             return jsonify({"message": "No uncategorized memories found."}), 200
-        folder_name_to_id = {f["name"]: f["folderID"] for f in folders}
-        folder_name_to_obj = {f["name"]: f for f in folders}
-        misc_folder = next((f for f in folders if f["name"].lower() == "misc"), None)
-        if not misc_folder:
-            return jsonify({"error": "Misc folder not found for user."}), 500
         updated = set()
         for mem in uncategorized:
             mem_id = str(mem["_id"])
-            mem_text = mem.get("text", "")
-            suggested_folders = categorize_memory_to_folders(mem_text, folders)
-            for fname in suggested_folders:
-                folder = folder_name_to_obj.get(fname)
-                if not folder:
-                    # fallback to Misc if folder not found
-                    folder = misc_folder
-                if mem_id not in folder["messages"]:
-                    folder["messages"].append(mem_id)
-                    updated.add(mem_id)
-        update_user_folders(userID, folders)
+            success, msg = auto_categorize_single_memory(userID, mem_id)
+            if success:
+                updated.add(mem_id)
         return jsonify({
             "message": f"Categorized {len(updated)} memories.",
             "categorized": list(updated)
@@ -469,6 +454,33 @@ def get_user_folders(userID):
 def update_user_folders(userID, folders):
     users_collection.update_one({"userID": userID}, {"$set": {"folders": folders}})
 
+def auto_categorize_single_memory(userID, message_id):
+    """Auto-categorize a single memory for a user using the LLM"""
+    user = get_or_create_user(userID)
+    folders = user.get("folders", [])
+    folder_name_to_id = {f["name"]: f["folderID"] for f in folders}
+    folder_name_to_obj = {f["name"]: f for f in folders}
+    misc_folder = next((f for f in folders if f["name"].lower() == "misc"), None)
+    if not misc_folder:
+        return False, "Misc folder not found for user."
+    # Get the message
+    mem = messages_collection.find_one({"_id": ObjectId(message_id), "userID": userID})
+    if not mem:
+        return False, "Message not found."
+    mem_id = str(mem["_id"])
+    mem_text = mem.get("text", "")
+    suggested_folders = categorize_memory_to_folders(mem_text, folders)
+    updated = False
+    for fname in suggested_folders:
+        folder = folder_name_to_obj.get(fname)
+        if not folder:
+            folder = misc_folder
+        if mem_id not in folder["messages"]:
+            folder["messages"].append(mem_id)
+            updated = True
+    if updated:
+        update_user_folders(userID, folders)
+    return True, "Categorized." if updated else "No folder updated."
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 3000))
