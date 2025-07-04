@@ -20,6 +20,17 @@ function addFolderButtons() {
         btnContainer.style.gap = '8px';
         btnContainer.style.marginTop = '8px';
         btnContainer.style.alignItems = 'center';
+        
+        // Align buttons based on message role
+        const messageRole = msg.getAttribute('data-message-author-role');
+        if (messageRole === 'assistant') {
+          btnContainer.style.justifyContent = 'flex-start'; // Left align for assistant
+          btnContainer.style.alignSelf = 'flex-start'; // Override parent's items-end
+        } else if (messageRole === 'user') {
+          btnContainer.style.justifyContent = 'flex-end'; // Right align for user
+          btnContainer.style.alignSelf = 'flex-end'; // Match parent's items-end
+        }
+        
         msg.appendChild(btnContainer);
       }
       // Only add the folder button if it doesn't already exist in the container
