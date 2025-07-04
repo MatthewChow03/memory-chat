@@ -9,31 +9,31 @@ function addLogButtons() {
     if (!msg.querySelector('.memory-chat-log-btn')) {
       // Create a modern pastel green button
       const btn = document.createElement('button');
-      btn.textContent = 'Add to Memories';
       btn.className = 'memory-chat-log-btn';
-      btn.style.marginLeft = '8px';
-      btn.style.padding = '6px 16px';
-      btn.style.background = 'linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%)';
+      btn.setAttribute('aria-label', 'Add to Memory');
+      btn.title = 'Add to Memory';
+      btn.style.display = 'flex';
+      btn.style.alignItems = 'center';
+      btn.style.gap = '5px';
+      btn.style.background = 'none';
       btn.style.border = 'none';
-      btn.style.borderRadius = '8px';
-      btn.style.color = '#222';
-      btn.style.fontWeight = 'bold';
-      btn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)';
+      btn.style.borderRadius = '0';
+      btn.style.color = '#fff';
+      btn.style.fontWeight = 'normal';
+      btn.style.boxShadow = 'none';
       btn.style.cursor = 'pointer';
-      btn.style.transition = 'background 0.2s, color 0.2s';
-
-      // Dynamic hover handlers that respect current state
-      btn.onmouseenter = () => {
-        if (btn.textContent === 'Add to Memories') {
-          btn.style.background = '#a0eec0';
-        }
-      };
-
-      btn.onmouseleave = () => {
-        if (btn.textContent === 'Add to Memories') {
-          btn.style.background = 'linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%)';
-        }
-      };
+      btn.style.fontSize = '15px';
+      btn.style.padding = '0';
+      btn.style.margin = '0';
+      btn.style.transition = 'color 0.2s';
+      btn.innerHTML = `
+        <span style="display: flex; align-items: center;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;display:inline-block;vertical-align:middle;color:currentColor;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          <span style="color:currentColor;">Add to Memory</span>
+        </span>
+      `;
+      btn.onmouseenter = () => btn.style.color = '#b2f7ef';
+      btn.onmouseleave = () => btn.style.color = '#fff';
 
       btn.onclick = async (e) => {
         e.stopPropagation();
@@ -92,7 +92,19 @@ function addLogButtons() {
           btn.style.display = 'inline-block';
         }
       };
-      msg.appendChild(btn);
+      // Ensure the button is always in the .memory-chat-btn-row below the message
+      let btnContainer = msg.querySelector('.memory-chat-btn-row');
+      if (!btnContainer) {
+        btnContainer = document.createElement('div');
+        btnContainer.className = 'memory-chat-btn-row';
+        btnContainer.style.display = 'flex';
+        btnContainer.style.flexDirection = 'row';
+        btnContainer.style.gap = '8px';
+        btnContainer.style.marginTop = '8px';
+        btnContainer.style.alignItems = 'center';
+        msg.appendChild(btnContainer);
+      }
+      btnContainer.appendChild(btn);
     }
   });
 }

@@ -26,23 +26,33 @@ function addFolderButtons() {
       if (!btnContainer.querySelector('.memory-chat-folder-btn')) {
         // Create folder button
         const folderBtn = document.createElement('button');
-        folderBtn.textContent = '📁';
         folderBtn.className = 'memory-chat-folder-btn';
-        folderBtn.title = 'Add to Folder';
+        folderBtn.title = 'Add to folder';
+        folderBtn.setAttribute('aria-label', 'Add to folder');
         folderBtn.style.cssText = `
-          padding: 6px 12px;
-          background: linear-gradient(90deg, #e6f3ff 0%, #d4e7ff 100%);
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          background: none;
           border: none;
-          border-radius: 8px;
-          color: #1a73e8;
-          font-weight: bold;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+          border-radius: 0;
+          color: #fff;
+          font-weight: normal;
+          box-shadow: none;
           cursor: pointer;
-          transition: background 0.2s, color 0.2s;
-          font-size: 14px;
+          font-size: 15px;
+          padding: 0;
+          margin: 0;
+          transition: color 0.2s;
         `;
-        folderBtn.onmouseenter = () => folderBtn.style.background = '#cce7ff';
-        folderBtn.onmouseleave = () => folderBtn.style.background = 'linear-gradient(90deg, #e6f3ff 0%, #d4e7ff 100%)';
+        folderBtn.innerHTML = `
+          <span style="display: flex; align-items: center;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px;display:inline-block;vertical-align:middle;color:currentColor;"><path d="M3 7a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>
+            <span style="color:currentColor;">Add to folder</span>
+          </span>
+        `;
+        folderBtn.onmouseenter = () => folderBtn.style.color = '#b2f7ef';
+        folderBtn.onmouseleave = () => folderBtn.style.color = '#fff';
         folderBtn.onclick = (e) => {
           e.stopPropagation();
           showFolderSelector(msg);

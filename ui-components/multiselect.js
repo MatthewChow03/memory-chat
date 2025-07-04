@@ -24,40 +24,143 @@
     border-color: #1a73e8;
   `;
 
-  // Injects multi-select circles into each chat message
+  // Injects multi-select checkboxes into each chat message
   function addMultiSelectCircles() {
     const messages = document.querySelectorAll('[data-message-author-role]');
     messages.forEach(msg => {
-      // Avoid duplicate circles
-      if (msg.querySelector('.memory-chat-multiselect-circle')) return;
+      // Avoid duplicate checkboxes
+      if (msg.querySelector('.memory-chat-multiselect-checkbox-wrapper')) return;
 
-      // Create the circle element
-      const circle = document.createElement('span');
-      circle.className = 'memory-chat-multiselect-circle';
-      circle.setAttribute('tabindex', '0');
-      circle.setAttribute('role', 'checkbox');
-      circle.setAttribute('aria-checked', 'false');
-      circle.style.cssText = circleStyle;
+      // Find any existing button row
+      const btnRow = msg.querySelector('.memory-chat-btn-row');
 
-      // Click handler to toggle selection
-      circle.onclick = (e) => {
+      // Create a flex row container for message + checkbox
+      const row = document.createElement('div');
+      row.className = 'memory-chat-message-row';
+      row.style.display = 'flex';
+      row.style.alignItems = 'flex-start';
+      row.style.position = 'relative';
+      row.style.width = '100%';
+
+      // Move all children except the button row into the flex row
+      while (msg.firstChild && msg.firstChild !== btnRow) {
+        row.appendChild(msg.firstChild);
+      }
+      // Insert the flex row before the button row (if it exists), else append to msg
+      if (btnRow) {
+        msg.insertBefore(row, btnRow);
+      } else {
+        msg.appendChild(row);
+      }
+
+      // Create the custom checkbox wrapper
+      const wrapper = document.createElement('span');
+      wrapper.className = 'memory-chat-multiselect-checkbox-wrapper';
+      wrapper.style.display = 'inline-block';
+      wrapper.style.position = 'sticky';
+      wrapper.style.top = '12px';
+      wrapper.style.right = '0';
+      wrapper.style.marginLeft = '16px';
+      wrapper.style.zIndex = '10';
+      wrapper.style.width = '22px';
+      wrapper.style.height = '22px';
+      wrapper.style.verticalAlign = 'middle';
+
+      // Create the hidden native checkbox
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'memory-chat-multiselect-checkbox';
+      checkbox.setAttribute('tabindex', '0');
+      checkbox.setAttribute('role', 'checkbox');
+      checkbox.setAttribute('aria-checked', 'false');
+      checkbox.style.opacity = '0';
+      checkbox.style.width = '22px';
+      checkbox.style.height = '22px';
+      checkbox.style.margin = '0';
+      checkbox.style.position = 'absolute';
+      checkbox.style.left = '0';
+      checkbox.style.top = '0';
+      checkbox.style.cursor = 'pointer';
+      checkbox.style.zIndex = '2';
+
+      // Create the custom visual box
+      const visual = document.createElement('span');
+      visual.className = 'memory-chat-multiselect-custombox';
+      visual.style.display = 'inline-flex';
+      visual.style.alignItems = 'center';
+      visual.style.justifyContent = 'center';
+      visual.style.width = '22px';
+      visual.style.height = '22px';
+      visual.style.border = '2px solid #b2f7ef';
+      visual.style.borderRadius = '6px';
+      visual.style.background = '#fff';
+      visual.style.transition = 'border-color 0.2s, background 0.2s';
+      visual.style.position = 'relative';
+      visual.style.zIndex = '1';
+
+      // SVG checkmark (hidden by default)
+      const checkSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      checkSvg.setAttribute('width', '22');
+      checkSvg.setAttribute('height', '22');
+      checkSvg.setAttribute('viewBox', '0 0 22 22');
+      checkSvg.style.display = 'none';
+      checkSvg.style.position = 'static';
+      checkSvg.innerHTML = '<polyline points="6 12 10 16 16 8" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>';
+
+      visual.style.display = 'flex';
+      visual.style.alignItems = 'center';
+      visual.style.justifyContent = 'center';
+      visual.appendChild(checkSvg);
+      wrapper.appendChild(checkbox);
+      wrapper.appendChild(visual);
+
+      // Click handler to toggle selection (logic unchanged)
+      wrapper.onclick = (e) => {
         e.stopPropagation();
         const isSelected = window.memoryChatSelectedMessages.has(msg);
         if (isSelected) {
           window.memoryChatSelectedMessages.delete(msg);
-          circle.style.cssText = circleStyle;
-          circle.setAttribute('aria-checked', 'false');
+          checkbox.checked = false;
+          checkbox.setAttribute('aria-checked', 'false');
+          visual.style.borderColor = '#b2f7ef';
+          visual.style.background = '#fff';
+          checkSvg.style.display = 'none';
         } else {
           window.memoryChatSelectedMessages.add(msg);
-          circle.style.cssText = circleStyle + checkedStyle;
-          circle.setAttribute('aria-checked', 'true');
+          checkbox.checked = true;
+          checkbox.setAttribute('aria-checked', 'true');
+          visual.style.borderColor = '#1a73e8';
+          visual.style.background = '#1a73e8';
+          checkSvg.style.display = 'block';
         }
-        // Optionally, trigger a custom event for selection change
         window.dispatchEvent(new CustomEvent('memoryChatSelectionChanged'));
       };
 
-      // Insert the circle at the start of the message
-      msg.insertBefore(circle, msg.firstChild);
+      // Sync visual state with checkbox (for keyboard accessibility)
+      checkbox.onchange = () => {
+        if (checkbox.checked) {
+          window.memoryChatSelectedMessages.add(msg);
+          visual.style.borderColor = '#1a73e8';
+          visual.style.background = '#1a73e8';
+          checkSvg.style.display = 'block';
+          checkbox.setAttribute('aria-checked', 'true');
+        } else {
+          window.memoryChatSelectedMessages.delete(msg);
+          visual.style.borderColor = '#b2f7ef';
+          visual.style.background = '#fff';
+          checkSvg.style.display = 'none';
+          checkbox.setAttribute('aria-checked', 'false');
+        }
+        window.dispatchEvent(new CustomEvent('memoryChatSelectionChanged'));
+      };
+
+      // Add custom checkbox to the row (right side)
+      row.appendChild(wrapper);
+
+      // If there is a button row, ensure it is the last child of msg
+      if (btnRow && msg.lastChild !== btnRow) {
+        msg.appendChild(btnRow);
+      }
     });
   }
 
