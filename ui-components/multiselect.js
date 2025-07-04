@@ -34,37 +34,47 @@
       // Find any existing button row
       const btnRow = msg.querySelector('.memory-chat-btn-row');
 
-      // Create a flex row container for message + checkbox
-      const row = document.createElement('div');
-      row.className = 'memory-chat-message-row';
-      row.style.display = 'flex';
-      row.style.alignItems = 'flex-start';
-      row.style.position = 'relative';
-      row.style.width = '100%';
+      // Create a top-level flex container for the entire message
+      const topLevelContainer = document.createElement('div');
+      topLevelContainer.className = 'memory-chat-message-top-level';
+      topLevelContainer.style.display = 'flex';
+      topLevelContainer.style.flexDirection = 'row';
+      topLevelContainer.style.alignItems = 'flex-start';
+      topLevelContainer.style.gap = '12px';
+      topLevelContainer.style.width = 'calc(100% + 60px)';
+      topLevelContainer.style.marginRight = '-60px';
 
-      // Move all children except the button row into the flex row
+      // Create a container for the message content and buttons
+      const messageContentContainer = document.createElement('div');
+      messageContentContainer.className = 'memory-chat-message-content-container';
+      messageContentContainer.style.display = 'flex';
+      messageContentContainer.style.flexDirection = 'column';
+      messageContentContainer.style.flex = '1';
+      messageContentContainer.style.minWidth = '0';
+
+      // Move all children except the button row into the message content container
       while (msg.firstChild && msg.firstChild !== btnRow) {
-        row.appendChild(msg.firstChild);
+        messageContentContainer.appendChild(msg.firstChild);
       }
-      // Insert the flex row before the button row (if it exists), else append to msg
+
+      // Add the button row to the message content container if it exists
       if (btnRow) {
-        msg.insertBefore(row, btnRow);
-      } else {
-        msg.appendChild(row);
+        messageContentContainer.appendChild(btnRow);
       }
 
       // Create the custom checkbox wrapper
       const wrapper = document.createElement('span');
       wrapper.className = 'memory-chat-multiselect-checkbox-wrapper';
-      wrapper.style.display = 'inline-block';
-      wrapper.style.position = 'sticky';
-      wrapper.style.top = '12px';
-      wrapper.style.right = '0';
-      wrapper.style.marginLeft = '16px';
-      wrapper.style.zIndex = '10';
+      wrapper.style.display = 'flex';
+      wrapper.style.alignItems = 'flex-start';
+      wrapper.style.justifyContent = 'center';
       wrapper.style.width = '22px';
       wrapper.style.height = '22px';
-      wrapper.style.verticalAlign = 'middle';
+      wrapper.style.marginTop = '8px';
+      wrapper.style.flexShrink = '0';
+      wrapper.style.position = 'sticky';
+      wrapper.style.top = '12px';
+      wrapper.style.zIndex = '10';
 
       // Create the hidden native checkbox
       const checkbox = document.createElement('input');
@@ -154,13 +164,35 @@
         window.dispatchEvent(new CustomEvent('memoryChatSelectionChanged'));
       };
 
-      // Add custom checkbox to the row (right side)
-      row.appendChild(wrapper);
+      // Assemble the new structure
+      topLevelContainer.appendChild(messageContentContainer);
+      topLevelContainer.appendChild(wrapper);
 
-      // If there is a button row, ensure it is the last child of msg
-      if (btnRow && msg.lastChild !== btnRow) {
-        msg.appendChild(btnRow);
-      }
+      // Replace the message content with our new structure
+      msg.appendChild(topLevelContainer);
+
+      // Add scroll event listener to handle sticky behavior
+      const handleScroll = () => {
+        const messageRect = msg.getBoundingClientRect();
+        const wrapperRect = wrapper.getBoundingClientRect();
+        const messageBottom = messageRect.bottom;
+        const wrapperBottom = wrapperRect.bottom;
+        
+        // If the message is going out of view, adjust the checkbox position
+        if (messageBottom < wrapperRect.height + 12) {
+          // Calculate how much the checkbox should move down
+          const offset = Math.max(0, wrapperRect.height + 12 - messageBottom);
+          wrapper.style.top = `${12 - offset}px`;
+        } else {
+          wrapper.style.top = '12px';
+        }
+      };
+
+      // Add scroll listener to window
+      window.addEventListener('scroll', handleScroll, { passive: true });
+      
+      // Also handle resize events
+      window.addEventListener('resize', handleScroll, { passive: true });
     });
   }
 
