@@ -234,6 +234,7 @@
           if (!data.insights || !Array.isArray(data.insights)) throw new Error('No insights returned');
           insightBox.value = data.insights.join('\n---\n');
         } catch (e) {
+          console.error(e);
           insightBox.value = 'Failed to generate insight.';
         }
       })();
@@ -291,7 +292,8 @@
             body: JSON.stringify({
               text: insightBox.value,
               timestamp: Date.now(),
-              userUUID
+              userUUID,
+              insights: [insightBox.value] // Pass as array for compatibility
             })
           });
           if (!res.ok) throw new Error('Failed to add to memories');
@@ -305,16 +307,20 @@
       };
       // Add to Folder
       folderBtn.onclick = async () => {
+        modal.remove(); // Hide the insight modal before showing the folder popup
         await showInsightFolderSelector(insightBox.value);
       };
       // Start New Chat
       chatBtn.onclick = async () => {
-        const copied = await copyToClipboard(insightBox.value);
-        if (copied) {
-          window.showFeedback && window.showFeedback('Insight copied! Start a new chat and paste.', 'success');
-        } else {
-          window.showFeedback && window.showFeedback('Failed to copy insight.', 'error');
-        }
+        const insight = insightBox.value;
+        // Copy to clipboard as fallback
+        await copyToClipboard(insight);
+        // Send message to background to navigate to new chat and inject insight
+        chrome.runtime.sendMessage({
+          type: 'START_NEW_CHAT_WITH_INSIGHT',
+          insight
+        });
+        window.showFeedback && window.showFeedback('Navigating to new chat with your insight...', 'success');
       };
     };
 
@@ -449,7 +455,7 @@ async function showInsightFolderSelector(insightText) {
         const res = await fetch(`${window.SERVER_CONFIG?.BASE_URL || 'http://localhost:3000'}${window.SERVER_CONFIG?.API_ENDPOINTS?.FOLDERS || '/api/folders'}/${encodeURIComponent(folderId)}/add-message`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: insightText, timestamp: Date.now(), userUUID })
+          body: JSON.stringify({ text: insightText, timestamp: Date.now(), userUUID, insights: [insightText] })
         });
         if (!res.ok) throw new Error('Failed to add insight to folder');
         popup.remove();

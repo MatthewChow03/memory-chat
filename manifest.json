@@ -11,6 +11,7 @@
   ],
   "host_permissions": [
     "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
     "http://localhost:3000/*"
   ],
   "content_security_policy": {
@@ -19,7 +20,7 @@
   "web_accessible_resources": [
     {
       "resources": ["lib/*"],
-      "matches": ["https://chatgpt.com/*"]
+      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"]
     }
   ],
   "background": {
@@ -28,7 +29,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://chatgpt.com/*"],
+      "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
       "js": [
         "utils.js",
         "ui-components/storage-utils.js",

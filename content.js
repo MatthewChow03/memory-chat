@@ -67,6 +67,37 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }, 3000);
     }
   }
+
+  // Inject insight into ChatGPT prompt
+  if (message.type === 'START_NEW_CHAT_INJECT_INSIGHT') {
+    // Wait for the prompt box to be available
+    function tryInject() {
+      // Try both textarea and contenteditable (ChatGPT may use either)
+      const promptBox = document.querySelector('form textarea, form [contenteditable]');
+      if (promptBox) {
+        if (promptBox.tagName.toLowerCase() === 'textarea') {
+          promptBox.value = message.insight;
+          promptBox.dispatchEvent(new Event('input', { bubbles: true }));
+        } else {
+          // For contenteditable
+          promptBox.innerText = message.insight;
+          promptBox.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        // Optionally scroll into view and focus
+        promptBox.focus();
+        return true;
+      }
+      return false;
+    }
+    // Try immediately, then retry a few times if not found
+    let attempts = 0;
+    const maxAttempts = 10;
+    const interval = setInterval(() => {
+      if (tryInject() || ++attempts >= maxAttempts) {
+        clearInterval(interval);
+      }
+    }, 400);
+  }
 });
 
 // Periodic check to ensure storage button persists

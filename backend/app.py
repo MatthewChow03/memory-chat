@@ -67,7 +67,10 @@ def create_message():
         message_text = data.get("text", "").strip()
         if not message_text:
             return jsonify({"error": "Message text is required"}), 400
-        insights = generate_insights(message_text)
+        # Accept provided insights if present, else extract
+        insights = data.get("insights")
+        if insights is None:
+            insights = generate_insights(message_text)
         message = {
             "userID": userID,
             "text": message_text,
@@ -254,6 +257,8 @@ def add_message_to_folder(folder_id):
         userID = data.get("userUUID")
         message_text = data.get("text", "").strip()
         message_id = data.get("messageId")
+        # Accept provided insights if present, else extract
+        insights = data.get("insights")
         if not userID:
             return jsonify({"error": "userUUID is required"}), 400
         if not message_text and not message_id:
@@ -267,8 +272,9 @@ def add_message_to_folder(folder_id):
         if not folder:
             return jsonify({"error": "Folder not found"}), 500
         if message_text:
-            # Create new message with automatic insight generation
-            insights = generate_insights(message_text)
+            # Create new message, use provided insights if present
+            if insights is None:
+                insights = generate_insights(message_text)
             message = {
                 "userID": userID,
                 "text": message_text,
