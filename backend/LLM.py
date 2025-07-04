@@ -1,6 +1,6 @@
 import os
 import json
-from constants import PROMPT, AUTO_CATEGORIZE_PROMPT, BATCH_AUTOPOPULATE_PROMPT
+from constants import PROMPT, AUTO_CATEGORIZE_PROMPT, BATCH_AUTOPOPULATE_PROMPT, PROMPT_MULTI
 from datetime import datetime
 
 provider = os.getenv("LLM_PROVIDER", "claude").lower()
@@ -50,41 +50,46 @@ def parse_insights_from_text(text):
     return insights
 
 
-def generate_insights(message_text):
+def call_llm_with_prompt(prompt):
     provider = os.getenv("LLM_PROVIDER", "claude").lower()
+    if provider == "openai":
+        if not os.getenv("OPENAI_API_KEY"):
+            raise Exception("OpenAI API key not configured")
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=800,
+        )
+        content = response.choices[0].message.content
+
+    elif provider == "claude":
+        if not os.getenv("ANTHROPIC_API_KEY"):
+            raise Exception("Anthropic API key not configured")
+        from anthropic import Anthropic
+        anthropic_client = Anthropic()
+        response = anthropic_client.messages.create(
+            model="claude-3-5-haiku-latest",
+            max_tokens=800,
+            temperature=0.3,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        content = ""
+        for block in response.content:
+            if block.type == "text":
+                content += block.text
+        content = content.strip()
+
+    if not content:
+        raise Exception("No response content received")
+    return content
+
+
+def generate_insights(message_text):
     try:
-        if provider == "openai":
-            if not os.getenv("OPENAI_API_KEY"):
-                raise Exception("OpenAI API key not configured")
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "user", "content": PROMPT.format(message_text=message_text)},
-                ],
-                max_tokens=500,
-            )
-            content = response.choices[0].message.content
-
-        elif provider == "claude":
-            if not os.getenv("ANTHROPIC_API_KEY"):
-                raise Exception("Anthropic API key not configured")
-            from anthropic import Anthropic
-            anthropic_client = Anthropic()
-            prompt = PROMPT.format(message_text=message_text)
-            response = anthropic_client.messages.create(
-                model="claude-3-5-haiku-latest",
-                max_tokens=800,
-                temperature=0.3,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            content = ""
-            for block in response.content:
-                if block.type == "text":
-                    content += block.text
-            content = content.strip()
-
-        if not content:
-            raise Exception("No response content received")
+        prompt = PROMPT.format(message_text=message_text)
+        content = call_llm_with_prompt(prompt)
         try:
             parsed_response = json.loads(content)
             if (
@@ -115,13 +120,42 @@ def generate_insights(message_text):
         return [f"Important message: {message_text[:100]}..."]
 
 
+def generate_insights_full_chat(message_text):
+    """
+    Generate insights from a full chat message text.
+    This function is used for the full chat memory creation.
+    """
+    try:
+        prompt = PROMPT_MULTI.format(message_text=message_text)
+        content = call_llm_with_prompt(prompt)
+        try:
+            parsed_response = json.loads(content)
+            if (
+                parsed_response
+                and parsed_response.get("memories")
+                and isinstance(parsed_response["memories"], list)
+            ):
+                insights = parsed_response["memories"]
+            elif isinstance(parsed_response, list):
+                insights = parsed_response
+            else:
+                raise Exception("Invalid response format - expected memories array")
+        except json.JSONDecodeError:
+            insights = parse_insights_from_text(content)
+        if not isinstance(insights, list):
+            raise Exception("Invalid insights format")
+        return insights
+    except Exception as e:
+        print(f"Error generating insights for full chat: {e}")
+        return [f"Important message: {message_text[:100]}..."]
+
+
 def categorize_memory_to_folders(memory_text, folders):
     """
     Given a memory text and a list of folders (dicts with 'name' and 'description'),
     call the LLM to categorize the memory into one or more folders.
     Returns a list of folder names.
     """
-    provider = os.getenv("LLM_PROVIDER", "claude").lower()
     folder_list_str = "\n".join([
         f"- {f['name']}: {f.get('description', '')}" for f in folders
     ])
@@ -130,33 +164,7 @@ def categorize_memory_to_folders(memory_text, folders):
         folder_list_str=folder_list_str
     )
     try:
-        if provider == "openai":
-            if not os.getenv("OPENAI_API_KEY"):
-                raise Exception("OpenAI API key not configured")
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=200,
-            )
-            content = response.choices[0].message.content
-        elif provider == "claude":
-            if not os.getenv("ANTHROPIC_API_KEY"):
-                raise Exception("Anthropic API key not configured")
-            from anthropic import Anthropic
-            anthropic_client = Anthropic()
-            response = anthropic_client.messages.create(
-                model="claude-3-5-haiku-latest",
-                max_tokens=300,
-                temperature=0.3,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            content = ""
-            for block in response.content:
-                if block.type == "text":
-                    content += block.text
-            content = content.strip()
-        if not content:
-            raise Exception("No response content received")
+        content = call_llm_with_prompt(prompt)
         try:
             folder_names = json.loads(content)
             if not isinstance(folder_names, list):
@@ -182,7 +190,6 @@ def batch_autopopulate_memories_to_folder(folder_name, folder_description, memor
     call the LLM to select which memories should belong to the folder.
     Returns a list of memory IDs.
     """
-    provider = os.getenv("LLM_PROVIDER", "claude").lower()
     memories_list_str = "\n".join([
         f"- ID: {m['id']} | {m['text']}" for m in memories
     ])
@@ -192,33 +199,7 @@ def batch_autopopulate_memories_to_folder(folder_name, folder_description, memor
         memories_list_str=memories_list_str
     )
     try:
-        if provider == "openai":
-            if not os.getenv("OPENAI_API_KEY"):
-                raise Exception("OpenAI API key not configured")
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=200,
-            )
-            content = response.choices[0].message.content
-        elif provider == "claude":
-            if not os.getenv("ANTHROPIC_API_KEY"):
-                raise Exception("Anthropic API key not configured")
-            from anthropic import Anthropic
-            anthropic_client = Anthropic()
-            response = anthropic_client.messages.create(
-                model="claude-3-5-haiku-latest",
-                max_tokens=300,
-                temperature=0.3,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            content = ""
-            for block in response.content:
-                if block.type == "text":
-                    content += block.text
-            content = content.strip()
-        if not content:
-            raise Exception("No response content received")
+        content = call_llm_with_prompt(prompt)
         try:
             id_list = json.loads(content)
             if not isinstance(id_list, list):

@@ -196,71 +196,55 @@ async function addFullChatToLog() {
   }
 
   // Extract text for each message
-  const messageTexts = filtered.map(msg => window.MemoryChatUtils.getMessageText(msg)).filter(Boolean);
+  const messageTexts = filtered
+    .map(msg => {
+      const role = msg.getAttribute('data-message-author-role');
+      const text = window.MemoryChatUtils.getMessageText(msg);
+      return text ? { [role]: text } : null;
+    })
+    .filter(Boolean);
   if (messageTexts.length === 0) {
     if (window.showFeedback) window.showFeedback('No message text found in user/assistant messages.', 'error');
     return;
   }
 
-  // Deduplicate messages
-  const uniqueMessages = Array.from(new Set(messageTexts));
+  // Combine all texts into a single string
+  const text = messageTexts
+    .map(obj => {
+      const [role, text] = Object.entries(obj)[0]; // get the single key-value pair
+      return `${role}: ${text}`;
+    })
+    .join('\n\n');
 
-  // Show progress toast
-  const progressToast = window.MemoryChatUtils.createProgressToast('Adding chat messages to memory...');
-
-  let imported = 0, skipped = 0, processed = 0;
-  const batchSize = 5;
+  const progressToast = window.MemoryChatUtils.createProgressToast('Adding full chat to memory...');
   const userUUID = await getOrCreateUserUUID();
 
-  async function processBatch(startIdx) {
-    if (startIdx >= uniqueMessages.length) {
-      window.MemoryChatUtils.updateProgressToast(progressToast, 1, 1, `Done! Imported ${imported}, skipped ${skipped}.`);
-      setTimeout(() => window.MemoryChatUtils.removeProgressToast(progressToast), 1200);
-      if (window.showFeedback) window.showFeedback(`Added ${imported} new messages, skipped ${skipped} duplicates.`, 'success');
-      if (window.renderStorageTab) window.renderStorageTab();
+  try {
+    const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.MESSAGES}/full-chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: text,
+        timestamp: Date.now(),
+        userUUID: userUUID
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      window.MemoryChatUtils.updateProgressToast(progressToast, 1, 1, 'Failed to add full chat: ' + (err.error || res.statusText));
+      setTimeout(() => window.MemoryChatUtils.removeProgressToast(progressToast), 2000);
+      if (window.showFeedback) window.showFeedback('Failed to add full chat: ' + (err.error || res.statusText), 'error');
       return;
     }
-    const batch = uniqueMessages.slice(startIdx, startIdx + batchSize);
-    try {
-      const promises = batch.map(async (text) => {
-        try {
-          const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.MESSAGES}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              text: text,
-              timestamp: Date.now(),
-              userUUID: userUUID
-            })
-          });
-          if (res.ok) {
-            return { success: true, duplicate: false };
-          } else if (res.status === 409) {
-            return { success: true, duplicate: true };
-          } else {
-            return { success: false, error: res.statusText };
-          }
-        } catch (error) {
-          return { success: false, error: error.message };
-        }
-      });
-      const results = await Promise.all(promises);
-      results.forEach(result => {
-        if (result.success) {
-          if (result.duplicate) skipped++;
-          else imported++;
-        }
-      });
-      processed += batch.length;
-      window.MemoryChatUtils.updateProgressToast(progressToast, processed, uniqueMessages.length, `Processed ${processed} of ${uniqueMessages.length}...`);
-      setTimeout(() => processBatch(startIdx + batchSize), 100);
-    } catch (err) {
-      window.MemoryChatUtils.updateProgressToast(progressToast, 1, 1, 'Error during add: ' + (err && err.message ? err.message : err));
-      setTimeout(() => window.MemoryChatUtils.removeProgressToast(progressToast), 2000);
-      if (window.showFeedback) window.showFeedback('Error during add: ' + (err && err.message ? err.message : err), 'error');
-    }
+    const data = await res.json();
+    window.MemoryChatUtils.updateProgressToast(progressToast, 1, 1, `Added ${data.insertedCount} messages from full chat.`);
+    setTimeout(() => window.MemoryChatUtils.removeProgressToast(progressToast), 2000);
+    if (window.showFeedback) window.showFeedback(`Added ${data.insertedCount} messages from full chat.`, 'success');
+  } catch (err) {
+    window.MemoryChatUtils.updateProgressToast(progressToast, 1, 1, 'Error during add: ' + (err && err.message ? err.message : err));
+    setTimeout(() => window.MemoryChatUtils.removeProgressToast(progressToast), 2000);
+    if (window.showFeedback) window.showFeedback('Error during add: ' + (err && err.message ? err.message : err), 'error');
   }
-  processBatch(0);
 }
 
 /**

@@ -12,7 +12,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from constants import PROMPT, PROMPT_MULTI
 from uuid import uuid4
 from anthropic import Anthropic, HUMAN_PROMPT, AI_PROMPT
-from LLM import generate_insights, categorize_memory_to_folders, batch_autopopulate_memories_to_folder
+from LLM import generate_insights, categorize_memory_to_folders, batch_autopopulate_memories_to_folder, generate_insights_full_chat
 
 # Load environment variables
 load_dotenv()
@@ -137,6 +137,41 @@ def add_memories_bulk():
             "memories": added_memories
         }), 201
         
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/messages/full-chat", methods=["POST"])
+def convert_full_chat_into_memories():
+    """Convert a full chat into one-or-more memories for a user"""
+    try:
+        data = request.json
+        userID = data.get("userUUID")
+        if not userID:
+            return jsonify({"error": "userUUID is required"}), 400
+        get_or_create_user(userID)
+        text = data.get("text", "").strip()
+        if not text:
+            return jsonify({"error": "Message text is required"}), 400
+        # Accept provided insights if present, else extract
+        insights = data.get("insights")
+        if insights is None:
+            insights = generate_insights_full_chat(text)
+        message = {
+            "userID": userID,
+            "text": text,
+            "insights": insights,
+            "timestamp": datetime.now().isoformat(),
+        }
+        result = messages_collection.insert_one(message)
+        message_id = str(result.inserted_id)
+        message["_id"] = message_id
+        # Auto-categorize the new message
+        auto_categorize_single_memory(userID, message_id)
+        return (
+            jsonify({"message": "Message created successfully", "id": message_id}),
+            201,
+        )
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
