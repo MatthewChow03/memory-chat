@@ -200,14 +200,16 @@ async function showFolderSelector(messageElement) {
     z-index: 10001;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     border: 1px solid #e1e5e9;
+    display: flex;
+    flex-direction: column;
   `;
 
   let popupHTML = `
-    <div style="padding: 20px; border-bottom: 1px solid #e1e5e9; display: flex; justify-content: space-between; align-items: center;">
+    <div style="padding: 20px; border-bottom: 1px solid #e1e5e9; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
       <h3 style="margin: 0; color: #1a1a1a; font-size: 18px;">Add to Folder</h3>
       <button id="memory-chat-folder-close" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #666;">×</button>
     </div>
-    <div style="padding: 20px;">
+    <div style="padding: 20px; overflow-y: auto; flex: 1; max-height: 400px;">
   `;
 
   if (folders.length === 0) {
@@ -256,11 +258,14 @@ function setupFolderPopupEventHandlers(popup, messageElement, folders) {
     createBtn.onclick = async () => {
       const folderName = prompt('Enter folder name:');
       if (folderName && folderName.trim()) {
+        const folderDescription = prompt('Enter a description for this folder (optional, 1 line):') || '';
+        let autoPopulate = false;
+        autoPopulate = confirm('Do you want to auto-populate this folder?');
         try {
-          const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}`, {
+          const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/folders`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: folderName.trim(), userUUID: await getOrCreateUserUUID() })
+            body: JSON.stringify({ name: folderName.trim(), description: folderDescription.trim(), userUUID: await getOrCreateUserUUID(), autoPopulate })
           });
           if (!res.ok) throw new Error('Failed to create folder');
 
@@ -354,14 +359,16 @@ async function showFolderSelectorForStorage(messageId) {
     z-index: 10001;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     border: 1px solid #e1e5e9;
+    display: flex;
+    flex-direction: column;
   `;
 
   let popupHTML = `
-    <div style="padding: 20px; border-bottom: 1px solid #e1e5e9; display: flex; justify-content: space-between; align-items: center;">
+    <div style="padding: 20px; border-bottom: 1px solid #e1e5e9; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
       <h3 style="margin: 0; color: #1a1a1a; font-size: 18px;">Add Memory to Folder</h3>
       <button id="memory-chat-folder-close" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #666;">×</button>
     </div>
-    <div style="padding: 20px;">
+    <div style="padding: 20px; overflow-y: auto; flex: 1; max-height: 400px;">
   `;
 
   if (folders.length === 0) {
@@ -457,11 +464,14 @@ function setupFolderPopupEventHandlersForStorage(popup, messageId, folders) {
   popup.querySelector('#create-folder-from-popup').onclick = async () => {
     const folderName = prompt('Enter folder name:');
     if (folderName && folderName.trim()) {
+      const folderDescription = prompt('Enter a description for this folder (optional, 1 line):') || '';
+      let autoPopulate = false;
+      autoPopulate = confirm('Do you want to auto-populate this folder?');
       try {
-        const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}`, {
+        const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/folders`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: folderName.trim(), userUUID: await getOrCreateUserUUID() })
+          body: JSON.stringify({ name: folderName.trim(), description: folderDescription.trim(), userUUID: await getOrCreateUserUUID(), autoPopulate })
         });
         if (!res.ok) throw new Error('Failed to create folder');
 

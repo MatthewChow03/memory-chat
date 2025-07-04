@@ -797,20 +797,6 @@ function renderSettingsTab(tabContent) {
 
 // Setup folder event handlers
 function setupFolderEventHandlers(tabContent, folders) {
-  // Create folder button
-  const createBtn = tabContent.querySelector('#create-folder-btn');
-  if (createBtn) {
-    createBtn.onclick = async () => {
-      const folderName = prompt('Enter folder name:');
-      if (folderName && folderName.trim()) {
-        if (window.memoryChatIDB && window.memoryChatIDB.addOrUpdateFolder) {
-          await window.memoryChatIDB.addOrUpdateFolder(folderName.trim(), []);
-          if (window.renderTab) window.renderTab();
-        }
-      }
-    };
-  }
-
   // Folder click to view contents
   tabContent.querySelectorAll('.folder-item').forEach(item => {
     item.onclick = (e) => {

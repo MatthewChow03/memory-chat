@@ -60,11 +60,6 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
 // Handle messages from content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === 'LOG_MESSAGE') {
-    if (window.memoryChatIDB && window.memoryChatIDB.addMessages) {
-      window.memoryChatIDB.addMessages([{ text: message.text, timestamp: Date.now() }]);
-    }
-  }
   // Handle request to start new chat with insight
   if (message.type === 'START_NEW_CHAT_WITH_INSIGHT') {
     // Get the current active tab and navigate to new chat

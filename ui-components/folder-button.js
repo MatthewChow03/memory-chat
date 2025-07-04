@@ -235,11 +235,14 @@ async function showFolderSelector(messageElement) {
   popup.querySelector('#create-folder-from-popup').onclick = async () => {
     const folderName = prompt('Enter folder name:');
     if (folderName && folderName.trim()) {
+      const folderDescription = prompt('Enter a description for this folder (optional, 1 line):') || '';
+      let autoPopulate = false;
+      autoPopulate = confirm('Do you want to auto-populate this folder?');
       try {
-        const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}`, {
+        const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/folders`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: folderName.trim(), userUUID: await getOrCreateUserUUID() })
+          body: JSON.stringify({ name: folderName.trim(), description: folderDescription.trim(), userUUID: await getOrCreateUserUUID(), autoPopulate })
         });
 
         if (res.ok) {

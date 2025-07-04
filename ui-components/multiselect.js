@@ -431,11 +431,14 @@ async function showInsightFolderSelector(insightText) {
     createBtn.onclick = async () => {
       const folderName = prompt('Enter folder name:');
       if (folderName && folderName.trim()) {
+        const folderDescription = prompt('Enter a description for this folder (optional, 1 line):') || '';
+        let autoPopulate = false;
+        autoPopulate = confirm('Do you want to auto-populate this folder?');
         try {
-          const res = await fetch(`${window.SERVER_CONFIG?.BASE_URL || 'http://localhost:3000'}${window.SERVER_CONFIG?.API_ENDPOINTS?.FOLDERS || '/api/folders'}`, {
+          const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/folders`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: folderName.trim(), userUUID })
+            body: JSON.stringify({ name: folderName.trim(), description: folderDescription.trim(), userUUID: await getOrCreateUserUUID(), autoPopulate })
           });
           if (!res.ok) throw new Error('Failed to create folder');
           popup.remove();
