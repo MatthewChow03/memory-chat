@@ -468,9 +468,9 @@ def search_messages():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/api/clear-all", methods=["POST"])
+@app.route("/api/clear-all-messages", methods=["POST"])
 def clear_all_user_data():
-    """Delete all messages and folders for a user"""
+    """Delete all messages for a user"""
     try:
         data = request.json
         userID = data.get("userUUID")
@@ -478,15 +478,15 @@ def clear_all_user_data():
             return jsonify({"error": "userUUID is required"}), 400
         # Delete all messages for this user
         msg_result = messages_collection.delete_many({"userID": userID})
-        # Clear all folders for this user
+        # Delete all messages from all folders for this user
         user = get_or_create_user(userID)
         folders = user.get("folders", [])
-        folder_count = len(folders)
-        update_user_folders(userID, [])
+        for folder in folders:
+            folder["messages"] = []
+        update_user_folders(userID, folders)
         return jsonify({
-            "message": "All messages and folders deleted successfully",
+            "message": "All messages deleted successfully",
             "deletedMessages": msg_result.deleted_count,
-            "deletedFolders": folder_count
         }), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500

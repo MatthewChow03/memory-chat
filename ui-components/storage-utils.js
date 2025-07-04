@@ -249,16 +249,16 @@ async function addFullChatToLog() {
 
 /**
  * Clear all logs and folders for the current user after confirmation.
- * Calls the backend /api/clear-all endpoint.
+ * Calls the backend /api/clear-all-messages endpoint.
 */
 async function clearAllLogs() {
   if (!confirm('Are you sure you want to delete ALL your messages and folders? This cannot be undone.')) {
     return;
   }
-  const progressToast = window.MemoryChatUtils.createProgressToast('Clearing all logs and folders...');
+  const progressToast = window.MemoryChatUtils.createProgressToast('Clearing all messages...');
   try {
     const userUUID = await getOrCreateUserUUID();
-    const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/clear-all`, {
+    const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/clear-all-messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userUUID })
@@ -266,7 +266,7 @@ async function clearAllLogs() {
     window.MemoryChatUtils.removeProgressToast(progressToast);
     if (res.ok) {
       const data = await res.json();
-      if (window.showFeedback) window.showFeedback(`Deleted ${data.deletedMessages} messages and ${data.deletedFolders} folders.`, 'success');
+      if (window.showFeedback) window.showFeedback(`Deleted ${data.deletedMessages} messages.`, 'success');
       if (window.renderStorageTab) window.renderStorageTab();
     } else {
       const err = await res.json();
