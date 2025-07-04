@@ -98,7 +98,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 }).catch(error => {
                   console.error('Failed to send message to tab after navigation:', error);
                 });
-              }, 1500);
+              }, 1000);
             }
           }
           chrome.tabs.onUpdated.addListener(handleTabUpdate);

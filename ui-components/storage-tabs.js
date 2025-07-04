@@ -1,12 +1,13 @@
 // Storage Tabs Module
 // Handles tab management, rendering, and tab-specific content
 
-let activeTab = 'relevant';
-window.activeTab = activeTab;
+if (typeof window.activeTab === 'undefined') {
+  window.activeTab = 'relevant';
+}
 
 // Set active tab and re-render
 function setActiveTab(tab) {
-  activeTab = tab;
+  window.activeTab = tab;
 
   // Reset pagination when switching tabs
   window.currentPage = 1;
@@ -113,17 +114,17 @@ async function renderTab() {
     setTimeout(attachStorageListeners, 0);
   }
 
-  if (activeTab === 'relevant') {
+  if (window.activeTab === 'relevant') {
     renderRelevantTab(tabContent, logs, renderCardsWithPagination);
-  } else if (activeTab === 'recent') {
+  } else if (window.activeTab === 'recent') {
     renderRecentTab(tabContent, logs, renderCardsWithPagination);
-  } else if (activeTab === 'all') {
+  } else if (window.activeTab === 'all') {
     renderAllTab(tabContent, logs, renderCardsWithPagination);
-  } else if (activeTab === 'search') {
+  } else if (window.activeTab === 'search') {
     renderSearchTab(tabContent, logs, renderCardsWithPagination);
-  } else if (activeTab === 'folders') {
+  } else if (window.activeTab === 'folders') {
     renderFoldersTab(tabContent);
-  } else if (activeTab === 'settings') {
+  } else if (window.activeTab === 'settings') {
     renderSettingsTab(tabContent);
   }
 
@@ -862,7 +863,7 @@ function setupLiveUpdates() {
   if (prompt) {
     prompt.addEventListener('input', () => {
       const storageUI = document.getElementById('memory-chat-storage');
-      if (storageUI && storageUI.style.display !== 'none' && activeTab === 'relevant') {
+      if (storageUI && storageUI.style.display !== 'none' && window.activeTab === 'relevant') {
         renderTab();
       }
     });

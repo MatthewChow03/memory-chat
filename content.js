@@ -77,19 +77,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'START_NEW_CHAT_INJECT_INSIGHT') {
     // Wait for the prompt box to be available
     function tryInject() {
-      // Try both textarea and contenteditable (ChatGPT may use either)
-      const promptBox = document.querySelector('form textarea, form [contenteditable]');
+      // Only target .ProseMirror for contenteditable prompt
+      const promptBox = document.querySelector('.ProseMirror');
       if (promptBox) {
-        if (promptBox.tagName.toLowerCase() === 'textarea') {
-          promptBox.value = message.insight;
-          promptBox.dispatchEvent(new Event('input', { bubbles: true }));
+        const preface = 'Here is a useful memory for this conversation:';
+        let current = promptBox.innerText.trim();
+        let newText = '';
+        if (current.includes(preface)) {
+          // If preface already exists, add as new memory with separator
+          newText = current + `\n---\n${message.insight}`;
         } else {
-          // For contenteditable
-          promptBox.innerText = message.insight;
-          promptBox.dispatchEvent(new Event('input', { bubbles: true }));
+          // Add preface and first memory
+          newText = (current ? current + '\n\n' : '') + preface + '\n\n---\n' + message.insight;
         }
-        // Optionally scroll into view and focus
         promptBox.focus();
+        promptBox.innerHTML = '';
+        // Convert newlines to <br> tags and insert as HTML to preserve formatting
+        const formattedText = newText.replace(/\n/g, '<br>');
+        promptBox.innerHTML = formattedText;
+        // Move cursor to end
+        const range = document.createRange();
+        const selection = window.getSelection();
+        range.selectNodeContents(promptBox);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
         return true;
       }
       return false;
