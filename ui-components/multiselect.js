@@ -199,64 +199,91 @@
   // Export for use in content script or other UI logic
   window.addMultiSelectCircles = addMultiSelectCircles;
 
-  // Floating Extract Insights button logic
-  function addExtractInsightsButton() {
-    // Remove button if no messages are selected
+  // Button group logic above ChatGPT prompt input
+  function addExtractInsightsButtonGroup() {
+    // Remove button group if no messages are selected
     const count = window.memoryChatSelectedMessages.size;
-    const existingBtn = document.getElementById('memory-chat-extract-insights-btn');
+    const existingGroup = document.getElementById('memory-chat-extract-insights-group');
     if (count === 0) {
-      if (existingBtn) existingBtn.remove();
+      if (existingGroup) existingGroup.remove();
       return;
     }
-    // Check if button already exists
-    if (existingBtn) return;
+    // Check if group already exists
+    if (existingGroup) return;
 
     // Find the ChatGPT input box (composer)
-    const composer = document.querySelector('form textarea, form [contenteditable]');
-    if (!composer) return;
+    const composerForm = document.querySelector('form[aria-label="Message Composer"]');
+    if (!composerForm) return;
 
-    // Create the button
-    const btn = document.createElement('button');
-    btn.id = 'memory-chat-extract-insights-btn';
-    btn.textContent = 'Extract Insights';
-    btn.style.cssText = `
-      position: fixed;
-      right: 32px;
-      bottom: 96px;
+    // Create the button group container
+    const group = document.createElement('div');
+    group.id = 'memory-chat-extract-insights-group';
+    group.style.cssText = `
+      display: flex;
+      flex-direction: row;
+      gap: 8px;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 6px;
+      width: 100%;
       z-index: 10010;
-      padding: 14px 28px;
-      background: linear-gradient(90deg, #b2f7ef 0%, #c2f7cb 100%);
-      color: #1a1a1a;
-      border: none;
-      border-radius: 12px;
-      font-size: 18px;
-      font-weight: bold;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+    `;
+
+    // Extract Insights button
+    const extractBtn = document.createElement('button');
+    extractBtn.id = 'memory-chat-extract-insights-btn';
+    extractBtn.textContent = 'Extract Insights';
+    extractBtn.style.cssText = `
+      padding: 6px 14px;
+      background: #fff;
+      color: #111;
+      border: 1px solid #e1e5e9;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
       cursor: pointer;
       opacity: 0.92;
       transition: background 0.2s, color 0.2s, opacity 0.2s;
-      display: block;
     `;
-    btn.disabled = true;
-    btn.style.opacity = '0.5';
+    extractBtn.disabled = true;
+    extractBtn.style.opacity = '0.5';
+
+    // Deselect All button
+    const deselectBtn = document.createElement('button');
+    deselectBtn.id = 'memory-chat-deselect-all-btn';
+    deselectBtn.textContent = 'Deselect All';
+    deselectBtn.style.cssText = `
+      padding: 6px 14px;
+      background: #fff;
+      color: #111;
+      border: 1px solid #e1e5e9;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      cursor: pointer;
+      opacity: 0.92;
+      transition: background 0.2s, color 0.2s, opacity 0.2s;
+    `;
 
     // Enable/disable based on selection
     function updateButtonState() {
       const count = window.memoryChatSelectedMessages.size;
       if (count === 0) {
-        btn.remove();
+        group.remove();
         return;
       }
-      btn.disabled = count === 0;
-      btn.style.opacity = count === 0 ? '0.5' : '0.92';
+      extractBtn.disabled = count === 0;
+      extractBtn.style.opacity = count === 0 ? '0.5' : '0.92';
     }
     window.addEventListener('memoryChatSelectionChanged', updateButtonState);
     updateButtonState();
 
-    // Button click: open modal and handle all actions
-    btn.onclick = async (e) => {
+    // Extract Insights button click (reuse existing logic)
+    extractBtn.onclick = async (e) => {
       e.preventDefault();
-      if (btn.disabled) return;
+      if (extractBtn.disabled) return;
       // Gather selected messages' text
       const selected = Array.from(window.memoryChatSelectedMessages);
       const messageTexts = selected.map(msg => {
@@ -459,13 +486,40 @@
       };
     };
 
-    document.body.appendChild(btn);
+    // Deselect All button click
+    deselectBtn.onclick = () => {
+      window.memoryChatSelectedMessages.forEach(msg => {
+        // Uncheck the checkbox and update visual state
+        const checkbox = msg.querySelector('.memory-chat-multiselect-checkbox');
+        const visual = msg.querySelector('.memory-chat-multiselect-custombox');
+        const checkSvg = visual && visual.querySelector('svg');
+        if (checkbox) {
+          checkbox.checked = false;
+          checkbox.setAttribute('aria-checked', 'false');
+        }
+        if (visual) {
+          visual.style.borderColor = '#b2f7ef';
+          visual.style.background = '#fff';
+        }
+        if (checkSvg) {
+          checkSvg.style.display = 'none';
+        }
+      });
+      window.memoryChatSelectedMessages.clear();
+      window.dispatchEvent(new CustomEvent('memoryChatSelectionChanged'));
+    };
+
+    group.appendChild(extractBtn);
+    group.appendChild(deselectBtn);
+
+    // Insert the button group above the composer input
+    composerForm.parentNode.insertBefore(group, composerForm);
   }
 
-  // Auto-initialize the button on script load
-  addExtractInsightsButton();
+  // Auto-initialize the button group on script load
+  addExtractInsightsButtonGroup();
   // Also re-add if DOM changes (in case of navigation)
-  window.addEventListener('memoryChatSelectionChanged', addExtractInsightsButton);
+  window.addEventListener('memoryChatSelectionChanged', addExtractInsightsButtonGroup);
 })();
 
 // Helper to simulate async delay (for demo purposes)
@@ -573,7 +627,7 @@ async function showInsightFolderSelector(insightText) {
           const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/folders`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: folderName.trim(), description: folderDescription.trim(), userUUID: await getOrCreateUserUUID(), autoPopulate })
+            body: JSON.stringify({ name: folderName.trim(), description: folderDescription.trim(), userUUID: await getUserUUID(), autoPopulate })
           });
           if (!res.ok) throw new Error('Failed to create folder');
           popup.remove();
