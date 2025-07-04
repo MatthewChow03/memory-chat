@@ -75,7 +75,7 @@ def create_message():
             "userID": userID,
             "text": message_text,
             "insights": insights,
-            "timestamp": data.get("timestamp", datetime.now().isoformat()),
+            "timestamp": datetime.now().isoformat(),
         }
         result = messages_collection.insert_one(message)
         message_id = str(result.inserted_id)
@@ -86,6 +86,57 @@ def create_message():
             jsonify({"message": "Message created successfully", "id": message_id}),
             201,
         )
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/memories/bulk", methods=["POST"])
+def add_memories_bulk():
+    """Add multiple pre-processed memories directly to the database"""
+    try:
+        data = request.json
+        userID = data.get("userUUID")
+        memories = data.get("memories", [])
+        
+        if not userID:
+            return jsonify({"error": "userUUID is required"}), 400
+        if not memories or not isinstance(memories, list):
+            return jsonify({"error": "memories array is required"}), 400
+        
+        get_or_create_user(userID)
+        added_memories = []
+        
+        for memory_text in memories:
+            if not memory_text or not memory_text.strip():
+                continue
+                
+            # Since these are pre-processed memories, we'll use the text as both text and insights
+            # The insights field will contain the processed memory content
+            message = {
+                "userID": userID,
+                "text": memory_text.strip(),
+                "insights": memory_text.strip(),
+                "timestamp": datetime.now().isoformat(),
+            }
+            
+            result = messages_collection.insert_one(message)
+            message_id = str(result.inserted_id)
+            message["_id"] = message_id
+            
+            # Auto-categorize the new memory
+            auto_categorize_single_memory(userID, message_id)
+            
+            added_memories.append({
+                "id": message_id,
+                "text": memory_text.strip()
+            })
+        
+        return jsonify({
+            "message": f"Successfully added {len(added_memories)} memories",
+            "added_count": len(added_memories),
+            "memories": added_memories
+        }), 201
+        
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -279,7 +330,7 @@ def add_message_to_folder(folder_id):
                 "userID": userID,
                 "text": message_text,
                 "insights": insights,
-                "timestamp": data.get("timestamp", datetime.now().isoformat()),
+                "timestamp": datetime.now().isoformat(),
             }
             result = messages_collection.insert_one(message)
             message_id = str(result.inserted_id)

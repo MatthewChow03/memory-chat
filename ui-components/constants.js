@@ -8,6 +8,7 @@ const SERVER_CONFIG = {
         MESSAGES: '/api/messages',
         FOLDERS: '/api/folders',
         SEARCH: '/api/search',
-        HEALTH: '/health'
+        HEALTH: '/health',
+        MEMORIES_BULK: '/api/memories/bulk'
     }
 };

@@ -39,6 +39,7 @@
         "ui-components/storage-tabs.js",
         "ui-components/storage-ui.js",
         "ui-components/storage-button.js",
+        "ui-components/sync-button.js",
         "ui-components/message-buttons.js",
         "ui-components/folder-button.js",
         "ui-components/constants.js",

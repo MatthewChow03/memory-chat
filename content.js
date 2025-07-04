@@ -15,6 +15,11 @@ function addLogButtonsAndInitialize() {
     window.addStorageButton();
   }
 
+  // Add sync button to the target div
+  if (window.addSyncButton) {
+    window.addSyncButton();
+  }
+
   // Initialize storage system if not already done
   if (window.initializeStorageSystem && !document.getElementById('memory-chat-storage')) {
     window.initializeStorageSystem();
