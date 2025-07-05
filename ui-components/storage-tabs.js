@@ -477,7 +477,7 @@ async function renderFoldersTab(tabContent) {
           if (!res.ok) throw new Error('Failed to create folder');
           renderFoldersTab(tabContent);
         } catch (error) {
-          tabContent.innerHTML = `<div style=\\\"text-align:center;color:#ff6b6b;padding:20px;\\\">Error creating folder: ${error.message}</div>`;
+          tabContent.innerHTML = `<div style=\\"text-align:center;color:#ff6b6b;padding:20px;\\\">Error creating folder: ${error.message}</div>`;
         }
       }
     };
@@ -524,7 +524,7 @@ async function renderFoldersTab(tabContent) {
           if (!res.ok) throw new Error('Failed to create folder');
           renderFoldersTab(tabContent);
         } catch (error) {
-          tabContent.innerHTML = `<div style=\\\"text-align:center;color:#ff6b6b;padding:20px;\\\">Error creating folder: ${error.message}</div>`;
+          tabContent.innerHTML = `<div style=\\"text-align:center;color:#ff6b6b;padding:20px;\\\">Error creating folder: ${error.message}</div>`;
         }
       }
     };
@@ -536,7 +536,7 @@ async function renderFoldersTab(tabContent) {
         const folderName = btn.dataset.folder;
         if (confirm(`Delete folder '${folderName}'? This cannot be undone.`)) {
           try {
-            const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/folders/delete`, {
+            const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.FOLDERS}/delete`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ id: folderId, userUUID: await getOrCreateUserUUID() })
@@ -554,7 +554,7 @@ async function renderFoldersTab(tabContent) {
 
 // Render settings tab content
 function renderSettingsTab(tabContent) {
-  // Add theme toggle button
+  // Add theme toggle button (REMOVED, now in sidebar)
   chrome.storage.local.get({ storageTheme: 'light' }, (result) => {
     const isDark = result.storageTheme === 'dark';
 
@@ -574,9 +574,8 @@ function renderSettingsTab(tabContent) {
       <button id="auto-categorize-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#2e3a4a' : '#b2c7f7'};border:none;border-radius:10px;color:${isDark ? '#fff' : '#222'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;">Auto-Categorize Memories</button>
       <div id="auto-categorize-status" style="margin-bottom:16px;font-size:14px;color:${isDark ? '#b2f7ef' : '#007bff'}"></div>
       <div style="margin: 32px 0 16px 0; padding: 16px; background:${isDark ? '#2a2e36' : '#f8f9fa'}; border-radius: 12px; border: 1px solid ${isDark ? '#444a58' : '#e1e5e9'};">
-        <div style="margin-bottom: 16px; font-weight: bold; font-size: 18px; color:${isDark ? '#b2b8c2' : '#666'}
+        <div style="margin-bottom: 16px; font-weight: bold; font-size: 18px; color:${isDark ? '#b2b8c2' : '#666'}"></div>
         <div style="padding: 10px 20px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid #e1e5e9;">Buttons all functional for testing</div>
-        <button id="theme-toggle-btn" style="display:block;margin:0 0 16px 0;padding:10px 28px;background:${isDark ? '#555' : '#ccc'};border:none;border-radius:10px;color:${isDark ? '#aaa' : '#666'};font-weight:bold;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;font-size:16px;text-align:left;opacity:0.6;">Switch to ${isDark ? 'Light' : 'Dark'} Mode</button>
         <div style="margin: 24px 0 0 0;">
           <div style="margin-bottom:8px;font-weight:bold;">Import ChatGPT conversations.json</div>
           <label for="import-chatgpt-json" id="import-chatgpt-label" style="display:inline-block;padding:18px 32px;background:${isDark ? '#23272f' : '#f4f6fa'};border-radius:12px;text-align:center;cursor:pointer;font-size:17px;color:${isDark ? '#b2f7ef' : '#007bff'};font-weight:bold;border:1.5px solid ${isDark ? '#b2f7ef' : '#b2c7f7'};transition:background 0.2s;">
@@ -623,16 +622,7 @@ function renderSettingsTab(tabContent) {
       }
     };
 
-    // Theme toggle logic
-    const themeBtn = tabContent.querySelector('#theme-toggle-btn');
-    themeBtn.onclick = () => {
-      const newTheme = isDark ? 'light' : 'dark';
-      chrome.storage.local.set({ storageTheme: newTheme }, () => {
-        if (window.applyStorageTheme) window.applyStorageTheme();
-        // Re-render settings tab to update button label
-        renderSettingsTab(tabContent);
-      });
-    };
+    // (REMOVED theme toggle logic here)
 
     // Import ChatGPT JSON logic
     let importedMessages = [];
