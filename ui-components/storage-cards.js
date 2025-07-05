@@ -8,37 +8,140 @@ function renderLogCard(log, idx) {
   const storageUI = document.getElementById('memory-chat-storage');
   const isDark = storageUI && storageUI.classList.contains('memory-chat-dark');
   card.className = 'storage-card';
-  card.style.background = isDark ? '#2c2f36' : '#f8f9fa';
-  card.style.border = isDark ? '1px solid #444a58' : '1px solid #e1e5e9';
-  card.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)';
-  card.style.borderRadius = '12px';
+  card.style.background = isDark ? '#23272f' : '#fff';
+  card.style.border = isDark ? '1.5px solid #2c2f36' : '1.5px solid #e1e5e9';
+  card.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)';
+  card.style.borderRadius = '16px';
   card.style.margin = '18px 0';
-  card.style.padding = '20px 24px';
+  card.style.padding = '22px 28px';
   card.style.fontSize = '15px';
-  card.style.lineHeight = '1.5';
+  card.style.lineHeight = '1.6';
   card.style.wordBreak = 'break-word';
   card.style.display = 'flex';
   card.style.alignItems = 'flex-start';
   card.style.gap = '18px';
   card.style.position = 'relative';
-  card.style.transition = 'opacity 0.2s';
+  card.style.transition = 'box-shadow 0.18s, border 0.18s, background 0.18s, opacity 0.2s';
+  card.onmouseenter = () => {
+    card.style.boxShadow = '0 4px 20px rgba(0,0,0,0.10)';
+    card.style.border = isDark ? '1.5px solid #b2f7ef' : '1.5px solid #b2f7ef';
+  };
+  card.onmouseleave = () => {
+    card.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)';
+    card.style.border = isDark ? '1.5px solid #2c2f36' : '1.5px solid #e1e5e9';
+  };
 
   // Use MongoDB _id for the card
   const messageId = log._id;
   card.setAttribute('data-message-id', messageId);
 
-  // Checkbox for multi-select
+  // Checkbox for multi-select - using same approach as multiselect component
+  const checkboxWrapper = document.createElement('div');
+  checkboxWrapper.className = 'storage-card-checkbox-wrapper';
+  checkboxWrapper.style.margin = '6px 16px 0 0';
+  checkboxWrapper.style.position = 'relative';
+  checkboxWrapper.style.width = '20px';
+  checkboxWrapper.style.height = '20px';
+  checkboxWrapper.style.cursor = 'pointer';
+
+  // Hidden native checkbox
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
   checkbox.className = 'storage-card-checkbox';
-  checkbox.style.margin = '6px 12px 0 0';
-  checkbox.style.width = '18px';
-  checkbox.style.height = '18px';
+  checkbox.style.opacity = '0';
+  checkbox.style.width = '20px';
+  checkbox.style.height = '20px';
+  checkbox.style.margin = '0';
+  checkbox.style.position = 'absolute';
+  checkbox.style.left = '0';
+  checkbox.style.top = '0';
+  checkbox.style.cursor = 'pointer';
+  checkbox.style.zIndex = '2';
   checkbox.checked = window.selectedCards && window.selectedCards[messageId];
-  checkbox.onclick = (e) => {
+
+  // Custom visual checkbox
+  const visualCheckbox = document.createElement('span');
+  visualCheckbox.className = 'storage-card-visual-checkbox';
+  visualCheckbox.style.display = 'block';
+  visualCheckbox.style.width = '20px';
+  visualCheckbox.style.height = '20px';
+  visualCheckbox.style.border = '2px solid #b2f7ef';
+  visualCheckbox.style.borderRadius = '6px';
+  visualCheckbox.style.background = '#fff';
+  visualCheckbox.style.transition = 'border-color 0.2s, background 0.2s';
+  visualCheckbox.style.position = 'relative';
+  visualCheckbox.style.zIndex = '1';
+
+  // SVG checkmark (hidden by default)
+  const checkSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  checkSvg.setAttribute('width', '16');
+  checkSvg.setAttribute('height', '16');
+  checkSvg.setAttribute('viewBox', '0 0 16 16');
+  checkSvg.style.display = 'none';
+  checkSvg.style.position = 'absolute';
+  checkSvg.style.top = '50%';
+  checkSvg.style.left = '50%';
+  checkSvg.style.transform = 'translate(-50%, -50%)';
+  checkSvg.style.pointerEvents = 'none';
+  checkSvg.innerHTML = '<polyline points="3 8 7 12 13 4" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+
+  // Set initial state
+  if (checkbox.checked) {
+    visualCheckbox.style.borderColor = '#1a73e8';
+    visualCheckbox.style.background = '#1a73e8';
+    checkSvg.style.display = 'block';
+  }
+
+  // Click handler
+  checkboxWrapper.onclick = (e) => {
+    e.stopPropagation();
     if (!window.selectedCards) window.selectedCards = {};
+    
+    checkbox.checked = !checkbox.checked;
     window.selectedCards[messageId] = checkbox.checked;
+    
+    if (checkbox.checked) {
+      visualCheckbox.style.borderColor = '#1a73e8';
+      visualCheckbox.style.background = '#1a73e8';
+      checkSvg.style.display = 'block';
+    } else {
+      visualCheckbox.style.borderColor = '#b2f7ef';
+      visualCheckbox.style.background = '#fff';
+      checkSvg.style.display = 'none';
+    }
   };
+
+  // Sync visual state with checkbox
+  checkbox.onchange = () => {
+    if (checkbox.checked) {
+      visualCheckbox.style.borderColor = '#1a73e8';
+      visualCheckbox.style.background = '#1a73e8';
+      checkSvg.style.display = 'block';
+    } else {
+      visualCheckbox.style.borderColor = '#b2f7ef';
+      visualCheckbox.style.background = '#fff';
+      checkSvg.style.display = 'none';
+    }
+  };
+
+  // Add hover effects
+  checkboxWrapper.onmouseenter = () => {
+    if (!checkbox.checked) {
+      visualCheckbox.style.borderColor = '#1a73e8';
+      visualCheckbox.style.background = '#f8f9fa';
+    }
+  };
+
+  checkboxWrapper.onmouseleave = () => {
+    if (!checkbox.checked) {
+      visualCheckbox.style.borderColor = '#b2f7ef';
+      visualCheckbox.style.background = '#fff';
+    }
+  };
+
+  visualCheckbox.appendChild(checkSvg);
+  checkboxWrapper.appendChild(checkbox);
+  checkboxWrapper.appendChild(visualCheckbox);
 
   // Main content (text)
   const insights = log.insights || log.text;
@@ -52,6 +155,8 @@ function renderLogCard(log, idx) {
   textDiv.style.whiteSpace = 'pre-line';
   textDiv.textContent = insightsText;
   textDiv.style.color = isDark ? '#f3f6fa' : '#1a1a1a';
+  textDiv.style.fontWeight = '500';
+  textDiv.style.fontSize = '15px';
 
   // Show More logic
   const messageLines = insightsText.split('\n').length;
@@ -62,7 +167,7 @@ function renderLogCard(log, idx) {
     textDiv.style.webkitBoxOrient = 'vertical';
     textDiv.style.overflow = 'hidden';
     textDiv.style.textOverflow = 'ellipsis';
-    textDiv.style.maxHeight = '5.6em';
+    textDiv.style.maxHeight = '6.2em';
   }
 
   // Footer (timestamp + show more/less + similarity score)
@@ -70,18 +175,18 @@ function renderLogCard(log, idx) {
   footerDiv.style.display = 'flex';
   footerDiv.style.alignItems = 'center';
   footerDiv.style.justifyContent = 'space-between';
-  footerDiv.style.marginTop = '12px';
+  footerDiv.style.marginTop = '16px';
 
   // Left side: timestamp and similarity score
   const leftFooter = document.createElement('div');
   leftFooter.style.display = 'flex';
   leftFooter.style.alignItems = 'center';
-  leftFooter.style.gap = '12px';
+  leftFooter.style.gap = '14px';
 
   // Timestamp
   const ts = document.createElement('div');
-  ts.style.color = isDark ? '#aaa' : '#888';
-  ts.style.fontSize = '12px';
+  ts.style.color = isDark ? '#b2b8c2' : '#888';
+  ts.style.fontSize = '13px';
   ts.textContent = new Date(log.timestamp).toLocaleString();
   leftFooter.appendChild(ts);
 
@@ -90,11 +195,11 @@ function renderLogCard(log, idx) {
     const score = log.similarity !== undefined ? log.similarity : log.score;
     const scoreDiv = document.createElement('div');
     scoreDiv.style.color = isDark ? '#b2f7ef' : '#007bff';
-    scoreDiv.style.fontSize = '12px';
+    scoreDiv.style.fontSize = '13px';
     scoreDiv.style.fontWeight = 'bold';
-    scoreDiv.style.padding = '2px 8px';
+    scoreDiv.style.padding = '2px 10px';
     scoreDiv.style.background = isDark ? '#2e4a3a' : '#e6f7e6';
-    scoreDiv.style.borderRadius = '6px';
+    scoreDiv.style.borderRadius = '8px';
     scoreDiv.textContent = `Score: ${(score * 100).toFixed(1)}%`;
     leftFooter.appendChild(scoreDiv);
   }
@@ -107,10 +212,11 @@ function renderLogCard(log, idx) {
   showBtn.style.border = 'none';
   showBtn.style.color = isDark ? '#7ab7ff' : '#007bff';
   showBtn.style.cursor = 'pointer';
-  showBtn.style.fontSize = '13px';
-  showBtn.style.padding = '4px 8px';
-  showBtn.style.borderRadius = '4px';
+  showBtn.style.fontSize = '14px';
+  showBtn.style.padding = '4px 10px';
+  showBtn.style.borderRadius = '6px';
   showBtn.style.fontWeight = 'bold';
+  showBtn.style.transition = 'background 0.15s, color 0.15s;';
   const shouldShowButton = messageLines > 4 || insightsText.length > 200;
   showBtn.style.display = shouldShowButton ? 'inline-block' : 'none';
   let expanded = false;
@@ -132,7 +238,7 @@ function renderLogCard(log, idx) {
       textDiv.style.webkitLineClamp = '4';
       textDiv.style.overflow = 'hidden';
       textDiv.style.textOverflow = 'ellipsis';
-      textDiv.style.maxHeight = '5.6em';
+      textDiv.style.maxHeight = '6.2em';
       showBtn.textContent = 'Show more';
     }
   };
@@ -144,32 +250,34 @@ function renderLogCard(log, idx) {
   const menuContainer = document.createElement('div');
   menuContainer.className = 'storage-card-menu-container';
   menuContainer.style.position = 'relative';
-  menuContainer.style.marginLeft = '12px';
+  menuContainer.style.marginLeft = '16px';
 
   const menuBtn = document.createElement('button');
   menuBtn.className = 'storage-card-menu-btn';
   menuBtn.innerHTML = '&#8942;'; // vertical ellipsis
   menuBtn.style.background = 'none';
   menuBtn.style.border = 'none';
-  menuBtn.style.fontSize = '22px';
+  menuBtn.style.fontSize = '24px';
   menuBtn.style.color = isDark ? '#b2b8c2' : '#888';
   menuBtn.style.cursor = 'pointer';
-  menuBtn.style.padding = '2px 8px';
-  menuBtn.style.borderRadius = '6px';
+  menuBtn.style.padding = '2px 10px';
+  menuBtn.style.borderRadius = '8px';
   menuBtn.setAttribute('aria-label', 'Open card menu');
+  menuBtn.onmouseenter = () => menuBtn.style.background = isDark ? '#2c2f36' : '#f4f6fa';
+  menuBtn.onmouseleave = () => menuBtn.style.background = 'none';
 
   // Dropdown menu
   const dropdown = document.createElement('div');
   dropdown.className = 'storage-card-dropdown';
   dropdown.style.position = 'absolute';
-  dropdown.style.top = '32px';
+  dropdown.style.top = '36px';
   dropdown.style.right = '0';
   dropdown.style.background = isDark ? '#23272f' : '#fff';
-  dropdown.style.border = isDark ? '1px solid #444a58' : '1px solid #e1e5e9';
-  dropdown.style.borderRadius = '8px';
-  dropdown.style.boxShadow = '0 4px 16px rgba(0,0,0,0.10)';
+  dropdown.style.border = isDark ? '1.5px solid #2c2f36' : '1.5px solid #e1e5e9';
+  dropdown.style.borderRadius = '10px';
+  dropdown.style.boxShadow = '0 4px 16px rgba(0,0,0,0.12)';
   dropdown.style.display = 'none';
-  dropdown.style.minWidth = '120px';
+  dropdown.style.minWidth = '140px';
   dropdown.style.zIndex = '10';
 
   // Dropdown items
@@ -180,7 +288,7 @@ function renderLogCard(log, idx) {
   editItem.style.border = 'none';
   editItem.style.width = '100%';
   editItem.style.textAlign = 'left';
-  editItem.style.padding = '10px 16px';
+  editItem.style.padding = '12px 20px';
   editItem.style.fontSize = '15px';
   editItem.style.color = isDark ? '#b2f7ef' : '#007bff';
   editItem.style.cursor = 'pointer';
@@ -198,18 +306,18 @@ function renderLogCard(log, idx) {
     editArea.value = originalText;
     editArea.style.width = '100%';
     editArea.style.minHeight = '80px';
-    editArea.style.margin = '8px 0';
+    editArea.style.margin = '10px 0';
     editArea.style.fontSize = '15px';
-    editArea.style.borderRadius = '8px';
-    editArea.style.border = isDark ? '1px solid #444a58' : '1px solid #e1e5e9';
+    editArea.style.borderRadius = '10px';
+    editArea.style.border = isDark ? '1.5px solid #2c2f36' : '1.5px solid #e1e5e9';
     editArea.style.background = isDark ? '#23272f' : '#fff';
     editArea.style.color = isDark ? '#f3f6fa' : '#1a1a1a';
     // Save/Cancel buttons
     const saveBtn = document.createElement('button');
     saveBtn.textContent = 'Save';
-    saveBtn.style.marginRight = '12px';
-    saveBtn.style.padding = '6px 18px';
-    saveBtn.style.borderRadius = '6px';
+    saveBtn.style.marginRight = '14px';
+    saveBtn.style.padding = '8px 22px';
+    saveBtn.style.borderRadius = '8px';
     saveBtn.style.border = 'none';
     saveBtn.style.background = isDark ? '#b2f7ef' : '#007bff';
     saveBtn.style.color = isDark ? '#23272f' : '#fff';
@@ -217,8 +325,8 @@ function renderLogCard(log, idx) {
     saveBtn.style.cursor = 'pointer';
     const cancelBtn = document.createElement('button');
     cancelBtn.textContent = 'Cancel';
-    cancelBtn.style.padding = '6px 18px';
-    cancelBtn.style.borderRadius = '6px';
+    cancelBtn.style.padding = '8px 22px';
+    cancelBtn.style.borderRadius = '8px';
     cancelBtn.style.border = 'none';
     cancelBtn.style.background = isDark ? '#23272f' : '#e1e5e9';
     cancelBtn.style.color = isDark ? '#b2f7ef' : '#222';
@@ -270,7 +378,7 @@ function renderLogCard(log, idx) {
   organizeItem.style.border = 'none';
   organizeItem.style.width = '100%';
   organizeItem.style.textAlign = 'left';
-  organizeItem.style.padding = '10px 16px';
+  organizeItem.style.padding = '12px 20px';
   organizeItem.style.fontSize = '15px';
   organizeItem.style.color = isDark ? '#b2f7ef' : '#007bff';
   organizeItem.style.cursor = 'pointer';
@@ -294,7 +402,7 @@ function renderLogCard(log, idx) {
   deleteItem.style.border = 'none';
   deleteItem.style.width = '100%';
   deleteItem.style.textAlign = 'left';
-  deleteItem.style.padding = '10px 16px';
+  deleteItem.style.padding = '12px 20px';
   deleteItem.style.fontSize = '15px';
   deleteItem.style.color = isDark ? '#ffb2b2' : '#d32f2f';
   deleteItem.style.cursor = 'pointer';
@@ -330,7 +438,7 @@ function renderLogCard(log, idx) {
     e.stopPropagation();
     menuOpen = !menuOpen;
     dropdown.style.display = menuOpen ? 'block' : 'none';
-    card.style.opacity = menuOpen ? '0.6' : '1';
+    card.style.opacity = menuOpen ? '0.7' : '1';
     // Close other open menus
     document.querySelectorAll('.storage-card-dropdown').forEach(dd => {
       if (dd !== dropdown) dd.style.display = 'none';
@@ -355,7 +463,7 @@ function renderLogCard(log, idx) {
   contentCol.appendChild(textDiv);
   contentCol.appendChild(footerDiv);
 
-  card.appendChild(checkbox);
+  card.appendChild(checkboxWrapper);
   card.appendChild(contentCol);
   card.appendChild(menuContainer);
 
@@ -499,25 +607,101 @@ function renderFolderMessageCard(message, idx, folderName) {
   const showMoreBtn = messageLines > 4 ? 'block' : 'none';
 
   const card = document.createElement('div');
-  card.style.background = isDark ? '#2c2f36' : '#f8f9fa';
-  card.style.border = isDark ? '1px solid #444a58' : '1px solid #e1e5e9';
-  card.style.borderRadius = '8px';
-  card.style.marginBottom = '8px';
-  card.style.padding = '12px';
-  card.style.fontSize = '14px';
-  card.style.lineHeight = '1.4';
+  card.style.background = isDark ? '#23272f' : '#fff';
+  card.style.border = isDark ? '1.5px solid #2c2f36' : '1.5px solid #e1e5e9';
+  card.style.borderRadius = '16px';
+  card.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)';
+  card.style.marginBottom = '14px';
+  card.style.padding = '20px 28px';
+  card.style.fontSize = '15px';
+  card.style.lineHeight = '1.6';
   card.style.color = isDark ? '#f3f6fa' : '#1a1a1a';
+  card.style.display = 'flex';
+  card.style.flexDirection = 'column';
+  card.style.gap = '10px';
+  card.style.position = 'relative';
+  card.style.transition = 'box-shadow 0.18s, border 0.18s, background 0.18s, opacity 0.2s';
+  card.onmouseenter = () => {
+    card.style.boxShadow = '0 4px 20px rgba(0,0,0,0.10)';
+    card.style.border = isDark ? '1.5px solid #b2f7ef' : '1.5px solid #b2f7ef';
+  };
+  card.onmouseleave = () => {
+    card.style.boxShadow = '0 2px 12px rgba(0,0,0,0.06)';
+    card.style.border = isDark ? '1.5px solid #2c2f36' : '1.5px solid #e1e5e9';
+  };
 
-  card.innerHTML = `
-    <div class="folder-message-content clamped" style="white-space:pre-line;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;max-height:5.6em;color:${isDark ? '#f3f6fa' : '#1a1a1a'};">${messageText}</div>
-    <div style="display:flex;justify-content:space-between;align-items:center;">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <div style="color:${isDark ? '#aaa' : '#888'};font-size:11px;">${new Date(messageTimestamp).toLocaleString()}</div>
-        <button class="folder-show-btn" data-index="${idx}" style="background:none;border:none;color:${isDark ? '#7ab7ff' : '#007bff'};cursor:pointer;font-size:13px;padding:0;display:${showMoreBtn};">Show more</button>
-      </div>
-      <button class="remove-from-folder" data-folder="${folderName}" data-index="${idx}" style="background:${isDark ? '#3a2323' : '#f7e6e6'};border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px;color:${isDark ? '#ffb2b2' : '#d32f2f'};">Remove</button>
-    </div>
-  `;
+  // Folder name (bold)
+  const nameDiv = document.createElement('div');
+  nameDiv.style.fontWeight = 'bold';
+  nameDiv.style.fontSize = '17px';
+  nameDiv.style.color = isDark ? '#b2f7ef' : '#222';
+  nameDiv.style.marginBottom = '2px';
+  nameDiv.textContent = folderName;
+
+  // Description (1-line snippet)
+  const descDiv = document.createElement('div');
+  descDiv.style.fontSize = '14px';
+  descDiv.style.color = isDark ? '#b2b8c2' : '#888';
+  descDiv.style.whiteSpace = 'nowrap';
+  descDiv.style.overflow = 'hidden';
+  descDiv.style.textOverflow = 'ellipsis';
+  descDiv.style.maxWidth = '100%';
+  descDiv.textContent = (message.description || '').split('\n')[0];
+
+  // Message count
+  const countDiv = document.createElement('div');
+  countDiv.style.fontSize = '13px';
+  countDiv.style.color = isDark ? '#b2b8c2' : '#888';
+  countDiv.textContent = message.messageCount !== undefined ? `${message.messageCount} message${message.messageCount !== 1 ? 's' : ''}` : '';
+
+  // Footer with timestamp and actions
+  const footerDiv = document.createElement('div');
+  footerDiv.style.display = 'flex';
+  footerDiv.style.alignItems = 'center';
+  footerDiv.style.justifyContent = 'space-between';
+  footerDiv.style.marginTop = '10px';
+
+  // Timestamp
+  const ts = document.createElement('div');
+  ts.style.color = isDark ? '#b2b8c2' : '#888';
+  ts.style.fontSize = '13px';
+  ts.textContent = new Date(messageTimestamp).toLocaleString();
+
+  // Actions (Delete)
+  const actionsDiv = document.createElement('div');
+  actionsDiv.style.display = 'flex';
+  actionsDiv.style.gap = '10px';
+
+  // Delete button
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'remove-from-folder';
+  deleteBtn.setAttribute('data-folder', folderName);
+  deleteBtn.setAttribute('data-index', idx);
+  deleteBtn.title = 'Remove';
+  deleteBtn.style.background = isDark ? '#3a2323' : '#f7e6e6';
+  deleteBtn.style.border = 'none';
+  deleteBtn.style.borderRadius = '8px';
+  deleteBtn.style.padding = '6px 14px';
+  deleteBtn.style.cursor = 'pointer';
+  deleteBtn.style.fontSize = '15px';
+  deleteBtn.style.color = isDark ? '#ffb2b2' : '#d32f2f';
+  deleteBtn.style.transition = 'background 0.15s, color 0.15s;';
+  deleteBtn.onmouseenter = () => {
+    deleteBtn.style.background = isDark ? '#5a2323' : '#ffd6d6';
+  };
+  deleteBtn.onmouseleave = () => {
+    deleteBtn.style.background = isDark ? '#3a2323' : '#f7e6e6';
+  };
+
+  actionsDiv.appendChild(deleteBtn);
+
+  footerDiv.appendChild(ts);
+  footerDiv.appendChild(actionsDiv);
+
+  card.appendChild(nameDiv);
+  card.appendChild(descDiv);
+  card.appendChild(countDiv);
+  card.appendChild(footerDiv);
 
   return card;
 }

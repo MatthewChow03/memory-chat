@@ -25,45 +25,29 @@ async function viewFolderContents(folderName, folderId) {
   }
 
   let contentHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-      <button id="back-to-folders" style="background:none;border:none;color:#007bff;cursor:pointer;font-size:14px;padding:0;">\u2190 Back to Folders</button>
-      <h4 style="margin:0;color:#1a1a1a;">${folderName}</h4>
-      <div style="width:80px;"></div>
+    <div style="margin-top:48px;padding:0 24px 0 24px;">
+      <div class="search-bar-container" style="margin-bottom:18px;position:relative;">
+        <input id="folder-search-input" type="text" placeholder="Search in this folder..." style="width:100%;padding:12px 16px 12px 44px;border-radius:24px;border:1.5px solid #2c2f36;background:#181a20;color:#f3f6fa;font-size:15px;outline:none;box-shadow:none;transition:border 0.15s;" />
+        <span style="position:absolute;left:16px;top:50%;transform:translateY(-50%);pointer-events:none;">
+          <svg width='18' height='18' fill='none' xmlns='http://www.w3.org/2000/svg'><circle cx='8' cy='8' r='6.5' stroke='#b2f7ef' stroke-width='2'/><line x1='13.5' y1='13.5' x2='17' y2='17' stroke='#b2f7ef' stroke-width='2' stroke-linecap='round'/></svg>
+        </span>
+      </div>
+      <button id="back-to-folders" style="background:#fff;color:#23272f;font-weight:600;font-size:14px;padding:4px 16px;border:none;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:18px;cursor:pointer;">Back to Folders</button>
     </div>
+    <div id="folder-messages-list" style="padding:0 24px 0 24px;"></div>
   `;
+  tabContent.innerHTML = contentHTML;
 
+  // Render folder messages as storage cards
+  const messagesList = tabContent.querySelector('#folder-messages-list');
   if (folderMessages.length === 0) {
-    contentHTML += '<div style="text-align:center;color:#888;">This folder is empty</div>';
+    messagesList.innerHTML = '<div style="text-align:center;color:#888;">This folder is empty</div>';
   } else {
     folderMessages.forEach((message, idx) => {
-      // Get insights text for display
-      const insights = message.insights || message.text;
-      const insightsText = Array.isArray(insights)
-        ? insights.map(insight => `\u2022 ${insight}`).join('\n')
-        : insights;
-
-      const messageLines = insightsText.split('\n').length;
-      const showMoreBtn = messageLines > 4 ? 'block' : 'none';
-
-      contentHTML += `
-        <div class="folder-message-card" data-message-id="${message._id}" style="background:#f8f9fa;border:1px solid #e1e5e9;border-radius:8px;margin-bottom:8px;padding:12px;font-size:14px;line-height:1.4;">
-          <div class="folder-message-content clamped" style="white-space:pre-line;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;max-height:5.6em;">${insightsText}</div>
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <div style="display:flex;align-items:center;gap:8px;">
-              <div style="color:#888;font-size:11px;">${new Date(message.timestamp).toLocaleString()}</div>
-              <button class="folder-show-btn" data-index="${idx}" style="background:none;border:none;color:#007bff;cursor:pointer;font-size:13px;padding:0;display:${showMoreBtn};">Show more</button>
-            </div>
-            <div style="display:flex;gap:4px;">
-              <button class="remove-from-folder" data-folder="${folderName}" data-folder-id="${folderId}" data-message-id="${message._id}" style="background:#ffebee;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;color:#c62828;transition:background 0.2s;" title="Remove from this folder only" onmouseenter="this.style.background='#ffcdd2'" onmouseleave="this.style.background='#ffebee'">Remove From Folder</button>
-              <button class="delete-memory" data-message-id="${message._id}" style="background:#666;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:11px;color:#fff;transition:background 0.2s;" title="Delete memory from everywhere" onmouseenter="this.style.background='#555'" onmouseleave="this.style.background='#666'">Delete Everywhere</button>
-            </div>
-          </div>
-        </div>
-      `;
+      const card = window.renderLogCard ? window.renderLogCard(message, idx) : null;
+      if (card) messagesList.appendChild(card);
     });
   }
-
-  tabContent.innerHTML = contentHTML;
 
   // Setup folder content event handlers
   setupFolderContentEventHandlers(tabContent, folderName, folderId);
@@ -73,8 +57,9 @@ async function viewFolderContents(folderName, folderId) {
 function setupFolderContentEventHandlers(tabContent, folderName, folderId) {
   // Back button
   tabContent.querySelector('#back-to-folders').onclick = () => {
-    if (window.renderTab) {
-      window.renderTab();
+    window.activeSearchSubTab = 'folders';
+    if (window.renderSearchView) {
+      window.renderSearchView();
     }
   };
 

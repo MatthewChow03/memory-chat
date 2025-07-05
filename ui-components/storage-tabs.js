@@ -1,221 +1,11 @@
 // Storage Tabs Module
 // Handles tab management, rendering, and tab-specific content
 
-if (typeof window.activeTab === 'undefined') {
-  window.activeTab = 'relevant';
-}
+// Old tab system removed - using sidebar navigation instead
 
-// Set active tab and re-render
-function setActiveTab(tab) {
-  window.activeTab = tab;
+// Old tab system removed - using sidebar navigation instead
 
-  // Reset pagination when switching tabs
-  window.currentPage = 1;
-
-  // Update tab button styles
-  const storageUI = document.getElementById('memory-chat-storage');
-  if (!storageUI) return;
-
-  const isDark = storageUI.classList.contains('memory-chat-dark');
-  const tabs = Array.from(storageUI.querySelectorAll('.storage-tab'));
-  tabs.forEach(t => {
-    if (t.dataset.tab === tab) {
-      t.style.background = isDark ? '#23272f' : '#f8f9fa';
-      t.style.color = isDark ? '#b2f7ef' : '#222';
-    } else {
-      t.style.background = 'none';
-      t.style.color = isDark ? '#f3f6fa' : '#222';
-    }
-  });
-
-  renderTab();
-}
-
-// Main tab rendering logic
-async function renderTab() {
-  const storageUI = document.getElementById('memory-chat-storage');
-  if (!storageUI) return;
-
-  const tabContent = storageUI.querySelector('#memory-chat-tab-content');
-  if (!tabContent) return;
-
-  // Fetch logs/messages from backend
-  let logs = [];
-  try {
-    const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/messages?userUUID=${await getOrCreateUserUUID()}`);
-    if (res.ok) {
-      logs = await res.json();
-    } else {
-      tabContent.innerHTML = '<div style="text-align:center;color:#ff6b6b;padding:20px;">Failed to load messages from backend</div>';
-      return;
-    }
-  } catch (error) {
-    tabContent.innerHTML = `<div style="text-align:center;color:#ff6b6b;padding:20px;">Error loading messages: ${error.message}</div>`;
-    return;
-  }
-
-  // Helper to clear and append cards with pagination
-  function renderCardsWithPagination(cards, itemsPerPage = 10) {
-    const totalPages = Math.ceil(cards.length / itemsPerPage);
-    const currentPage = window.currentPage || 1;
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const currentCards = cards.slice(startIndex, endIndex);
-
-    // Clear only the content area, preserving any UI elements
-    tabContent.innerHTML = '';
-    currentCards.forEach((log, idx) => tabContent.appendChild(renderLogCard(log, idx)));
-
-    // Add pagination controls if needed
-    if (totalPages > 1) {
-      const paginationDiv = document.createElement('div');
-      paginationDiv.style.cssText = `
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 8px;
-        margin-top: 20px;
-        padding: 10px;
-        border-top: 1px solid #e1e5e9;
-      `;
-
-      const isDark = storageUI.classList.contains('memory-chat-dark');
-
-      paginationDiv.innerHTML = `
-        <button id="prev-page-btn" style="padding:8px 12px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;${currentPage === 1 ? 'opacity:0.5;cursor:not-allowed;' : ''}">← Previous</button>
-        <span style="color:${isDark ? '#f3f6fa' : '#1a1a1a'};font-size:14px;">Page ${currentPage} of ${totalPages} (${cards.length} total)</span>
-        <button id="next-page-btn" style="padding:8px 12px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;${currentPage === totalPages ? 'opacity:0.5;cursor:not-allowed;' : ''}">Next →</button>
-      `;
-
-      tabContent.appendChild(paginationDiv);
-
-      // Setup pagination event handlers
-      const prevBtn = paginationDiv.querySelector('#prev-page-btn');
-      const nextBtn = paginationDiv.querySelector('#next-page-btn');
-
-      if (prevBtn && currentPage > 1) {
-        prevBtn.onclick = () => {
-          window.currentPage = currentPage - 1;
-          // Re-render just the cards, not the entire tab
-          renderCardsWithPagination(cards, itemsPerPage);
-        };
-      }
-
-      if (nextBtn && currentPage < totalPages) {
-        nextBtn.onclick = () => {
-          window.currentPage = currentPage + 1;
-          // Re-render just the cards, not the entire tab
-          renderCardsWithPagination(cards, itemsPerPage);
-        };
-      }
-    }
-
-    // Attach event listeners after rendering
-    setTimeout(attachStorageListeners, 0);
-  }
-
-  if (window.activeTab === 'relevant') {
-    renderRelevantTab(tabContent, logs, renderCardsWithPagination);
-  } else if (window.activeTab === 'recent') {
-    renderRecentTab(tabContent, logs, renderCardsWithPagination);
-  } else if (window.activeTab === 'all') {
-    renderAllTab(tabContent, logs, renderCardsWithPagination);
-  } else if (window.activeTab === 'search') {
-    renderSearchTab(tabContent, logs, renderCardsWithPagination);
-  } else if (window.activeTab === 'folders') {
-    renderFoldersTab(tabContent);
-  } else if (window.activeTab === 'settings') {
-    renderSettingsTab(tabContent);
-  }
-
-  // Note: attachStorageListeners is called within renderCardsWithPagination
-  // so we don't need to call it here again
-}
-
-// Render relevant tab content
-async function renderRelevantTab(tabContent, logs, renderCards) {
-  const prompt = getPromptText();
-  if (!prompt) {
-    tabContent.innerHTML = '<div style="text-align:center;color:#888;">Start entering your prompt</div>';
-    return;
-  }
-  if (logs.length === 0) {
-    tabContent.innerHTML = '<div style="text-align:center;color:#888;">No messages stored yet</div>';
-    return;
-  }
-
-  try {
-    tabContent.innerHTML = '<div style="text-align:center;color:#888;">Searching for relevant messages...</div>';
-    // Call backend for semantic search
-    const response = await fetch('http://localhost:3000/api/search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: prompt, userUUID: await getOrCreateUserUUID() })
-    });
-    if (!response.ok) {
-      throw new Error('Backend search failed');
-    }
-    let scored = await response.json();
-    let searchMethod = 'threshold';
-    // The backend already sorts and filters by similarity threshold, but we keep the UI logic
-    // Add a .score property for UI compatibility
-    scored = scored.map(result => ({
-      ...result,
-      score: result.similarity || result.score || 0
-    }));
-    const highSimilarityCount = scored.filter(result => result.similarity >= 0.85).length;
-    if (scored.length > 0 && highSimilarityCount === 0) {
-      searchMethod = 'topk';
-    }
-
-    if (scored.length === 0) {
-      tabContent.innerHTML = `<div style="text-align:center;color:#888;padding:20px;">
-        No relevant messages found with AI-powered semantic search<br>
-        <small style="color:#999;">Try rephrasing your prompt or check the \"All\" tab</small>
-      </div>`;
-    } else {
-      // Filter out memories that are already included in the prompt
-      const filteredResults = filterOutPromptIncludedMemories(scored, prompt);
-
-      if (filteredResults.length === 0) {
-        tabContent.innerHTML = `<div style="text-align:center;color:#888;padding:20px;">
-          All relevant messages are already included in your prompt<br>
-          <small style="color:#999;">Try adding more context to your prompt or check the \"All\" tab</small>
-        </div>`;
-        return;
-      }
-      // Add search method indicator
-      const methodIndicator = document.createElement('div');
-      methodIndicator.style.cssText = `
-        font-size: 11px;
-        color: #999;
-        text-align: center;
-        margin-bottom: 10px;
-        padding: 4px 8px;
-        background: #f8f9fa;
-        border-radius: 4px;
-        border: 1px solid #e1e5e9;
-      `;
-      const filteredCount = filteredResults.length;
-      const originalCount = scored.length;
-      const filteredOutCount = originalCount - filteredCount;
-      if (searchMethod === 'threshold') {
-        methodIndicator.textContent = `Found ${filteredCount} relevant messages using AI-powered semantic search (85%+ similarity)${filteredOutCount > 0 ? `, ${filteredOutCount} already in prompt` : ''}`;
-      } else {
-        methodIndicator.textContent = `Found ${filteredCount} messages using AI-powered search (top results, some below 85% similarity)${filteredOutCount > 0 ? `, ${filteredOutCount} already in prompt` : ''}`;
-      }
-      tabContent.innerHTML = '';
-      tabContent.appendChild(methodIndicator);
-      renderCards(filteredResults);
-    }
-  } catch (error) {
-    console.error('Relevance search error:', error);
-    tabContent.innerHTML = `<div style="text-align:center;color:#ff6b6b;padding:20px;">
-      Error finding relevant messages<br>
-      <small style="color:#999;">${error.message}</small>
-    </div>`;
-  }
-}
+// Old relevant tab function removed - using new search system instead
 
 /**
  * Filters out memories that are already included in the prompt text
@@ -276,167 +66,7 @@ function filterOutPromptIncludedMemories(searchResults, promptText) {
   });
 }
 
-// Render recent tab content
-function renderRecentTab(tabContent, logs, renderCards) {
-  const sortedLogs = logs.sort((a, b) => b.timestamp - a.timestamp);
-  if (sortedLogs.length === 0) {
-    tabContent.innerHTML = '<div style="text-align:center;color:#888;">No messages stored yet</div>';
-  } else {
-    renderCards(sortedLogs);
-  }
-}
-
-// Render all tab content
-function renderAllTab(tabContent, logs, renderCards) {
-  const sortedLogs = logs.sort((a, b) => b.timestamp - a.timestamp);
-  if (sortedLogs.length === 0) {
-    tabContent.innerHTML = '<div style="text-align:center;color:#888;">No messages stored yet</div>';
-  } else {
-    renderCards(sortedLogs);
-  }
-}
-
-// Render search tab content
-function renderSearchTab(tabContent, logs, renderCards) {
-  const storageUI = document.getElementById('memory-chat-storage');
-  const isDark = storageUI && storageUI.classList.contains('memory-chat-dark');
-
-  // Get search status
-  let searchStatus = 'Search ready';
-  let searchType = 'ready';
-
-  tabContent.innerHTML = `
-    <div id="search-input-container" style="margin-bottom: 12px;">
-      <input id="storage-search-input" type="text" placeholder="Type your search and press Enter..." style="width:100%;padding:8px;border-radius:6px;border:1px solid #e1e5e9;outline:none;" />
-      <div style="margin-top: 8px; font-size: 12px; color: ${isDark ? '#b2b8c2' : '#666'};">
-        <span id="search-type-indicator">${searchStatus}</span>
-      </div>
-      <div style="margin-top: 4px; font-size: 11px; color: ${isDark ? '#888' : '#999'};">
-        \ud83e\udd16 Using backend-powered search
-      </div>
-    </div>
-    <div id="storage-search-results"></div>
-  `;
-
-  const input = tabContent.querySelector('#storage-search-input');
-  const resultsDiv = tabContent.querySelector('#storage-search-results');
-
-  // Store search results globally for pagination
-  window.searchResults = [];
-
-  // Helper function to render search results with pagination
-  function renderSearchResultsWithPagination(results, itemsPerPage = 10) {
-    const totalPages = Math.ceil(results.length / itemsPerPage);
-    const currentPage = window.currentPage || 1;
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = startIndex + itemsPerPage;
-    const currentResults = results.slice(startIndex, endIndex);
-
-    if (currentResults.length === 0) {
-      resultsDiv.innerHTML = '<div style="text-align:center;color:#888;">No results found</div>';
-      return;
-    }
-
-    resultsDiv.innerHTML = '';
-    currentResults.forEach((result, idx) => {
-      const card = renderLogCard(result, idx);
-      resultsDiv.appendChild(card);
-    });
-
-    // Add pagination controls if needed
-    if (totalPages > 1) {
-      const paginationDiv = document.createElement('div');
-      paginationDiv.style.cssText = `
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 8px;
-        margin-top: 20px;
-        padding: 10px;
-        border-top: 1px solid #e1e5e9;
-      `;
-
-      paginationDiv.innerHTML = `
-        <button id="prev-page-btn" style="padding:8px 12px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;${currentPage === 1 ? 'opacity:0.5;cursor:not-allowed;' : ''}">\u2190 Previous</button>
-        <span style="color:${isDark ? '#f3f6fa' : '#1a1a1a'};font-size:14px;">Page ${currentPage} of ${totalPages} (${results.length} results)</span>
-        <button id="next-page-btn" style="padding:8px 12px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;${currentPage === totalPages ? 'opacity:0.5;cursor:not-allowed;' : ''}">Next \u2192</button>
-      `;
-
-      resultsDiv.appendChild(paginationDiv);
-
-      // Setup pagination event handlers
-      const prevBtn = paginationDiv.querySelector('#prev-page-btn');
-      const nextBtn = paginationDiv.querySelector('#next-page-btn');
-
-      if (prevBtn && currentPage > 1) {
-        prevBtn.onclick = () => {
-          window.currentPage = currentPage - 1;
-          renderSearchResultsWithPagination(results, itemsPerPage);
-        };
-      }
-
-      if (nextBtn && currentPage < totalPages) {
-        nextBtn.onclick = () => {
-          window.currentPage = currentPage + 1;
-          renderSearchResultsWithPagination(results, itemsPerPage);
-        };
-      }
-    }
-
-    // Attach event listeners after rendering
-    setTimeout(attachStorageListeners, 0);
-  }
-
-  // Perform search using backend
-  async function performSearch(query) {
-    if (!query) {
-      resultsDiv.innerHTML = '';
-      window.searchResults = [];
-      return;
-    }
-    // Show loading state
-    resultsDiv.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">Searching...</div>';
-    try {
-      const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/search`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query, userUUID: await getOrCreateUserUUID() })
-      });
-      if (!res.ok) {
-        throw new Error('Search failed');
-      }
-      const results = await res.json();
-      if (results.length === 0) {
-        resultsDiv.innerHTML = `<div style="text-align:center;color:#888;padding:20px;">
-          No results found<br>
-          <small style="color:#999;">Try different keywords or check the "All" tab</small>
-        </div>`;
-        window.searchResults = [];
-      } else {
-        window.searchResults = results;
-        window.currentPage = 1;
-        renderSearchResultsWithPagination(results);
-        // Update search status indicator
-        const statusIndicator = tabContent.querySelector('#search-type-indicator');
-        if (statusIndicator) {
-          statusIndicator.textContent = `Found ${results.length} results using backend search`;
-        }
-      }
-    } catch (error) {
-      resultsDiv.innerHTML = `<div style="text-align:center;color:#ff6b6b;padding:20px;">
-        Search error occurred<br>
-        <small style="color:#999;">${error.message}</small>
-      </div>`;
-    }
-  }
-  // Search only on Enter key press
-  input.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-      const term = input.value.trim();
-      performSearch(term);
-    }
-  });
-}
+// Old tab functions removed - using new sidebar navigation system instead
 
 // Render folders tab content
 async function renderFoldersTab(tabContent) {
@@ -458,8 +88,8 @@ async function renderFoldersTab(tabContent) {
 
   if (folders.length === 0) {
     tabContent.innerHTML = `
-      <div style="text-align:center;color:#888;margin-bottom:20px;">No folders created yet</div>
-      <button id="create-folder-btn" style="display:block;margin:0 auto;padding:10px 20px;background:linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%);border:none;border-radius:8px;color:#222;font-weight:bold;cursor:pointer;">Create New Folder</button>
+      <div style="text-align:center;${isDark ? 'color:#fff;' : 'color:#23272f;'}margin-bottom:20px;">No folders created yet</div>
+      <button id="create-folder-btn" style="display:block;margin:0 auto;padding:12px 28px;background:#fff;border:none;border-radius:10px;color:${isDark ? '#23272f' : '#23272f'};font-weight:600;font-size:16px;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;transition:background 0.15s, color 0.15s;">+ Create New Folder</button>
     `;
     const createBtn = tabContent.querySelector('#create-folder-btn');
     createBtn.onclick = async () => {
@@ -484,8 +114,8 @@ async function renderFoldersTab(tabContent) {
   } else {
     let foldersHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-        <h4 style="margin:0;${isDark ? 'color:#f3f6fa;' : 'color:#1a1a1a;'}">Your Folders</h4>
-        <button id="create-folder-btn" style="padding:8px 16px;background:linear-gradient(90deg,#b2f7ef 0%,#c2f7cb 100%);border:none;border-radius:6px;color:#222;font-weight:bold;cursor:pointer;font-size:12px;">+ New Folder</button>
+        <h4 style="margin:0;${isDark ? 'color:#b2f7ef;' : 'color:#23272f;'}">Your Folders</h4>
+        <button id="create-folder-btn" style="padding:10px 24px;background:#fff;border:none;border-radius:10px;color:${isDark ? '#23272f' : '#23272f'};font-weight:600;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,0.08);cursor:pointer;transition:background 0.15s, color 0.15s;">+ New Folder</button>
       </div>
     `;
     folders.forEach(folder => {
@@ -827,8 +457,8 @@ function setupFolderEventHandlers(tabContent, folders) {
 if (typeof window.activeSidebarView === 'undefined') {
   window.activeSidebarView = 'search';
 }
-if (typeof window.activeSearchTab === 'undefined') {
-  window.activeSearchTab = 'relevant';
+if (typeof window.activeSearchSubTab === 'undefined') {
+  window.activeSearchSubTab = 'memories'; // 'memories' or 'folders'
 }
 
 // Set sidebar view and re-render
@@ -838,11 +468,7 @@ function setSidebarView(view) {
   renderMainContent();
 }
 
-// Set search tab (Most Relevant / Recently Added)
-function setSearchTab(tab) {
-  window.activeSearchTab = tab;
-  renderSearchView();
-}
+// Old search tab function removed - using new sidebar navigation system
 
 // Render sidebar active state
 function renderSidebar() {
@@ -887,29 +513,55 @@ async function renderSearchView() {
   const tabContent = main.querySelector('#memory-chat-tab-content');
   if (!tabContent) return;
 
-  // Tabs for Most Relevant / Recently Added
+  // Determine theme
+  const isDark = document.getElementById('memory-chat-storage')?.classList.contains('memory-chat-dark');
+
+  // Helper: get selected count
+  function getSelectedCount() {
+    return Object.values(window.selectedCards || {}).filter(Boolean).length;
+  }
+
+  // SVG search icon
+  const svgSearch = `<svg width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="6.5" stroke="${isDark ? '#b2f7ef' : '#007bff'}" stroke-width="2"/><line x1="13.5" y1="13.5" x2="17" y2="17" stroke="${isDark ? '#b2f7ef' : '#007bff'}" stroke-width="2" stroke-linecap="round"/></svg>`;
+
+  // Search bar
+  const searchBarHTML = `
+    <div class="search-bar-container" style="margin:24px 0 0 0;position:relative;">
+      <span style="position:absolute;left:16px;top:50%;transform:translateY(-50%);pointer-events:none;">${svgSearch}</span>
+      <input id="storage-search-input" type="text" placeholder="Search memories..." style="width:100%;padding:12px 16px 12px 44px;border-radius:24px;border:1.5px solid ${isDark ? '#2c2f36' : '#e1e5e9'};background:${isDark ? '#181a20' : '#fff'};color:${isDark ? '#f3f6fa' : '#1a1a1a'};font-size:15px;outline:none;box-shadow:none;transition:border 0.15s;" />
+    </div>
+  `;
+
+  // Memories/Folders toggle
+  const subTabToggleHTML = `
+    <div style="display:flex;gap:0;align-items:center;margin:18px 0 0 0;">
+      <button class="search-subtab-btn" data-subtab="memories" style="font-size:16px;font-weight:600;padding:10px 28px;border:none;border-radius:18px 0 0 18px;background:${window.activeSearchSubTab==='memories' ? (isDark ? '#fff1' : '#fff') : 'none'};color:${window.activeSearchSubTab==='memories' ? (isDark ? '#b2f7ef' : '#222') : (isDark ? '#b2b8c2' : '#888')};cursor:pointer;transition:background 0.15s, color 0.15s;">Memories</button>
+      <button class="search-subtab-btn" data-subtab="folders" style="font-size:16px;font-weight:600;padding:10px 28px;border:none;border-radius:0 18px 18px 0;background:${window.activeSearchSubTab==='folders' ? (isDark ? '#fff1' : '#fff') : 'none'};color:${window.activeSearchSubTab==='folders' ? (isDark ? '#b2f7ef' : '#222') : (isDark ? '#b2b8c2' : '#888')};cursor:pointer;transition:background 0.15s, color 0.15s;">Folders</button>
+    </div>
+  `;
+
+  // Bulk actions (conditionally rendered)
+  const selectedCount = getSelectedCount();
+  const bulkActionsHTML = selectedCount > 0 ? `
+    <div class="bulk-actions" style="display:flex;justify-content:center;gap:18px;margin:24px 0 0 0;">
+      <button id="add-to-prompt-btn" style="padding:12px 32px;background:#b2f7ef;border:none;border-radius:24px;color:#222;font-weight:bold;cursor:pointer;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">Add To Prompt</button>
+      <button id="add-to-folder-btn" style="padding:12px 32px;background:#b2c7f7;border:none;border-radius:24px;color:#222;font-weight:bold;cursor:pointer;font-size:15px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">Add To Folder</button>
+      <button id="deselect-all-btn" style="padding:12px 32px;background:${isDark ? '#23272f' : '#e1e5e9'};border:none;border-radius:24px;color:${isDark ? '#b2f7ef' : '#007bff'};font-weight:bold;cursor:pointer;font-size:15px;">Deselect All</button>
+    </div>
+  ` : '';
+
+  // Tabs
+  // Remove the in-content tabs (tabsHTML) from the search view
+  // Remove all code related to tabsHTML and .search-tabs
+  // Only keep the searchBarHTML, subTabToggleHTML, and bulkActionsHTML in the header
   tabContent.innerHTML = `
     <div class="search-header" style="padding:24px 24px 0 24px;">
-      <div class="search-tabs" style="display:flex;gap:24px;align-items:center;">
-        <button class="search-tab-btn" data-tab="relevant" style="font-size:16px;font-weight:bold;padding:8px 20px;border:none;border-radius:8px 8px 0 0;background:${window.activeSearchTab==='relevant' ? '#23272f' : 'none'};color:${window.activeSearchTab==='relevant' ? '#b2f7ef' : '#888'};cursor:pointer;">Most Relevant</button>
-        <button class="search-tab-btn" data-tab="recent" style="font-size:16px;font-weight:bold;padding:8px 20px;border:none;border-radius:8px 8px 0 0;background:${window.activeSearchTab==='recent' ? '#23272f' : 'none'};color:${window.activeSearchTab==='recent' ? '#b2f7ef' : '#888'};cursor:pointer;">Recently Added</button>
-        <div style="flex:1;"></div>
-      </div>
-      <div class="search-bar-container" style="margin:24px 0 0 0;">
-        <input id="storage-search-input" type="text" placeholder="Search memories..." style="width:100%;padding:12px 16px;border-radius:8px;border:1px solid #2c2f36;background:#181a20;color:#f3f6fa;font-size:15px;outline:none;" />
-      </div>
-      <div class="bulk-actions" style="display:flex;justify-content:center;gap:16px;margin:24px 0 0 0;">
-        <button id="add-to-prompt-btn" style="padding:10px 32px;background:#b2f7ef;border:none;border-radius:24px;color:#222;font-weight:bold;cursor:pointer;">Add To Prompt</button>
-        <button id="deselect-all-btn" style="padding:10px 32px;background:#23272f;border:none;border-radius:24px;color:#b2f7ef;font-weight:bold;cursor:pointer;">Deselect All</button>
-      </div>
+      ${searchBarHTML}
+      ${subTabToggleHTML}
+      ${bulkActionsHTML}
     </div>
     <div id="search-results-container" style="padding:24px;"></div>
   `;
-
-  // Tab switching
-  tabContent.querySelectorAll('.search-tab-btn').forEach(btn => {
-    btn.onclick = () => setSearchTab(btn.dataset.tab);
-  });
 
   // Search input
   const searchInput = tabContent.querySelector('#storage-search-input');
@@ -921,18 +573,131 @@ async function renderSearchView() {
     });
   }
 
+  // Subtab switching
+  tabContent.querySelectorAll('.search-subtab-btn').forEach(btn => {
+    btn.onclick = () => {
+      window.activeSearchSubTab = btn.dataset.subtab;
+      renderSearchView();
+    };
+  });
+
   // Bulk actions
   const addToPromptBtn = tabContent.querySelector('#add-to-prompt-btn');
+  const addToFolderBtn = tabContent.querySelector('#add-to-folder-btn');
   const deselectAllBtn = tabContent.querySelector('#deselect-all-btn');
   if (addToPromptBtn) addToPromptBtn.onclick = addSelectedToPrompt;
+  if (addToFolderBtn) addToFolderBtn.onclick = () => {
+    // Implement add to folder logic or call a global handler
+    if (window.showFolderSelectorForStorage) {
+      const selected = Object.keys(window.selectedCards || {}).filter(k => window.selectedCards[k]);
+      window.showFolderSelectorForStorage(selected);
+    }
+  };
   if (deselectAllBtn) deselectAllBtn.onclick = deselectAllCards;
 
-  // Render results for the current tab
+  // Render results for the current subtab
   const resultsContainer = tabContent.querySelector('#search-results-container');
-  if (window.activeSearchTab === 'relevant') {
-    renderRelevantTab(resultsContainer);
+  if (window.activeSearchSubTab === 'folders') {
+    renderFoldersTab(resultsContainer);
   } else {
-    renderRecentTab(resultsContainer);
+    // Fetch logs/messages from backend
+    let logs = [];
+    try {
+      const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/messages?userUUID=${await getOrCreateUserUUID()}`);
+      if (res.ok) {
+        logs = await res.json();
+      }
+    } catch (e) {
+      // Optionally handle error
+    }
+    // Helper to render cards with pagination (copied from renderTab)
+    function renderCardsWithPagination(cards, itemsPerPage = 10) {
+      const totalPages = Math.ceil(cards.length / itemsPerPage);
+      const currentPage = window.currentPage || 1;
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      const currentCards = cards.slice(startIndex, endIndex);
+      resultsContainer.innerHTML = '';
+      currentCards.forEach((log, idx) => resultsContainer.appendChild(renderLogCard(log, idx)));
+      if (totalPages > 1) {
+        const paginationDiv = document.createElement('div');
+        paginationDiv.style.cssText = `
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          gap: 8px;
+          margin-top: 20px;
+          padding: 10px;
+          border-top: 1px solid #e1e5e9;
+        `;
+        paginationDiv.innerHTML = `
+          <button id="prev-page-btn" style="padding:8px 12px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;${currentPage === 1 ? 'opacity:0.5;cursor:not-allowed;' : ''}">← Previous</button>
+          <span style="color:${isDark ? '#f3f6fa' : '#1a1a1a'};font-size:14px;">Page ${currentPage} of ${totalPages} (${cards.length} total)</span>
+          <button id="next-page-btn" style="padding:8px 12px;background:${isDark ? '#3a3f4b' : '#f7d6b2'};border:none;border-radius:6px;color:${isDark ? '#fff' : '#222'};font-weight:bold;cursor:pointer;${currentPage === totalPages ? 'opacity:0.5;cursor:not-allowed;' : ''}">Next →</button>
+        `;
+        resultsContainer.appendChild(paginationDiv);
+        const prevBtn = paginationDiv.querySelector('#prev-page-btn');
+        const nextBtn = paginationDiv.querySelector('#next-page-btn');
+        if (prevBtn && currentPage > 1) {
+          prevBtn.onclick = () => {
+            window.currentPage = currentPage - 1;
+            renderCardsWithPagination(cards, itemsPerPage);
+          };
+        }
+        if (nextBtn && currentPage < totalPages) {
+          nextBtn.onclick = () => {
+            window.currentPage = currentPage + 1;
+            renderCardsWithPagination(cards, itemsPerPage);
+          };
+        }
+      }
+      setTimeout(attachStorageListeners, 0);
+    }
+    // Render recent memories (sorted by timestamp)
+    const sortedLogs = logs.sort((a, b) => b.timestamp - a.timestamp);
+    if (sortedLogs.length === 0) {
+      resultsContainer.innerHTML = '<div style="text-align:center;color:#888;">No messages stored yet</div>';
+    } else {
+      renderCardsWithPagination(sortedLogs);
+    }
+  }
+
+  // Perform search using backend
+  async function performSearch(query) {
+    if (!query) {
+      resultsContainer.innerHTML = '';
+      window.searchResults = [];
+      return;
+    }
+    // Show loading state
+    resultsContainer.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">Searching...</div>';
+    try {
+      const res = await fetch(`${SERVER_CONFIG.BASE_URL}/api/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, userUUID: await getOrCreateUserUUID() })
+      });
+      if (!res.ok) {
+        throw new Error('Search failed');
+      }
+      const results = await res.json();
+      if (results.length === 0) {
+        resultsContainer.innerHTML = `<div style="text-align:center;color:#888;padding:20px;">
+          No results found<br>
+          <small style="color:#999;">Try different keywords</small>
+        </div>`;
+        window.searchResults = [];
+      } else {
+        window.searchResults = results;
+        window.currentPage = 1;
+        renderCardsWithPagination(results);
+      }
+    } catch (error) {
+      resultsContainer.innerHTML = `<div style="text-align:center;color:#ff6b6b;padding:20px;">
+        Search error occurred<br>
+        <small style="color:#999;">${error.message}</small>
+      </div>`;
+    }
   }
 }
 
@@ -998,6 +763,5 @@ function initializeTabs() {
 }
 
 window.setSidebarView = setSidebarView;
-window.setSearchTab = setSearchTab;
 window.initializeTabs = initializeTabs;
 window.renderStorageTab = renderMainContent;
