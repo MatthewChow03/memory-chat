@@ -833,48 +833,181 @@ function setupFolderEventHandlers(tabContent, folders) {
   });
 }
 
-// Setup tab switching
-function setupTabSwitching() {
-  const storageUI = document.getElementById('memory-chat-storage');
-  if (!storageUI) return;
-
-  const tabs = Array.from(storageUI.querySelectorAll('.storage-tab'));
-  tabs.forEach(t => t.onclick = () => setActiveTab(t.dataset.tab));
+// Sidebar navigation state
+if (typeof window.activeSidebarView === 'undefined') {
+  window.activeSidebarView = 'search';
+}
+if (typeof window.activeSearchTab === 'undefined') {
+  window.activeSearchTab = 'relevant';
 }
 
-// Setup live updates
-function setupLiveUpdates() {
-  // Live update: re-render on prompt input changes
-  const prompt = document.querySelector('.ProseMirror');
-  if (prompt) {
-    prompt.addEventListener('input', () => {
-      const storageUI = document.getElementById('memory-chat-storage');
-      if (storageUI && storageUI.style.display !== 'none' && window.activeTab === 'relevant') {
-        renderTab();
-      }
-    });
-  }
+// Set sidebar view and re-render
+function setSidebarView(view) {
+  window.activeSidebarView = view;
+  renderSidebar();
+  renderMainContent();
+}
 
-  // Live update: re-render on storage changes
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && (changes.chatLogs || changes.folders)) {
-      const storageUI = document.getElementById('memory-chat-storage');
-      if (storageUI && storageUI.style.display !== 'none') {
-        renderTab();
-      }
+// Set search tab (Most Relevant / Recently Added)
+function setSearchTab(tab) {
+  window.activeSearchTab = tab;
+  renderSearchView();
+}
+
+// Render sidebar active state
+function renderSidebar() {
+  const sidebar = document.getElementById('memory-chat-sidebar');
+  if (!sidebar) return;
+  const buttons = sidebar.querySelectorAll('.sidebar-btn');
+  buttons.forEach(btn => {
+    if (btn.dataset.view === window.activeSidebarView) {
+      btn.classList.add('active');
+      btn.style.background = '#23272f';
+      btn.style.color = '#b2f7ef';
+    } else {
+      btn.classList.remove('active');
+      btn.style.background = 'none';
+      btn.style.color = '#f3f6fa';
     }
   });
 }
 
-// Initialize tabs
-function initializeTabs() {
-  setupTabSwitching();
-  setupLiveUpdates();
-  setActiveTab('relevant');
+// Main content rendering based on sidebar view
+function renderMainContent() {
+  const main = document.getElementById('memory-chat-main');
+  if (!main) return;
+  const tabContent = main.querySelector('#memory-chat-tab-content');
+  if (!tabContent) return;
+  tabContent.innerHTML = '';
+  if (window.activeSidebarView === 'search') {
+    renderSearchView();
+  } else if (window.activeSidebarView === 'folders') {
+    renderFoldersTab(tabContent);
+  } else if (window.activeSidebarView === 'settings') {
+    renderSettingsTab(tabContent);
+  } else if (window.activeSidebarView === 'account') {
+    tabContent.innerHTML = '<div style="text-align:center;color:#888;padding:40px;">Account features coming soon.</div>';
+  }
 }
 
-// Export functions for use in other modules
-window.setActiveTab = setActiveTab;
-window.renderTab = renderTab;
+// Render the search view with in-content tabs
+async function renderSearchView() {
+  const main = document.getElementById('memory-chat-main');
+  if (!main) return;
+  const tabContent = main.querySelector('#memory-chat-tab-content');
+  if (!tabContent) return;
+
+  // Tabs for Most Relevant / Recently Added
+  tabContent.innerHTML = `
+    <div class="search-header" style="padding:24px 24px 0 24px;">
+      <div class="search-tabs" style="display:flex;gap:24px;align-items:center;">
+        <button class="search-tab-btn" data-tab="relevant" style="font-size:16px;font-weight:bold;padding:8px 20px;border:none;border-radius:8px 8px 0 0;background:${window.activeSearchTab==='relevant' ? '#23272f' : 'none'};color:${window.activeSearchTab==='relevant' ? '#b2f7ef' : '#888'};cursor:pointer;">Most Relevant</button>
+        <button class="search-tab-btn" data-tab="recent" style="font-size:16px;font-weight:bold;padding:8px 20px;border:none;border-radius:8px 8px 0 0;background:${window.activeSearchTab==='recent' ? '#23272f' : 'none'};color:${window.activeSearchTab==='recent' ? '#b2f7ef' : '#888'};cursor:pointer;">Recently Added</button>
+        <div style="flex:1;"></div>
+      </div>
+      <div class="search-bar-container" style="margin:24px 0 0 0;">
+        <input id="storage-search-input" type="text" placeholder="Search memories..." style="width:100%;padding:12px 16px;border-radius:8px;border:1px solid #2c2f36;background:#181a20;color:#f3f6fa;font-size:15px;outline:none;" />
+      </div>
+      <div class="bulk-actions" style="display:flex;justify-content:center;gap:16px;margin:24px 0 0 0;">
+        <button id="add-to-prompt-btn" style="padding:10px 32px;background:#b2f7ef;border:none;border-radius:24px;color:#222;font-weight:bold;cursor:pointer;">Add To Prompt</button>
+        <button id="deselect-all-btn" style="padding:10px 32px;background:#23272f;border:none;border-radius:24px;color:#b2f7ef;font-weight:bold;cursor:pointer;">Deselect All</button>
+      </div>
+    </div>
+    <div id="search-results-container" style="padding:24px;"></div>
+  `;
+
+  // Tab switching
+  tabContent.querySelectorAll('.search-tab-btn').forEach(btn => {
+    btn.onclick = () => setSearchTab(btn.dataset.tab);
+  });
+
+  // Search input
+  const searchInput = tabContent.querySelector('#storage-search-input');
+  if (searchInput) {
+    searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        performSearch(searchInput.value.trim());
+      }
+    });
+  }
+
+  // Bulk actions
+  const addToPromptBtn = tabContent.querySelector('#add-to-prompt-btn');
+  const deselectAllBtn = tabContent.querySelector('#deselect-all-btn');
+  if (addToPromptBtn) addToPromptBtn.onclick = addSelectedToPrompt;
+  if (deselectAllBtn) deselectAllBtn.onclick = deselectAllCards;
+
+  // Render results for the current tab
+  const resultsContainer = tabContent.querySelector('#search-results-container');
+  if (window.activeSearchTab === 'relevant') {
+    renderRelevantTab(resultsContainer);
+  } else {
+    renderRecentTab(resultsContainer);
+  }
+}
+
+// Helper to get all selected card texts
+function getSelectedCardTexts() {
+  const selected = window.selectedCards || {};
+  const cards = Array.from(document.querySelectorAll('.storage-card'));
+  const texts = [];
+  cards.forEach(card => {
+    const messageId = card.getAttribute('data-message-id');
+    if (selected[messageId]) {
+      const textDiv = card.querySelector('.storage-log-content');
+      if (textDiv) texts.push(textDiv.textContent);
+    }
+  });
+  return texts;
+}
+
+// Bulk add to prompt
+function addSelectedToPrompt() {
+  const texts = getSelectedCardTexts();
+  if (!texts.length) return;
+  const prompt = document.querySelector('.ProseMirror');
+  if (!prompt) return;
+  let current = prompt.innerText.trim();
+  const preface = 'Here are useful memories for this conversation:';
+  let newText = '';
+  if (current.includes(preface)) {
+    newText = current + '\n---\n' + texts.join('\n---\n');
+  } else {
+    newText = (current ? current + '\n\n' : '') + preface + '\n\n---\n' + texts.join('\n---\n');
+  }
+  prompt.focus();
+  prompt.innerHTML = '';
+  const formattedText = newText.replace(/\n/g, '<br>');
+  prompt.innerHTML = formattedText;
+  // Optionally, clear selection after adding
+  deselectAllCards();
+}
+
+// Deselect all cards
+function deselectAllCards() {
+  window.selectedCards = {};
+  document.querySelectorAll('.storage-card-checkbox').forEach(cb => {
+    cb.checked = false;
+  });
+}
+
+// Sidebar event listeners
+function setupSidebarNavigation() {
+  const sidebar = document.getElementById('memory-chat-sidebar');
+  if (!sidebar) return;
+  sidebar.querySelectorAll('.sidebar-btn').forEach(btn => {
+    btn.onclick = () => setSidebarView(btn.dataset.view);
+  });
+}
+
+// Initialize sidebar and main content
+function initializeTabs() {
+  setupSidebarNavigation();
+  renderSidebar();
+  renderMainContent();
+}
+
+window.setSidebarView = setSidebarView;
+window.setSearchTab = setSearchTab;
 window.initializeTabs = initializeTabs;
-window.renderStorageTab = renderTab; // Alias for backward compatibility
+window.renderStorageTab = renderMainContent;

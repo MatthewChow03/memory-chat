@@ -12,9 +12,8 @@ function createStorageUI() {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    width: 600px;
+    width: 800px;
     height: 700px;
-    /* background: white; */ /* Now handled by theme class */
     border-radius: 12px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.12);
     z-index: 10000;
@@ -22,25 +21,26 @@ function createStorageUI() {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     border: 1px solid #e1e5e9;
     overflow: hidden;
-    min-width: 650px;
+    min-width: 350px;
     min-height: 500px;
+    background: var(--storage-bg, #fff);
   `;
 
   storageUI.innerHTML = `
-    <div style="padding: 20px; border-bottom: 1px solid #e1e5e9; display: flex; justify-content: space-between; align-items: center;">
-      <h3 style="margin: 0; font-size: 18px;">Memory Storage</h3>
-      <button id="memory-chat-close" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #666;">×</button>
+    <div style="height:100%;display:flex;flex-direction:row;">
+      <nav class="storage-sidebar" id="memory-chat-sidebar" style="width:80px;min-width:60px;max-width:120px;background:var(--sidebar-bg,#181a20);display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:16px;">
+        <button class="sidebar-btn" data-view="search" title="Search" style="background:none;border:none;cursor:pointer;margin-bottom:8px;"><span class="sidebar-icon">🔍</span><div class="sidebar-label">Search</div></button>
+        <button class="sidebar-btn" data-view="folders" title="Folders" style="background:none;border:none;cursor:pointer;"><span class="sidebar-icon">📁</span><div class="sidebar-label">Folders</div></button>
+        <button class="sidebar-btn" data-view="settings" title="Settings" style="background:none;border:none;cursor:pointer;"><span class="sidebar-icon">⚙️</span><div class="sidebar-label">Settings</div></button>
+        <div style="flex:1;"></div>
+        <button class="sidebar-btn" data-view="account" title="Account" style="background:none;border:none;cursor:pointer;"><span class="sidebar-icon">👤</span><div class="sidebar-label">Account</div></button>
+        <button id="memory-chat-close" style="background: none; border: none; font-size: 20px; cursor: pointer; color: #666; margin-top:16px;">×</button>
+      </nav>
+      <div class="storage-main" id="memory-chat-main" style="flex:1;display:flex;flex-direction:column;height:100%;background:var(--main-bg,#23272f);">
+        <div id="memory-chat-tab-content" style="flex:1;overflow-y:auto;padding:0 0 0 0;"></div>
+      </div>
+      <div id="memory-chat-resize-handle" style="position: absolute; bottom: -8px; right: -8px; width: 24px; height: 24px; cursor: se-resize; background: linear-gradient(135deg, transparent 50%, #007bff 50%); border-radius: 0 0 16px 0; box-shadow: 0 2px 8px rgba(0,123,255,0.3), 0 0 0 2px rgba(0,123,255,0.1); transition: all 0.2s ease; z-index: 10001;"></div>
     </div>
-    <div id="memory-chat-tabs" style="display: flex; border-bottom: 1px solid #e1e5e9;">
-      <button class="storage-tab" data-tab="relevant" style="flex:1; padding: 10px; border:none; background:none; font-weight:bold; cursor:pointer;">Relevant</button>
-      <button class="storage-tab" data-tab="recent" style="flex:1; padding: 10px; border:none; background:none; font-weight:bold; cursor:pointer;">Recent</button>
-      <button class="storage-tab" data-tab="all" style="flex:1; padding: 10px; border:none; background:none; font-weight:bold; cursor:pointer;">All</button>
-      <button class="storage-tab" data-tab="search" style="flex:1; padding: 10px; border:none; background:none; font-weight:bold; cursor:pointer;">Search</button>
-      <button class="storage-tab" data-tab="folders" style="flex:1; padding: 10px; border:none; background:none; font-weight:bold; cursor:pointer;">Folders</button>
-      <button class="storage-tab" data-tab="settings" style="flex:1; padding: 10px; border:none; background:none; font-weight:bold; cursor:pointer;">Settings</button>
-    </div>
-    <div id="memory-chat-tab-content" style="padding: 20px; height: calc(100% - 120px); overflow-y: auto;"></div>
-    <div id="memory-chat-resize-handle" style="position: absolute; bottom: -8px; right: -8px; width: 24px; height: 24px; cursor: se-resize; background: linear-gradient(135deg, transparent 50%, #007bff 50%); border-radius: 0 0 16px 0; box-shadow: 0 2px 8px rgba(0,123,255,0.3), 0 0 0 2px rgba(0,123,255,0.1); transition: all 0.2s ease; z-index: 10001;"></div>
   `;
 
   document.body.appendChild(storageUI);

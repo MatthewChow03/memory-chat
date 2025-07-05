@@ -5,40 +5,46 @@
 function renderLogCard(log, idx) {
   // Card container
   const card = document.createElement('div');
-  // Detect dark mode
   const storageUI = document.getElementById('memory-chat-storage');
   const isDark = storageUI && storageUI.classList.contains('memory-chat-dark');
+  card.className = 'storage-card';
   card.style.background = isDark ? '#2c2f36' : '#f8f9fa';
   card.style.border = isDark ? '1px solid #444a58' : '1px solid #e1e5e9';
   card.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)';
-  card.style.borderRadius = '8px';
+  card.style.borderRadius = '12px';
   card.style.margin = '18px 0';
-  card.style.padding = '16px';
-  card.style.fontSize = '14px';
-  card.style.lineHeight = '1.4';
+  card.style.padding = '20px 24px';
+  card.style.fontSize = '15px';
+  card.style.lineHeight = '1.5';
   card.style.wordBreak = 'break-word';
   card.style.display = 'flex';
   card.style.alignItems = 'flex-start';
-  card.style.justifyContent = 'space-between';
-  card.style.gap = '8px';
-  card.style.color = isDark ? '#f3f6fa' : '#1a1a1a';
-
-  // Get insights text (either from insights array or fallback to text)
-  const insights = log.insights || log.text;
-  const insightsText = Array.isArray(insights)
-    ? insights.map(insight => `• ${insight}`).join('\n')
-    : insights;
+  card.style.gap = '18px';
+  card.style.position = 'relative';
+  card.style.transition = 'opacity 0.2s';
 
   // Use MongoDB _id for the card
   const messageId = log._id;
   card.setAttribute('data-message-id', messageId);
-  card.className = 'storage-card'; // Add a unique class for easy identification
 
-  // Debug: Log the card structure
-  console.log('Created card with class:', card.className);
-  console.log('Card data-message-id:', card.getAttribute('data-message-id'));
+  // Checkbox for multi-select
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.className = 'storage-card-checkbox';
+  checkbox.style.margin = '6px 12px 0 0';
+  checkbox.style.width = '18px';
+  checkbox.style.height = '18px';
+  checkbox.checked = window.selectedCards && window.selectedCards[messageId];
+  checkbox.onclick = (e) => {
+    if (!window.selectedCards) window.selectedCards = {};
+    window.selectedCards[messageId] = checkbox.checked;
+  };
 
-  // Message text (clamped, single block)
+  // Main content (text)
+  const insights = log.insights || log.text;
+  const insightsText = Array.isArray(insights)
+    ? insights.map(insight => `• ${insight}`).join('\n')
+    : insights;
   const textDiv = document.createElement('div');
   textDiv.className = 'storage-log-content clamped';
   textDiv.style.flex = '1';
@@ -47,7 +53,7 @@ function renderLogCard(log, idx) {
   textDiv.textContent = insightsText;
   textDiv.style.color = isDark ? '#f3f6fa' : '#1a1a1a';
 
-  // Apply initial clamping
+  // Show More logic
   const messageLines = insightsText.split('\n').length;
   const shouldClamp = messageLines > 4 || insightsText.length > 200;
   if (shouldClamp) {
@@ -64,18 +70,18 @@ function renderLogCard(log, idx) {
   footerDiv.style.display = 'flex';
   footerDiv.style.alignItems = 'center';
   footerDiv.style.justifyContent = 'space-between';
-  footerDiv.style.marginTop = '8px';
+  footerDiv.style.marginTop = '12px';
 
   // Left side: timestamp and similarity score
   const leftFooter = document.createElement('div');
   leftFooter.style.display = 'flex';
   leftFooter.style.alignItems = 'center';
-  leftFooter.style.gap = '8px';
+  leftFooter.style.gap = '12px';
 
   // Timestamp
   const ts = document.createElement('div');
   ts.style.color = isDark ? '#aaa' : '#888';
-  ts.style.fontSize = '11px';
+  ts.style.fontSize = '12px';
   ts.textContent = new Date(log.timestamp).toLocaleString();
   leftFooter.appendChild(ts);
 
@@ -84,11 +90,11 @@ function renderLogCard(log, idx) {
     const score = log.similarity !== undefined ? log.similarity : log.score;
     const scoreDiv = document.createElement('div');
     scoreDiv.style.color = isDark ? '#b2f7ef' : '#007bff';
-    scoreDiv.style.fontSize = '11px';
+    scoreDiv.style.fontSize = '12px';
     scoreDiv.style.fontWeight = 'bold';
-    scoreDiv.style.padding = '2px 6px';
+    scoreDiv.style.padding = '2px 8px';
     scoreDiv.style.background = isDark ? '#2e4a3a' : '#e6f7e6';
-    scoreDiv.style.borderRadius = '4px';
+    scoreDiv.style.borderRadius = '6px';
     scoreDiv.textContent = `Score: ${(score * 100).toFixed(1)}%`;
     leftFooter.appendChild(scoreDiv);
   }
@@ -96,6 +102,7 @@ function renderLogCard(log, idx) {
   // Show more/less button
   const showBtn = document.createElement('button');
   showBtn.textContent = 'Show more';
+  showBtn.className = 'storage-show-btn';
   showBtn.style.background = 'none';
   showBtn.style.border = 'none';
   showBtn.style.color = isDark ? '#7ab7ff' : '#007bff';
@@ -104,15 +111,8 @@ function renderLogCard(log, idx) {
   showBtn.style.padding = '4px 8px';
   showBtn.style.borderRadius = '4px';
   showBtn.style.fontWeight = 'bold';
-
-  // Better logic for determining if show button should be visible
-  const shouldShowButton = messageLines > 4 || insightsText.length > 200; // Show if more than 4 lines OR more than 200 characters
+  const shouldShowButton = messageLines > 4 || insightsText.length > 200;
   showBtn.style.display = shouldShowButton ? 'inline-block' : 'none';
-  showBtn.className = 'storage-show-btn';
-
-  // Debug logging
-  console.log('Message lines:', messageLines, 'Text length:', insightsText.length, 'Should show button:', shouldShowButton);
-
   let expanded = false;
   showBtn.onclick = () => {
     expanded = !expanded;
@@ -140,66 +140,170 @@ function renderLogCard(log, idx) {
   footerDiv.appendChild(leftFooter);
   footerDiv.appendChild(showBtn);
 
-  // Plus button
-  const plusBtn = document.createElement('button');
-  plusBtn.className = 'storage-plus-btn';
-  plusBtn.setAttribute('data-log', encodeURIComponent(insightsText));
-  plusBtn.title = 'Add to prompt';
-  plusBtn.style.background = isDark ? '#2e3a4a' : '#e6f7e6';
-  plusBtn.style.border = 'none';
-  plusBtn.style.borderRadius = '50%';
-  plusBtn.style.width = '32px';
-  plusBtn.style.height = '32px';
-  plusBtn.style.display = 'flex';
-  plusBtn.style.alignItems = 'center';
-  plusBtn.style.justifyContent = 'center';
-  plusBtn.style.cursor = 'pointer';
-  plusBtn.style.fontSize = '20px';
-  plusBtn.textContent = '+';
-  plusBtn.style.color = isDark ? '#b2f7ef' : '#222';
+  // Three-dot menu
+  const menuContainer = document.createElement('div');
+  menuContainer.className = 'storage-card-menu-container';
+  menuContainer.style.position = 'relative';
+  menuContainer.style.marginLeft = '12px';
 
-  // Folder button
-  const folderBtn = document.createElement('button');
-  folderBtn.className = 'storage-folder-btn';
-  folderBtn.setAttribute('data-message-id', messageId);
-  folderBtn.title = 'Add to folder';
-  folderBtn.style.background = isDark ? '#2e3a4a' : '#e6f3ff';
-  folderBtn.style.border = 'none';
-  folderBtn.style.borderRadius = '50%';
-  folderBtn.style.width = '32px';
-  folderBtn.style.height = '32px';
-  folderBtn.style.display = 'flex';
-  folderBtn.style.alignItems = 'center';
-  folderBtn.style.justifyContent = 'center';
-  folderBtn.style.cursor = 'pointer';
-  folderBtn.style.fontSize = '16px';
-  folderBtn.textContent = '📁';
-  folderBtn.style.color = isDark ? '#b2f7ef' : '#1a73e8';
-  folderBtn.style.marginLeft = '8px';
+  const menuBtn = document.createElement('button');
+  menuBtn.className = 'storage-card-menu-btn';
+  menuBtn.innerHTML = '&#8942;'; // vertical ellipsis
+  menuBtn.style.background = 'none';
+  menuBtn.style.border = 'none';
+  menuBtn.style.fontSize = '22px';
+  menuBtn.style.color = isDark ? '#b2b8c2' : '#888';
+  menuBtn.style.cursor = 'pointer';
+  menuBtn.style.padding = '2px 8px';
+  menuBtn.style.borderRadius = '6px';
+  menuBtn.setAttribute('aria-label', 'Open card menu');
 
-  // Delete button
-  const deleteBtn = document.createElement('button');
-  deleteBtn.className = 'storage-delete-btn';
-  deleteBtn.setAttribute('data-message-id', messageId);
-  deleteBtn.title = 'Delete memory';
-  deleteBtn.style.background = isDark ? '#3a2323' : '#f7e6e6';
-  deleteBtn.style.border = 'none';
-  deleteBtn.style.borderRadius = '50%';
-  deleteBtn.style.width = '32px';
-  deleteBtn.style.height = '32px';
-  deleteBtn.style.display = 'flex';
-  deleteBtn.style.alignItems = 'center';
-  deleteBtn.style.justifyContent = 'center';
-  deleteBtn.style.cursor = 'pointer';
-  deleteBtn.style.fontSize = '16px';
-  deleteBtn.textContent = '×';
-  deleteBtn.style.color = isDark ? '#ffb2b2' : '#d32f2f';
-  deleteBtn.style.marginLeft = '8px';
+  // Dropdown menu
+  const dropdown = document.createElement('div');
+  dropdown.className = 'storage-card-dropdown';
+  dropdown.style.position = 'absolute';
+  dropdown.style.top = '32px';
+  dropdown.style.right = '0';
+  dropdown.style.background = isDark ? '#23272f' : '#fff';
+  dropdown.style.border = isDark ? '1px solid #444a58' : '1px solid #e1e5e9';
+  dropdown.style.borderRadius = '8px';
+  dropdown.style.boxShadow = '0 4px 16px rgba(0,0,0,0.10)';
+  dropdown.style.display = 'none';
+  dropdown.style.minWidth = '120px';
+  dropdown.style.zIndex = '10';
 
-  // Add delete functionality
-  deleteBtn.onclick = async (e) => {
+  // Dropdown items
+  const editItem = document.createElement('button');
+  editItem.textContent = 'Edit';
+  editItem.className = 'storage-card-menu-item';
+  editItem.style.background = 'none';
+  editItem.style.border = 'none';
+  editItem.style.width = '100%';
+  editItem.style.textAlign = 'left';
+  editItem.style.padding = '10px 16px';
+  editItem.style.fontSize = '15px';
+  editItem.style.color = isDark ? '#b2f7ef' : '#007bff';
+  editItem.style.cursor = 'pointer';
+  editItem.onmouseover = () => editItem.style.background = isDark ? '#2c2f36' : '#f4f6fa';
+  editItem.onmouseout = () => editItem.style.background = 'none';
+  editItem.onclick = (e) => {
     e.stopPropagation();
+    dropdown.style.display = 'none';
+    card.style.opacity = '1';
+    // Inline edit: replace textDiv with textarea and save/cancel buttons
+    if (card.querySelector('.storage-edit-area')) return; // Prevent multiple edits
+    const originalText = insightsText;
+    const editArea = document.createElement('textarea');
+    editArea.className = 'storage-edit-area';
+    editArea.value = originalText;
+    editArea.style.width = '100%';
+    editArea.style.minHeight = '80px';
+    editArea.style.margin = '8px 0';
+    editArea.style.fontSize = '15px';
+    editArea.style.borderRadius = '8px';
+    editArea.style.border = isDark ? '1px solid #444a58' : '1px solid #e1e5e9';
+    editArea.style.background = isDark ? '#23272f' : '#fff';
+    editArea.style.color = isDark ? '#f3f6fa' : '#1a1a1a';
+    // Save/Cancel buttons
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Save';
+    saveBtn.style.marginRight = '12px';
+    saveBtn.style.padding = '6px 18px';
+    saveBtn.style.borderRadius = '6px';
+    saveBtn.style.border = 'none';
+    saveBtn.style.background = isDark ? '#b2f7ef' : '#007bff';
+    saveBtn.style.color = isDark ? '#23272f' : '#fff';
+    saveBtn.style.fontWeight = 'bold';
+    saveBtn.style.cursor = 'pointer';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.style.padding = '6px 18px';
+    cancelBtn.style.borderRadius = '6px';
+    cancelBtn.style.border = 'none';
+    cancelBtn.style.background = isDark ? '#23272f' : '#e1e5e9';
+    cancelBtn.style.color = isDark ? '#b2f7ef' : '#222';
+    cancelBtn.style.fontWeight = 'bold';
+    cancelBtn.style.cursor = 'pointer';
+    // Replace textDiv with editArea and buttons
+    textDiv.style.display = 'none';
+    footerDiv.style.display = 'none';
+    const editWrapper = document.createElement('div');
+    editWrapper.className = 'storage-edit-wrapper';
+    editWrapper.appendChild(editArea);
+    editWrapper.appendChild(saveBtn);
+    editWrapper.appendChild(cancelBtn);
+    contentCol.insertBefore(editWrapper, contentCol.firstChild);
+    // Save logic
+    saveBtn.onclick = async () => {
+      const newText = editArea.value.trim();
+      if (!newText) return;
+      // Update backend
+      try {
+        const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.MESSAGES}/edit`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: messageId, text: newText, userUUID: await getOrCreateUserUUID() })
+        });
+        if (!res.ok) throw new Error('Failed to update message');
+        // Update UI
+        textDiv.textContent = newText;
+        textDiv.style.display = '';
+        footerDiv.style.display = '';
+        editWrapper.remove();
+        if (window.showFeedback) window.showFeedback('Memory updated!', 'success');
+      } catch (err) {
+        if (window.showFeedback) window.showFeedback('Failed to update memory', 'error');
+      }
+    };
+    // Cancel logic
+    cancelBtn.onclick = () => {
+      textDiv.style.display = '';
+      footerDiv.style.display = '';
+      editWrapper.remove();
+    };
+  };
 
+  const organizeItem = document.createElement('button');
+  organizeItem.textContent = 'Organize';
+  organizeItem.className = 'storage-card-menu-item';
+  organizeItem.style.background = 'none';
+  organizeItem.style.border = 'none';
+  organizeItem.style.width = '100%';
+  organizeItem.style.textAlign = 'left';
+  organizeItem.style.padding = '10px 16px';
+  organizeItem.style.fontSize = '15px';
+  organizeItem.style.color = isDark ? '#b2f7ef' : '#007bff';
+  organizeItem.style.cursor = 'pointer';
+  organizeItem.onmouseover = () => organizeItem.style.background = isDark ? '#2c2f36' : '#f4f6fa';
+  organizeItem.onmouseout = () => organizeItem.style.background = 'none';
+  organizeItem.onclick = (e) => {
+    e.stopPropagation();
+    dropdown.style.display = 'none';
+    card.style.opacity = '1';
+    if (window.showFolderSelectorForStorage) {
+      window.showFolderSelectorForStorage(messageId);
+    } else {
+      if (window.showFeedback) window.showFeedback('Folder selector not available', 'error');
+    }
+  };
+
+  const deleteItem = document.createElement('button');
+  deleteItem.textContent = 'Delete';
+  deleteItem.className = 'storage-card-menu-item';
+  deleteItem.style.background = 'none';
+  deleteItem.style.border = 'none';
+  deleteItem.style.width = '100%';
+  deleteItem.style.textAlign = 'left';
+  deleteItem.style.padding = '10px 16px';
+  deleteItem.style.fontSize = '15px';
+  deleteItem.style.color = isDark ? '#ffb2b2' : '#d32f2f';
+  deleteItem.style.cursor = 'pointer';
+  deleteItem.onmouseover = () => deleteItem.style.background = isDark ? '#3a2323' : '#f7e6e6';
+  deleteItem.onmouseout = () => deleteItem.style.background = 'none';
+  deleteItem.onclick = async (e) => {
+    e.stopPropagation();
+    dropdown.style.display = 'none';
+    card.style.opacity = '1';
     if (confirm('Delete this memory? This action cannot be undone.')) {
       try {
         const res = await fetch(`${SERVER_CONFIG.BASE_URL}${SERVER_CONFIG.API_ENDPOINTS.MESSAGES}/delete`, {
@@ -207,42 +311,53 @@ function renderLogCard(log, idx) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: messageId, userUUID: await getOrCreateUserUUID() })
         });
-
-        if (res.ok) {
-          // Remove the card from the UI
-          card.remove();
-
-          // Show success feedback
-          if (window.showFeedback) {
-            window.showFeedback('Memory deleted successfully!', 'success');
-          }
-        } else {
-          throw new Error('Failed to delete message from backend');
-        }
-      } catch (error) {
-        console.error('Error deleting memory:', error);
-        alert('Failed to delete memory. Please try again.');
+        if (!res.ok) throw new Error('Failed to delete message');
+        card.remove();
+        if (window.showFeedback) window.showFeedback('Memory deleted successfully!', 'success');
+      } catch (err) {
+        if (window.showFeedback) window.showFeedback('Failed to delete memory', 'error');
       }
     }
   };
 
-  // Button container
-  const buttonContainer = document.createElement('div');
-  buttonContainer.style.display = 'flex';
-  buttonContainer.style.alignItems = 'center';
-  buttonContainer.style.gap = '8px';
-  buttonContainer.appendChild(plusBtn);
-  buttonContainer.appendChild(folderBtn);
-  buttonContainer.appendChild(deleteBtn);
+  dropdown.appendChild(editItem);
+  dropdown.appendChild(organizeItem);
+  dropdown.appendChild(deleteItem);
 
-  // Stack text, footer, button container
-  const leftCol = document.createElement('div');
-  leftCol.style.flex = '1';
-  leftCol.style.minWidth = '0';
-  leftCol.appendChild(textDiv);
-  leftCol.appendChild(footerDiv);
-  card.appendChild(leftCol);
-  card.appendChild(buttonContainer);
+  // Menu open/close logic
+  let menuOpen = false;
+  menuBtn.onclick = (e) => {
+    e.stopPropagation();
+    menuOpen = !menuOpen;
+    dropdown.style.display = menuOpen ? 'block' : 'none';
+    card.style.opacity = menuOpen ? '0.6' : '1';
+    // Close other open menus
+    document.querySelectorAll('.storage-card-dropdown').forEach(dd => {
+      if (dd !== dropdown) dd.style.display = 'none';
+    });
+  };
+  // Close menu on click outside
+  document.addEventListener('click', (e) => {
+    if (!menuContainer.contains(e.target)) {
+      dropdown.style.display = 'none';
+      card.style.opacity = '1';
+      menuOpen = false;
+    }
+  });
+
+  menuContainer.appendChild(menuBtn);
+  menuContainer.appendChild(dropdown);
+
+  // Stack text, footer
+  const contentCol = document.createElement('div');
+  contentCol.style.flex = '1';
+  contentCol.style.minWidth = '0';
+  contentCol.appendChild(textDiv);
+  contentCol.appendChild(footerDiv);
+
+  card.appendChild(checkbox);
+  card.appendChild(contentCol);
+  card.appendChild(menuContainer);
 
   return card;
 }
